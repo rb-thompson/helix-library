@@ -1,103 +1,337 @@
-import Image from "next/image";
+import Link from "next/link";
+import {
+  ArrowUpRight,
+  BookOpen,
+  FolderOpen,
+  HardDrive,
+  Layers,
+  MessageCircle,
+  RefreshCw,
+  Search,
+} from "lucide-react";
+import { ItemRow } from "@/components/ItemRow";
+import { SearchForm } from "@/components/SearchForm";
+import { StatusLine } from "@/components/ui/StatusLine";
+import {
+  catalogStats,
+  listLocationsWithCounts,
+  recentItems,
+} from "@/lib/catalog/query";
+import { collectionCount, listCollections } from "@/lib/collections/manage";
+import { kindLabel } from "@/lib/format";
+import { hasThumb } from "@/lib/indexer/enrich";
+import { getLatestJob, isReindexRunning } from "@/lib/indexer/run";
+import { ensureLocationsSynced } from "@/lib/locations/manage";
 
-export default function Home() {
+export const dynamic = "force-dynamic";
+
+export default function HomePage() {
+  ensureLocationsSynced();
+  const stats = catalogStats();
+  const locations = listLocationsWithCounts().filter((l) => l.enabled);
+  const recent = recentItems(6);
+  const collections = listCollections().slice(0, 4);
+  const colCount = collectionCount();
+  const latestJob = getLatestJob();
+  const reindexRunning = isReindexRunning();
+
   return (
-    <div className="font-sans grid grid-rows-[20px_1fr_20px] items-center justify-items-center min-h-screen p-8 pb-20 gap-16 sm:p-20">
-      <main className="flex flex-col gap-[32px] row-start-2 items-center sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={180}
-          height={38}
-          priority
+    <div className="space-y-7 sm:space-y-10">
+      <section className="surface relative overflow-hidden px-4 py-7 sm:px-8 sm:py-10 lg:px-10">
+        <div
+          className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[var(--accent-soft)] opacity-70 blur-2xl"
+          aria-hidden
         />
-        <ol className="font-mono list-inside list-decimal text-sm/6 text-center sm:text-left">
-          <li className="mb-2 tracking-[-.01em]">
-            Get started by editing{" "}
-            <code className="bg-black/[.05] dark:bg-white/[.06] font-mono font-semibold px-1 py-0.5 rounded">
-              src/app/page.tsx
-            </code>
-            .
-          </li>
-          <li className="tracking-[-.01em]">
-            Save and see your changes instantly.
-          </li>
-        </ol>
-
-        <div className="flex gap-4 items-center flex-col sm:flex-row">
-          <a
-            className="rounded-full border border-solid border-transparent transition-colors flex items-center justify-center bg-foreground text-background gap-2 hover:bg-[#383838] dark:hover:bg-[#ccc] font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 sm:w-auto"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={20}
-              height={20}
-            />
-            Deploy now
-          </a>
-          <a
-            className="rounded-full border border-solid border-black/[.08] dark:border-white/[.145] transition-colors flex items-center justify-center hover:bg-[#f2f2f2] dark:hover:bg-[#1a1a1a] hover:border-transparent font-medium text-sm sm:text-base h-10 sm:h-12 px-4 sm:px-5 w-full sm:w-auto md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Read our docs
-          </a>
+        <div className="relative">
+          <p className="eyebrow">Your personal library</p>
+          <h1 className="mt-2 max-w-xl text-[1.65rem] font-semibold tracking-tight text-[var(--ink)] sm:text-3xl lg:text-[2.15rem] lg:leading-[1.15]">
+            Find what you put here — quickly.
+          </h1>
+          <p className="mt-3 max-w-xl text-sm leading-relaxed text-[var(--muted)] sm:text-[0.9375rem]">
+            Search names, paths, notes, and PDF text. Browse by format. Ask the
+            Librarian when you only remember a fragment.{" "}
+            <Link href="/docs" className="link-accent">
+              Getting started
+            </Link>
+          </p>
+          <div className="mt-5 max-w-xl sm:mt-6">
+            <SearchForm large />
+          </div>
+          <div className="mt-5 flex flex-wrap gap-1.5 sm:mt-6 sm:gap-2">
+            <span className="chip chip-stat">
+              <span className="chip-label">Holdings</span>
+              <span className="chip-value">{stats.total}</span>
+            </span>
+            <span className="chip chip-stat">
+              <span className="chip-label">Locations</span>
+              <span className="chip-value">{stats.locationCount}</span>
+            </span>
+            {stats.byKind.slice(0, 4).map((k) => (
+              <Link
+                key={k.kind}
+                href={`/catalog?kind=${k.kind}`}
+                className="chip chip-stat"
+                title={`Browse ${kindLabel(k.kind)}`}
+              >
+                <span className="chip-label">{kindLabel(k.kind)}</span>
+                <span className="chip-value">{k.c}</span>
+              </Link>
+            ))}
+            {stats.missing > 0 ? (
+              <span className="chip chip-stat text-[var(--danger)]">
+                <span className="chip-label">Missing</span>
+                <span className="chip-value">{stats.missing}</span>
+              </span>
+            ) : null}
+          </div>
+          {reindexRunning || (latestJob && latestJob.status === "failed") ? (
+            <div className="mt-4">
+              {reindexRunning ? (
+                <StatusLine tone="info" pulse>
+                  Reindex running
+                  {latestJob ? ` (#${latestJob.id})` : ""}…{" "}
+                  <Link href="/services" className="link-accent">
+                    Services
+                  </Link>
+                </StatusLine>
+              ) : (
+                <StatusLine tone="danger">
+                  Last reindex failed
+                  {latestJob ? ` (#${latestJob.id})` : ""}.{" "}
+                  <Link href="/services" className="link-accent">
+                    Check Services
+                  </Link>
+                </StatusLine>
+              )}
+            </div>
+          ) : null}
         </div>
-      </main>
-      <footer className="row-start-3 flex gap-[24px] flex-wrap items-center justify-center">
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/file.svg"
-            alt="File icon"
-            width={16}
-            height={16}
+      </section>
+
+      <section className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3 xl:grid-cols-6">
+        <ServiceCard
+          href="/catalog"
+          icon={<Search className="h-4 w-4" />}
+          title="Catalog"
+          body="Search & preview holdings"
+        />
+        <ServiceCard
+          href="/collections"
+          icon={<Layers className="h-4 w-4" />}
+          title="Collections"
+          body={`${colCount} shelf${colCount === 1 ? "" : "ves"}`}
+        />
+        <ServiceCard
+          href="/locations"
+          icon={<FolderOpen className="h-4 w-4" />}
+          title="Locations"
+          body="Scan roots"
+        />
+        <ServiceCard
+          href="/services"
+          icon={<HardDrive className="h-4 w-4" />}
+          title="Services"
+          body="Reindex & machine"
+        />
+        <ServiceCard
+          href="/ask"
+          icon={<MessageCircle className="h-4 w-4" />}
+          title="Ask"
+          body="Find in plain language"
+        />
+        <ServiceCard
+          href="/docs"
+          icon={<BookOpen className="h-4 w-4" />}
+          title="Docs"
+          body="How it works"
+        />
+      </section>
+
+      <div className="grid gap-6 sm:gap-8 lg:grid-cols-2">
+        <section className="min-w-0">
+          <SectionHead title="Locations" href="/locations" linkLabel="Manage" />
+          {locations.length === 0 ? (
+            <div className="empty-state">
+              <strong>No locations yet</strong>
+              <Link href="/locations" className="link-accent">
+                Add a scan root
+              </Link>{" "}
+              (start with{" "}
+              <code className="rounded bg-[var(--paper-deep)] px-1 text-xs">
+                archive/
+              </code>
+              ) then reindex.
+            </div>
+          ) : (
+            <ul className="surface-flat overflow-hidden">
+              {locations.map((loc) => (
+                <li
+                  key={loc.id}
+                  className="flex items-start justify-between gap-3 border-b border-[var(--line)] px-4 py-3 last:border-0"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[var(--ink)]">
+                      {loc.name}
+                    </p>
+                    <p className="truncate font-mono text-[0.7rem] text-[var(--muted)]">
+                      {loc.rootPath}
+                    </p>
+                  </div>
+                  <div className="shrink-0 text-right text-sm tabular-nums text-[var(--muted)]">
+                    <p className="font-medium text-[var(--ink-soft)]">
+                      {loc.itemCount}
+                    </p>
+                    <p className="text-[0.7rem]">
+                      {loc.enabled ? "Enabled" : "Disabled"}
+                    </p>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+
+        <section className="min-w-0">
+          <SectionHead
+            title="Recently indexed"
+            href="/catalog"
+            linkLabel="Full catalog"
           />
-          Learn
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/window.svg"
-            alt="Window icon"
-            width={16}
-            height={16}
-          />
-          Examples
-        </a>
-        <a
-          className="flex items-center gap-2 hover:underline hover:underline-offset-4"
-          href="https://nextjs.org?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-          target="_blank"
-          rel="noopener noreferrer"
-        >
-          <Image
-            aria-hidden
-            src="/globe.svg"
-            alt="Globe icon"
-            width={16}
-            height={16}
-          />
-          Go to nextjs.org →
-        </a>
-      </footer>
+          {recent.length === 0 ? (
+            <div className="empty-state">
+              <strong>Catalog is empty</strong>
+              <Link href="/services" className="link-accent">
+                Run a reindex
+              </Link>{" "}
+              to load holdings.
+            </div>
+          ) : (
+            <ul className="surface-flat overflow-hidden">
+              {recent.map((item) => (
+                <ItemRow
+                  key={item.id}
+                  item={item}
+                  hasPreview={hasThumb(item.id)}
+                />
+              ))}
+            </ul>
+          )}
+          {collections.length > 0 ? (
+            <div className="mt-5">
+              <SectionHead
+                title="Collections"
+                href="/collections"
+                linkLabel="All"
+                compact
+              />
+              <ul className="mt-2 flex flex-wrap gap-1.5">
+                {collections.map((c) => (
+                  <li key={c.id}>
+                    <Link href={`/collections/${c.id}`} className="chip">
+                      {c.name}
+                      <span className="tabular-nums text-[var(--muted-faint)]">
+                        {c.itemCount}
+                      </span>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+        </section>
+      </div>
+
+      {stats.total === 0 ? (
+        <section className="surface-flat border-[rgb(15_92_86_/_0.2)] bg-[var(--accent-soft)] px-5 py-4 text-sm text-[var(--ink)]">
+          <div className="flex items-start gap-3">
+            <RefreshCw
+              className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]"
+              aria-hidden
+            />
+            <div>
+              <p className="font-semibold">First run</p>
+              <ol className="mt-1.5 list-decimal space-y-1 pl-4 text-[var(--ink-soft)]">
+                <li>
+                  Drop files into{" "}
+                  <code className="rounded bg-[var(--surface)] px-1 text-xs">
+                    archive/
+                  </code>
+                </li>
+                <li>
+                  <Link href="/services" className="link-accent">
+                    Reindex
+                  </Link>{" "}
+                  or run{" "}
+                  <code className="rounded bg-[var(--surface)] px-1 text-xs">
+                    npm run reindex
+                  </code>
+                </li>
+                <li>Search, shelf, and ask the Librarian</li>
+              </ol>
+            </div>
+          </div>
+        </section>
+      ) : null}
     </div>
+  );
+}
+
+function SectionHead({
+  title,
+  href,
+  linkLabel,
+  compact = false,
+}: {
+  title: string;
+  href: string;
+  linkLabel: string;
+  compact?: boolean;
+}) {
+  return (
+    <div className={`mb-2.5 flex items-center justify-between gap-2 ${compact ? "mb-0" : ""}`}>
+      <h2
+        className={
+          compact
+            ? "text-sm font-semibold text-[var(--ink)]"
+            : "text-base font-semibold tracking-tight text-[var(--ink)]"
+        }
+      >
+        {title}
+      </h2>
+      <Link
+        href={href}
+        className="inline-flex items-center gap-0.5 text-xs font-semibold text-[var(--accent)] hover:underline"
+      >
+        {linkLabel}
+        <ArrowUpRight className="h-3 w-3 opacity-70" aria-hidden />
+      </Link>
+    </div>
+  );
+}
+
+function ServiceCard({
+  href,
+  icon,
+  title,
+  body,
+}: {
+  href: string;
+  icon: React.ReactNode;
+  title: string;
+  body: string;
+}) {
+  return (
+    <Link
+      href={href}
+      className="group surface-flat flex flex-col p-3 transition hover:border-[rgb(15_92_86_/_0.28)] hover:shadow-[var(--shadow-lift)] sm:p-3.5"
+    >
+      <div className="flex h-8 w-8 items-center justify-center rounded-[0.5rem] bg-[var(--accent-soft)] text-[var(--accent)] transition group-hover:bg-[var(--accent)] group-hover:text-white">
+        {icon}
+      </div>
+      <h3 className="mt-2.5 text-sm font-semibold tracking-tight text-[var(--ink)]">
+        {title}
+      </h3>
+      <p className="mt-0.5 line-clamp-2 text-xs text-[var(--muted)]">{body}</p>
+    </Link>
   );
 }

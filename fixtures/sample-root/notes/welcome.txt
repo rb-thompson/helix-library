@@ -1,0 +1,2 @@
+Hello from non-os fixture notes.
+This is a sample catalog item.

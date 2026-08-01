@@ -1,0 +1,28 @@
+{
+  "bind": "127.0.0.1",
+  "port": 4747,
+  "dbPath": "./data/library.db",
+  "locations": [
+    {
+      "name": "Archive",
+      "root": "./archive",
+      "enabled": true
+    }
+  ],
+  "ignore": [
+    "**/node_modules/**",
+    "**/.git/**",
+    "**/target/**",
+    "**/.cache/**",
+    "**/.next/**",
+    "**/dist/**",
+    "**/coverage/**",
+    "**/.turbo/**",
+    "**/__pycache__/**",
+    "**/.venv/**",
+    "**/venv/**",
+    "**/README.md"
+  ],
+  "maxFileBytes": 2147483648,
+  "hashFullUnderBytes": 67108864
+}

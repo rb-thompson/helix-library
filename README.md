@@ -1,36 +1,128 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# non-os
 
-## Getting Started
+Personal library system for this machine: a catalog engine and web surface for your files, plus a single **Librarian** for discovery and help.
 
-First, run the development server:
+Inspired by public-library OPAC/services UX — rebuilt for **personal, localhost-only** use.
+
+## Quick start
+
+```bash
+cp library.config.example.json library.config.json   # if needed
+npm install
+npm run reindex    # index configured roots (default: ./archive)
+npm run dev        # http://127.0.0.1:4747
+
+# Home-network preview (password required — set NON_OS_ACCESS_PASSWORD in .env.local)
+# npm run dev:lan  # http://<your-lan-ip>:4747  user: library
+```
+
+In-app guide: **[http://127.0.0.1:4747/docs](http://127.0.0.1:4747/docs)** (Getting started).
+
+### For the next coding session / AI agent
+
+Start here:
+
+1. **[AGENTS.md](./AGENTS.md)** — constraints, run, edit map  
+2. **[docs/SESSION-HANDOFF.md](./docs/SESSION-HANDOFF.md)** — done / next / gotchas  
+3. **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** — modules, schema, APIs  
+
+## Archive (primary holdings)
+
+```text
+archive/
+  documents/
+  images/
+  notes/
+  video/
+```
+
+Personal files are gitignored (except `archive/README.md`). Drop files in, then reindex. Add more roots under **Locations**.
+
+- Nothing is indexed until a root is listed and you reindex.  
+- `bind` must be loopback (`127.0.0.1`, `localhost`, or `::1`).
+
+## Surfaces
+
+| Route | Purpose |
+| --- | --- |
+| `/` | Home, search, stats |
+| `/docs` | Getting started + user guide |
+| `/catalog` | Browse / search (grid or list) |
+| `/catalog/[id]` | Preview, metadata, EXIF, curation |
+| `/collections` | Curated shelves |
+| `/locations` | Scan roots + reindex |
+| `/services` | Reindex + machine facts |
+| `/ask` | Librarian (local by default) |
+
+Responsive: hamburger nav below large breakpoints. Hover tooltips on desktop; `?` help chips on dense forms.
+
+## Stack
+
+Next.js 15 (App Router) · React 19 · TypeScript · SQLite (better-sqlite3) · Drizzle · Tailwind v4 · sharp · AI SDK (optional xAI)
+
+## Ask the Librarian
+
+**Default: local mode — no API key.**
+
+A Grok / SuperGrok / X Premium **chat subscription is not an API key**. Cloud phrasing needs a **developer** key from [console.x.ai](https://console.x.ai).
+
+| Mode | When | Behavior |
+| --- | --- | --- |
+| `local` (default) | Always | Catalog tools + template answers |
+| `xai` | Opt-in + `XAI_API_KEY` | Grok via developer API + tools |
 
 ```bash
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# optional cloud:
+# export XAI_API_KEY=...
+# export NON_OS_AGENT_MODE=xai
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Tools: `catalog_search`, `catalog_get`, `list_locations`, `list_collections`, `machine_status`, `system_help`.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Media
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Images / video / audio / PDF / text previews on item pages  
+- Secure streaming: `/api/media/{id}` (Range-aware)  
+- Thumbs/posters: `data/thumbs/`  
+- Lightbox in catalog/collections  
+- EXIF when `exiftool` is installed (optional)
 
-## Learn More
+```bash
+# recommended for video posters + duration
+# sudo apt install ffmpeg
 
-To learn more about Next.js, take a look at the following resources:
+# optional camera EXIF
+# sudo apt install libimage-exiftool-perl
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+# optional faster PDF text (falls back to bundled pdf-parse)
+# sudo apt install poppler-utils
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Commands
 
-## Deploy on Vercel
+| Command | Description |
+| --- | --- |
+| `npm run dev` | Dev server `127.0.0.1:4747` |
+| `npm run reindex` | Full reindex + enrichment |
+| `npm run build` / `npm start` | Production |
+| `npm run typecheck` | TypeScript |
+| `npm run test` | Unit + fixture integration tests |
+| `npm run lint` | ESLint |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Privacy & safety
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- Localhost only in v1  
+- Explicit scan roots only  
+- Librarian read-only (no shell, no silent writes)  
+- API keys server-side only  
+
+## Documentation index
+
+| Doc | Role |
+| --- | --- |
+| [AGENTS.md](./AGENTS.md) | Agents & new sessions |
+| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Technical architecture |
+| [docs/SESSION-HANDOFF.md](./docs/SESSION-HANDOFF.md) | Status + next work |
+| [docs/PRODUCT.md](./docs/PRODUCT.md) | Product scope |
+| `/docs` in the app | End-user getting started |
