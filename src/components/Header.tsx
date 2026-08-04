@@ -2,18 +2,29 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useEffect, useId, useState } from "react";
-import { BookOpen, Library, Menu, X } from "lucide-react";
-import { MAIN_NAV } from "@/lib/nav";
+import { useEffect, useId, useRef, useState } from "react";
+import { ChevronDown, Menu, X } from "lucide-react";
+import { HelixMark } from "@/components/HelixMark";
+import { ThemeToggle } from "@/components/ThemeToggle";
+import {
+  PRIMARY_NAV,
+  SECONDARY_NAV,
+  isNavActive,
+  isSecondaryActive,
+} from "@/lib/nav";
 import { cn } from "@/lib/cn";
 
 export function Header() {
   const pathname = usePathname();
   const [open, setOpen] = useState(false);
+  const [moreOpen, setMoreOpen] = useState(false);
   const panelId = useId();
+  const moreId = useId();
+  const moreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     setOpen(false);
+    setMoreOpen(false);
   }, [pathname]);
 
   useEffect(() => {
@@ -30,26 +41,47 @@ export function Header() {
     };
   }, [open]);
 
+  useEffect(() => {
+    if (!moreOpen) return;
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setMoreOpen(false);
+    }
+    function onPointer(e: MouseEvent) {
+      if (!moreRef.current?.contains(e.target as Node)) {
+        setMoreOpen(false);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("mousedown", onPointer);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("mousedown", onPointer);
+    };
+  }, [moreOpen]);
+
+  const secondaryActive = isSecondaryActive(pathname);
+
   return (
-    <header className="sticky top-0 z-50 border-b border-[var(--line)] bg-[rgb(255_252_247_/_0.86)] backdrop-blur-md supports-[padding:max(0px)]:pt-[env(safe-area-inset-top)]">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-3 px-3 sm:h-15 sm:px-4 lg:px-6">
+    <header className="site-header sticky top-0 z-50 supports-[padding:max(0px)]:pt-[env(safe-area-inset-top)]">
+      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3 sm:gap-3 sm:px-4 lg:px-6">
         <Link
           href="/"
-          title="Home — search, stats, and quick links"
+          title="Helix Library home"
+          aria-label="Helix Library home"
           className="group flex min-w-0 items-center gap-2.5"
         >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-[0.55rem] bg-[var(--accent)] text-white shadow-[0_1px_0_rgb(255_255_255_/_0.12)_inset,0_1px_2px_rgb(15_92_86_/_0.25)] transition group-hover:bg-[var(--accent-hover)] sm:h-9 sm:w-9">
-            <Library className="h-4 w-4 sm:h-[1.1rem] sm:w-[1.1rem]" aria-hidden />
+          <span className="helix-mark-well h-9 w-9 shrink-0 rounded-[0.6rem] border transition sm:h-10 sm:w-10">
+            <HelixMark />
           </span>
           <span className="min-w-0 leading-tight">
-            <span className="hidden text-[0.65rem] font-semibold uppercase tracking-[0.1em] text-[var(--muted)] sm:block">
+            <span className="hidden text-[0.65rem] font-semibold uppercase tracking-[0.12em] text-[var(--muted)] sm:block">
               Personal
             </span>
             <span className="block truncate text-[0.9375rem] font-semibold tracking-tight text-[var(--ink)] sm:text-base">
-              non-os
+              Helix
               <span className="hidden font-medium text-[var(--muted)] sm:inline">
                 {" "}
-                library
+                Library
               </span>
             </span>
           </span>
@@ -59,9 +91,8 @@ export function Header() {
           className="hidden flex-1 items-center justify-center gap-0.5 lg:flex"
           aria-label="Main"
         >
-          {MAIN_NAV.map((item) => {
-            const active =
-              pathname === item.href || pathname.startsWith(`${item.href}/`);
+          {PRIMARY_NAV.map((item) => {
+            const active = isNavActive(pathname, item.href);
             return (
               <Link
                 key={item.href}
@@ -73,26 +104,68 @@ export function Header() {
               </Link>
             );
           })}
+
+          <div className="relative" ref={moreRef}>
+            <button
+              type="button"
+              className={cn(
+                "nav-link inline-flex items-center gap-0.5",
+                (moreOpen || secondaryActive) && "is-active",
+              )}
+              aria-expanded={moreOpen}
+              aria-controls={moreId}
+              aria-haspopup="menu"
+              title="Locations, Services, Docs"
+              onClick={() => setMoreOpen((v) => !v)}
+            >
+              More
+              <ChevronDown
+                className={cn(
+                  "h-3.5 w-3.5 opacity-70 transition",
+                  moreOpen && "rotate-180",
+                )}
+                aria-hidden
+              />
+            </button>
+            {moreOpen ? (
+              <div
+                id={moreId}
+                role="menu"
+                aria-label="More destinations"
+                className="absolute left-1/2 top-[calc(100%+0.35rem)] z-[60] min-w-[11.5rem] -translate-x-1/2 rounded-[var(--radius-sm)] border border-[var(--line-strong)] bg-[var(--surface-raised)] p-1 shadow-[var(--shadow-lift)]"
+              >
+                {SECONDARY_NAV.map((item) => {
+                  const active = isNavActive(pathname, item.href);
+                  return (
+                    <Link
+                      key={item.href}
+                      href={item.href}
+                      role="menuitem"
+                      title={item.tip}
+                      className={cn(
+                        "flex flex-col rounded-[calc(var(--radius-sm)-2px)] px-2.5 py-2 transition",
+                        active
+                          ? "bg-[var(--accent-soft)] text-[var(--ink)]"
+                          : "text-[var(--ink-soft)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink)]",
+                      )}
+                      onClick={() => setMoreOpen(false)}
+                    >
+                      <span className="text-[0.8125rem] font-medium">
+                        {item.label}
+                      </span>
+                      <span className="text-[0.65rem] text-[var(--muted)]">
+                        {item.tip}
+                      </span>
+                    </Link>
+                  );
+                })}
+              </div>
+            ) : null}
+          </div>
         </nav>
 
-        <div className="flex shrink-0 items-center gap-1.5 sm:gap-2">
-          <Link
-            href="/catalog"
-            title="Jump into the catalog"
-            className="btn btn-primary btn-sm hidden sm:inline-flex"
-          >
-            <BookOpen className="h-3.5 w-3.5" aria-hidden />
-            Browse
-          </Link>
-          <Link
-            href="/catalog"
-            title="Browse catalog"
-            className="btn btn-primary btn-icon sm:hidden"
-            aria-label="Browse catalog"
-          >
-            <BookOpen className="h-4 w-4" aria-hidden />
-          </Link>
-
+        <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+          <ThemeToggle />
           <button
             type="button"
             className="btn btn-secondary btn-icon lg:hidden"
@@ -115,7 +188,7 @@ export function Header() {
         <div className="lg:hidden">
           <button
             type="button"
-            className="fixed inset-0 z-40 bg-[rgb(26_22_20_/_0.35)] backdrop-blur-[2px]"
+            className="fixed inset-0 z-40 bg-black/55 backdrop-blur-[2px]"
             aria-label="Close menu overlay"
             onClick={() => setOpen(false)}
           />
@@ -131,25 +204,25 @@ export function Header() {
               aria-label="Mobile"
             >
               <ul className="space-y-0.5">
-                {MAIN_NAV.map((item) => {
-                  const active =
-                    pathname === item.href ||
-                    pathname.startsWith(`${item.href}/`);
+                {PRIMARY_NAV.map((item) => {
+                  const active = isNavActive(pathname, item.href);
                   return (
                     <li key={item.href}>
                       <Link
                         href={item.href}
                         title={item.tip}
                         className={cn(
-                          "flex flex-col rounded-[var(--radius-sm)] px-3 py-3 transition",
+                          "flex items-center justify-between gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 transition",
                           active
-                            ? "bg-[var(--accent-soft)] text-[var(--accent)]"
-                            : "text-[var(--ink)] hover:bg-[rgb(28_25_23_/_0.04)]",
+                            ? "bg-[var(--accent-soft)] text-[var(--ink)]"
+                            : "text-[var(--ink)] hover:bg-[var(--surface-hover)]",
                         )}
                         onClick={() => setOpen(false)}
                       >
-                        <span className="text-sm font-semibold">{item.label}</span>
-                        <span className="mt-0.5 text-xs font-normal leading-snug text-[var(--muted)]">
+                        <span className="text-sm font-semibold">
+                          {item.label}
+                        </span>
+                        <span className="truncate text-xs text-[var(--muted)]">
                           {item.tip}
                         </span>
                       </Link>
@@ -157,16 +230,34 @@ export function Header() {
                   );
                 })}
               </ul>
-              <div className="mt-3 border-t border-[var(--line)] pt-3 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-                <Link
-                  href="/catalog"
-                  className="btn btn-primary w-full"
-                  onClick={() => setOpen(false)}
-                >
-                  <BookOpen className="h-4 w-4" aria-hidden />
-                  Browse catalog
-                </Link>
-              </div>
+
+              <p className="label-quiet mt-3 px-3 !mb-1">Library ops</p>
+              <ul className="space-y-0.5">
+                {SECONDARY_NAV.map((item) => {
+                  const active = isNavActive(pathname, item.href);
+                  return (
+                    <li key={item.href}>
+                      <Link
+                        href={item.href}
+                        title={item.tip}
+                        className={cn(
+                          "flex items-center justify-between gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 transition",
+                          active
+                            ? "bg-[var(--accent-soft)] text-[var(--ink)]"
+                            : "text-[var(--ink-soft)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink)]",
+                        )}
+                        onClick={() => setOpen(false)}
+                      >
+                        <span className="text-sm font-medium">{item.label}</span>
+                        <span className="truncate text-xs text-[var(--muted)]">
+                          {item.tip}
+                        </span>
+                      </Link>
+                    </li>
+                  );
+                })}
+              </ul>
+
             </nav>
           </div>
         </div>

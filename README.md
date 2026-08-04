@@ -1,4 +1,4 @@
-# non-os
+# Helix Library
 
 Personal library system for this machine: a catalog engine and web surface for your files, plus a single **Librarian** for discovery and help.
 
@@ -49,12 +49,13 @@ Personal files are gitignored (except `archive/README.md`). Drop files in, then 
 | `/docs` | Getting started + user guide |
 | `/catalog` | Browse / search (grid or list) |
 | `/catalog/[id]` | Preview, metadata, EXIF, curation |
+| `/graph` | 3D knowledge graph (holdings + concepts) |
 | `/collections` | Curated shelves |
 | `/locations` | Scan roots + reindex |
 | `/services` | Reindex + machine facts |
-| `/ask` | Librarian (local by default) |
+| `/ask` | Librarian (Grok when API key set; else local) |
 
-Responsive: hamburger nav below large breakpoints. Hover tooltips on desktop; `?` help chips on dense forms.
+Responsive: primary nav + **More** (Locations/Services/Docs); hamburger below `lg`. Hover tooltips on desktop; `?` help chips on dense forms.
 
 ## Stack
 
@@ -62,23 +63,33 @@ Next.js 15 (App Router) · React 19 · TypeScript · SQLite (better-sqlite3) · 
 
 ## Ask the Librarian
 
-**Default: local mode — no API key.**
+**Grok is the preferred reasoning path** when an xAI **developer** API key is present. Otherwise Ask falls back to the local catalog assistant (always works offline).
 
-A Grok / SuperGrok / X Premium **chat subscription is not an API key**. Cloud phrasing needs a **developer** key from [console.x.ai](https://console.x.ai).
+### SuperGrok vs developer API (important)
+
+| Product | What it is | Powers Helix Library Ask? |
+| --- | --- | --- |
+| **SuperGrok / X Premium** | Consumer chat on grok.com / X | **No** (separate billing) |
+| **XAI_API_KEY** | Developer API at [console.x.ai](https://console.x.ai) | **Yes** — Grok + tools |
+| **OpenClaw + Grok OAuth** | Partner agent using your SuperGrok sub | External agent, not inside Helix Library |
+
+OpenClaw can use SuperGrok via official OAuth ([xAI announcement](https://x.ai/news/grok-openclaw)). Helix Library is not that partner path — we only call the developer API.
 
 | Mode | When | Behavior |
 | --- | --- | --- |
-| `local` (default) | Always | Catalog tools + template answers |
-| `xai` | Opt-in + `XAI_API_KEY` | Grok via developer API + tools |
+| `auto` (default) | Key present → Grok; else local | Preferred |
+| `local` | Always | Catalog tools + template answers |
+| `xai` | Requires key | Force Grok; falls back to local if missing |
 
 ```bash
 npm run dev
-# optional cloud:
-# export XAI_API_KEY=...
-# export NON_OS_AGENT_MODE=xai
+# Grok (developer API — not SuperGrok):
+# export XAI_API_KEY=...   # from https://console.x.ai
+# optional: NON_OS_MODEL=grok-4.3
+# force local despite key: NON_OS_USE_XAI=0
 ```
 
-Tools: `catalog_search`, `catalog_get`, `list_locations`, `list_collections`, `machine_status`, `system_help`.
+Tools: `catalog_search`, `catalog_get`, `list_locations`, `list_collections`, `machine_status`, `system_help`, `propose_actions` (mutations need your approve).
 
 ## Media
 

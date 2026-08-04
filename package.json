@@ -1,5 +1,5 @@
 {
-  "name": "non-os",
+  "name": "helix-library",
   "version": "0.1.0",
   "private": true,
   "scripts": {
@@ -16,6 +16,7 @@
   "dependencies": {
     "@ai-sdk/react": "^4.0.44",
     "@ai-sdk/xai": "^4.0.21",
+    "3d-force-graph": "^1.80.0",
     "ai": "^7.0.41",
     "better-sqlite3": "^13.0.2",
     "drizzle-orm": "^0.45.2",
@@ -27,7 +28,10 @@
     "picomatch": "^4.0.5",
     "react": "19.1.0",
     "react-dom": "19.1.0",
+    "react-markdown": "^10.1.0",
     "sharp": "^0.35.3",
+    "three": "^0.185.1",
+    "three-spritetext": "^1.10.0",
     "zod": "^4.4.3"
   },
   "devDependencies": {
@@ -40,6 +44,7 @@
     "@types/picomatch": "^4.0.3",
     "@types/react": "^19",
     "@types/react-dom": "^19",
+    "@types/three": "^0.185.3",
     "drizzle-kit": "^0.31.10",
     "eslint": "^9",
     "eslint-config-next": "15.5.22",

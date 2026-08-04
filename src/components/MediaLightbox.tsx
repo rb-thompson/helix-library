@@ -84,7 +84,7 @@ export function MediaLightbox({
           <p id={titleId} className="truncate text-sm font-medium text-white">
             {current.name}
           </p>
-          <p className="text-xs text-stone-400">
+          <p className="text-xs text-white/45">
             {index + 1} / {items.length} · {current.kind}
           </p>
         </div>
@@ -92,7 +92,7 @@ export function MediaLightbox({
           <Link
             href={`/catalog/${current.id}`}
             title="Open full item page with metadata, EXIF, and curation"
-            className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1.5 text-xs font-medium text-white hover:bg-white/15 sm:gap-1.5 sm:px-2.5"
+            className="media-theater-btn sm:gap-1.5 sm:px-2.5 sm:py-1.5"
           >
             <ExternalLink className="h-3.5 w-3.5" aria-hidden />
             <span className="hidden sm:inline">Detail</span>
@@ -100,7 +100,7 @@ export function MediaLightbox({
           <a
             href={`${mediaSrc}?download=1`}
             title="Download original file"
-            className="inline-flex items-center gap-1 rounded-md bg-white/10 px-2 py-1.5 text-xs font-medium text-white hover:bg-white/15 sm:gap-1.5 sm:px-2.5"
+            className="media-theater-btn sm:gap-1.5 sm:px-2.5 sm:py-1.5"
           >
             <Download className="h-3.5 w-3.5" aria-hidden />
             <span className="hidden sm:inline">Download</span>
@@ -108,7 +108,7 @@ export function MediaLightbox({
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md bg-white/10 p-2 text-white hover:bg-white/15"
+            className="media-theater-btn !p-2"
             aria-label="Close"
             title="Close (Esc)"
           >
@@ -152,18 +152,18 @@ export function MediaLightbox({
           ) : null}
           {isAudio ? (
             <div className="w-full max-w-lg px-4">
-              <p className="mb-4 text-center text-sm text-stone-300">
+              <p className="mb-4 text-center text-sm text-white/70">
                 {current.name}
               </p>
               <audio key={current.id} controls autoPlay className="w-full" src={mediaSrc} />
             </div>
           ) : null}
           {!isImage && !isVideo && !isAudio ? (
-            <div className="text-center text-sm text-stone-300">
+            <div className="text-center text-sm text-white/70">
               <p>No fullscreen preview for this type.</p>
               <Link
                 href={`/catalog/${current.id}`}
-                className="mt-3 inline-block text-teal-300 hover:underline"
+                className="mt-3 inline-block text-white/70 underline-offset-2 hover:text-white hover:underline"
               >
                 Open detail page
               </Link>

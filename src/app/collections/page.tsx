@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { CollapsibleTagList } from "@/components/CollapsibleTagList";
 import { CreateCollectionForm } from "@/components/CreateCollectionForm";
 import { listCollections, listTags } from "@/lib/collections/manage";
 import { ensureLocationsSynced } from "@/lib/locations/manage";
@@ -12,7 +13,9 @@ export const metadata = {
 export default function CollectionsPage() {
   ensureLocationsSynced();
   const collections = listCollections();
-  const tags = listTags();
+  const tags = listTags({ sortBy: "count" });
+  const shared = tags.filter((t) => Number(t.itemCount) >= 2);
+  const singles = tags.length - shared.length;
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -33,22 +36,18 @@ export default function CollectionsPage() {
           Create one above, then add items from catalog detail or bulk Select.
         </div>
       ) : (
-        <ul className="grid gap-2.5 sm:grid-cols-2">
+        <ul className="grid auto-rows-fr gap-2.5 sm:grid-cols-2">
           {collections.map((c) => (
-            <li key={c.id}>
+            <li key={c.id} className="min-h-0">
               <Link
                 href={`/collections/${c.id}`}
-                className="surface-flat group block p-4 transition hover:border-[rgb(15_92_86_/_0.28)] hover:shadow-[var(--shadow-lift)]"
+                className="shelf-card group"
               >
-                <h2 className="font-semibold tracking-tight text-[var(--ink)] group-hover:text-[var(--accent)]">
-                  {c.name}
-                </h2>
-                {c.description ? (
-                  <p className="mt-1 line-clamp-2 text-sm text-[var(--muted)]">
-                    {c.description}
-                  </p>
-                ) : null}
-                <p className="mt-2 text-xs tabular-nums text-[var(--muted-faint)]">
+                <h2 className="shelf-card__title">{c.name}</h2>
+                <p className="shelf-card__desc">
+                  {c.description?.trim() || "\u00a0"}
+                </p>
+                <p className="shelf-card__meta">
                   {c.itemCount} item{c.itemCount === 1 ? "" : "s"}
                 </p>
               </Link>
@@ -59,24 +58,24 @@ export default function CollectionsPage() {
 
       <section className="surface p-4 sm:p-5">
         <h2 className="text-sm font-semibold text-[var(--ink)]">Tags in use</h2>
-        {tags.length === 0 ? (
-          <p className="mt-2 text-sm text-[var(--muted)]">
-            No tags yet. Add them on an item, or bulk-select in the catalog.
-          </p>
-        ) : (
-          <ul className="mt-3 flex flex-wrap gap-1.5">
-            {tags.map((t) => (
-              <li key={t.id}>
-                <Link href={`/catalog?tag=${t.id}`} className="chip">
-                  #{t.name}
-                  <span className="tabular-nums text-[var(--muted-faint)]">
-                    {t.itemCount}
-                  </span>
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
+        <p className="mt-1 text-xs text-[var(--muted)]">
+          Popular first
+          {singles > 0
+            ? ` · ${singles} single-use tag${singles === 1 ? "" : "s"} folded under “more”`
+            : null}
+          . Open expand + search to find a specific label.
+        </p>
+        <div className="mt-3">
+          <CollapsibleTagList
+            tags={tags.map((t) => ({
+              ...t,
+              href: `/catalog?tag=${t.id}`,
+            }))}
+            label="All tags"
+            initial={14}
+            empty="No tags yet. Add them on an item, or bulk-select in the catalog."
+          />
+        </div>
       </section>
     </div>
   );

@@ -5,7 +5,7 @@ import { Check, Play } from "lucide-react";
 import { KindBadge } from "@/components/KindBadge";
 import { formatBytes, formatRelativeDate } from "@/lib/format";
 import { cn } from "@/lib/cn";
-import type { CatalogItemRow } from "@/lib/types";
+import { ITEM_KINDS, type CatalogItemRow } from "@/lib/types";
 
 export function ItemRow({
   item,
@@ -24,6 +24,7 @@ export function ItemRow({
 }) {
   const media = item.kind === "image" || item.kind === "video";
   const showThumb = hasPreview && media;
+  const kindClass = `kind-${(ITEM_KINDS as readonly string[]).includes(item.kind) ? item.kind : "other"}`;
 
   const body = (
     <>
@@ -33,7 +34,7 @@ export function ItemRow({
             className={cn(
               "mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-[0.35rem] border transition",
               selected
-                ? "border-[var(--accent)] bg-[var(--accent)] text-white"
+                ? "border-[var(--accent)] bg-[var(--accent)] text-[var(--accent-fg)]"
                 : "border-[var(--line-strong)] bg-[var(--surface)] text-transparent",
             )}
             aria-hidden
@@ -47,7 +48,7 @@ export function ItemRow({
             <img
               src={`/api/thumbs/${item.id}`}
               alt=""
-              className="h-11 w-11 rounded-[0.45rem] border border-[var(--line)] bg-[var(--paper-deep)] object-cover"
+              className="holding-row__thumb h-11 w-11 rounded-[0.45rem] border bg-[var(--paper-deep)] object-cover"
             />
             {item.kind === "video" ? (
               <Play
@@ -58,7 +59,7 @@ export function ItemRow({
           </span>
         ) : (
           <span
-            className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[0.45rem] border border-[var(--line)] bg-[var(--paper-deep)] text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--muted)]"
+            className="holding-row__thumb flex h-11 w-11 shrink-0 items-center justify-center rounded-[0.45rem] border bg-[var(--paper-deep)] text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--muted)]"
             aria-hidden
           >
             {item.ext || item.kind.slice(0, 3)}
@@ -92,6 +93,8 @@ export function ItemRow({
     </>
   );
 
+  const rowClass = cn("holding-row", kindClass, selected && "is-selected");
+
   if (selectMode) {
     return (
       <li className="border-b border-[var(--line)] last:border-0">
@@ -100,7 +103,8 @@ export function ItemRow({
           onClick={onToggleSelect}
           title={selected ? "Deselect" : "Select for bulk curation"}
           aria-pressed={selected}
-          className={cn("holding-row", selected && "is-selected")}
+          data-kind={item.kind}
+          className={rowClass}
         >
           {body}
         </button>
@@ -119,7 +123,8 @@ export function ItemRow({
           type="button"
           onClick={onOpenLightbox}
           title={tip}
-          className="holding-row"
+          data-kind={item.kind}
+          className={rowClass}
         >
           {body}
         </button>
@@ -129,7 +134,12 @@ export function ItemRow({
 
   return (
     <li className="border-b border-[var(--line)] last:border-0">
-      <Link href={`/catalog/${item.id}`} title={tip} className="holding-row">
+      <Link
+        href={`/catalog/${item.id}`}
+        title={tip}
+        data-kind={item.kind}
+        className={rowClass}
+      >
         {body}
       </Link>
     </li>

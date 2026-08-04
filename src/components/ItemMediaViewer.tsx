@@ -29,9 +29,9 @@ export function ItemMediaViewer({
 
   return (
     <>
-      <section className="overflow-hidden rounded-2xl border border-stone-200 bg-stone-950 shadow-sm">
-        <div className="flex items-center justify-between gap-3 border-b border-white/10 px-4 py-2">
-          <p className="text-xs font-medium uppercase tracking-wide text-stone-400">
+      <section className="media-theater rounded-2xl">
+        <div className="media-theater-bar">
+          <p className="text-xs font-medium uppercase tracking-wide text-white/45">
             Preview
           </p>
           <div className="flex items-center gap-2">
@@ -40,7 +40,7 @@ export function ItemMediaViewer({
                 <button
                   type="button"
                   onClick={() => setOpen(true)}
-                  className="inline-flex items-center gap-1.5 rounded-md bg-white/10 px-2.5 py-1 text-xs font-medium text-white hover:bg-white/15"
+                  className="media-theater-btn"
                 >
                   <Maximize2 className="h-3.5 w-3.5" aria-hidden />
                   Fullscreen
@@ -50,7 +50,7 @@ export function ItemMediaViewer({
             <Tooltip content="Download the original file from disk (same bytes as the path below).">
               <a
                 href={`/api/media/${item.id}?download=1`}
-                className="inline-flex items-center gap-1.5 rounded-md bg-white/10 px-2.5 py-1 text-xs font-medium text-white hover:bg-white/15"
+                className="media-theater-btn"
               >
                 <Download className="h-3.5 w-3.5" aria-hidden />
                 Download
@@ -105,7 +105,7 @@ export function ItemMediaViewer({
               className="w-full max-w-xl px-2 py-8"
               onClick={(e) => e.stopPropagation()}
             >
-              <p className="mb-3 text-center text-sm text-stone-300">
+              <p className="mb-3 text-center text-sm text-white/70">
                 {item.name}
               </p>
               <audio
@@ -123,18 +123,18 @@ export function ItemMediaViewer({
             <iframe
               title={item.name}
               src={preview.src}
-              className="h-[70vh] w-full rounded-md bg-white"
+              className="h-[70vh] w-full rounded-md bg-[var(--surface)]"
               onClick={(e) => e.stopPropagation()}
             />
           ) : null}
 
           {preview.type === "text" ? (
             <div className="w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
-              <pre className="max-h-[70vh] overflow-auto rounded-md bg-stone-900 p-4 text-left text-xs leading-relaxed text-stone-100">
+              <pre className="max-h-[70vh] overflow-auto rounded-md bg-black/40 p-4 text-left text-xs leading-relaxed text-white/90">
                 {preview.text}
               </pre>
               {preview.truncated ? (
-                <p className="mt-2 text-center text-xs text-stone-500">
+                <p className="mt-2 text-center text-xs text-[var(--muted)]">
                   Preview truncated to first 64 KB.
                 </p>
               ) : null}
@@ -142,7 +142,7 @@ export function ItemMediaViewer({
           ) : null}
 
           {preview.type === "none" ? (
-            <p className="px-4 py-10 text-center text-sm text-stone-400">
+            <p className="px-4 py-10 text-center text-sm text-[var(--muted-faint)]">
               {preview.reason}
             </p>
           ) : null}

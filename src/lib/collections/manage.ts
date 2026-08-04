@@ -289,9 +289,19 @@ export function getItemCollections(itemId: number) {
 
 // --- Tags ---
 
-export function listTags() {
+export function listTags(opts?: {
+  /** Prefer popular tags first (for dense vision-tag libraries). */
+  sortBy?: "name" | "count";
+  /** Only tags used on at least this many items. */
+  minCount?: number;
+  limit?: number;
+}) {
   const db = getDb();
-  return db
+  const sortBy = opts?.sortBy ?? "name";
+  const minCount = opts?.minCount ?? 0;
+  const limit = opts?.limit;
+
+  let rows = db
     .select({
       id: tags.id,
       name: tags.name,
@@ -303,6 +313,21 @@ export function listTags() {
     .from(tags)
     .orderBy(asc(tags.name))
     .all();
+
+  if (minCount > 0) {
+    rows = rows.filter((r) => Number(r.itemCount) >= minCount);
+  }
+  if (sortBy === "count") {
+    rows = [...rows].sort((a, b) => {
+      const d = Number(b.itemCount) - Number(a.itemCount);
+      if (d !== 0) return d;
+      return a.name.localeCompare(b.name);
+    });
+  }
+  if (limit != null && limit > 0) {
+    rows = rows.slice(0, limit);
+  }
+  return rows;
 }
 
 export function getOrCreateTag(name: string): number {

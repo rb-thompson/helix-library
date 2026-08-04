@@ -26,7 +26,7 @@ export default function LocationsPage() {
           <p className="eyebrow">Branches</p>
           <h1 className="page-title mt-1 flex flex-wrap items-center gap-2">
             Locations
-            <HelpTip content="Like library branches: folders non-os may index." />
+            <HelpTip content="Like library branches: folders Helix Library may index." />
           </h1>
           <p className="page-sub max-w-xl">
             Scan roots the catalog is allowed to index. Primary holdings live under{" "}

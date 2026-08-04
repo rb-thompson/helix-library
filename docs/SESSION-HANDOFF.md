@@ -1,16 +1,16 @@
-# Session handoff — non-os
+# Session handoff — Helix Library
 
-**Last updated:** 2026-07-31  
-**Repo:** `/home/brandon/Projects/non-os`  
-**Status:** **Daily-usable catalog milestone** — core loop works; refine/optimize in place (design system, async reindex, discovery, bulk curation, LAN preview).
+**Last updated:** 2026-08-04  
+**Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`; folder may still be `non-os`)  
+**Status:** Daily-usable personal OPAC + Grok Ask + knowledge graph + space UI. **Large uncommitted working tree** since MVP commit `d3fd658` — next session should review and commit intentionally.
 
-Read [AGENTS.md](../AGENTS.md) first, then this file for “what happened” and “what next.”
+Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 ---
 
 ## One-paragraph summary
 
-Built a localhost personal library (“non-os”) with Next.js + SQLite: configurable scan roots (primary `archive/`), full indexer with enrichment (incl. PDF text → FTS), catalog grid/list + media preview/lightbox, collections/tags + bulk select, locations admin, Services/async reindex + job polling, local Librarian with approval-gated propose actions, optional xAI, in-app docs, quiet “library desk” design system, and optional password-gated LAN preview (`npm run dev:lan`).
+**Helix Library** is a localhost personal OPAC: Next.js 15 + SQLite FTS over explicit scan roots (`archive/` primary), media preview, collections/tags (bulk + edit), async reindex, PDF/text extraction, hybrid search, **3D knowledge graph**, dark/light space UI with generated brand mark, and **Ask the Librarian** (Grok via xAI developer API when keyed, else local). Mutations need user approve. SuperGrok chat ≠ API key. Dense vision tags (OpenClaw gallery scripts) are handled with collapsed tag UI + thinned graph.
 
 ---
 
@@ -18,165 +18,208 @@ Built a localhost personal library (“non-os”) with Next.js + SQLite: configu
 
 | Decision | Choice |
 | --- | --- |
-| Metaphor | Personal library (not desktop OS shell first) |
-| Stack | Next.js + TypeScript + SQLite |
-| Reachability | Localhost only |
-| Agent default | Local catalog assistant (no key) |
-| Agent writes | Not in scope yet (read + search + explain) |
-| Primary holdings root | `./archive` with documents/images/notes/video |
-| Agent cloud | Optional; Grok **subscription** is not an API key |
+| Product name | **Helix Library** (UI/docs); env prefix still `NON_OS_*` |
+| Metaphor | Personal library OPAC |
+| Stack | Next.js 15 + React 19 + SQLite + Tailwind v4 |
+| Bind | Loopback default; LAN + Basic auth optional |
+| Agent | Grok-first with `XAI_API_KEY`; else local |
+| Agent writes | Approval-gated only; no shell |
+| SuperGrok | Does **not** power Ask |
+| Primary holdings | `./archive` |
+| Brand | Generated H+helix mark (`public/helix-mark.*`); space theme |
 
 ---
 
-## What is done (by area)
+## What works (verify before new work)
 
-### Core catalog
+| Area | Notes |
+| --- | --- |
+| Catalog | Hybrid FTS+LIKE, sort, `under`, facets, grid/list, bulk Select |
+| Tags UI | Collapsible lists (popular first); catalog select ≤60 shared tags |
+| Media | Stream + Range, thumbs, lightbox, EXIF if exiftool |
+| PDF/notes | Body → FTS; agent `catalog_read` |
+| Collections | Create/edit/delete; **uniform shelf cards** |
+| Graph `/graph` | 3D force graph (Three.js); tags ≥2 uses, top 36; layer toggles; fullscreen fixed |
+| Reindex | Async + poll |
+| Ask | Grok/local; `propose_actions` + **server-side confirm** (xAI cannot fake writes) |
+| Theme | Dark/light `data-theme`; `ThemeToggle` / `ThemeScript` |
+| Nav | Primary: Catalog, Graph, Collections, Ask · More: Locations, Services, Docs |
+| Brand | `HelixMark` → `/helix-mark.png`; hero art `/hero-helix.jpg` |
+| Cards | Kind-tinted quiet chrome (holding grid/list, shelf, service tiles) |
+| Tests | `npm test` — **28 pass** (2026-08-04) |
+| Docs | In-app `/docs` |
 
-- [x] Config load + loopback bind guard  
-- [x] SQLite schema, FTS5 (path/name + body), jobs  
-- [x] Indexer: walk, ignore, classify, hash, upsert, missing  
-- [x] Enrichment: image thumbs/dims, video poster/duration/dims, text body  
-- [x] PDF text extraction into `item_text` / body FTS  
-- [x] Catalog search/filters/pagination  
-- [x] Locations admin (add/rename/enable/disable/remove → config + DB)  
-- [x] Automated tests (`npm test`) against `fixtures/sample-root`  
+---
 
-### Media & curation
+## Uncommitted work (critical for next agent)
 
-- [x] `/api/media/[id]` secure stream + Range  
-- [x] Item preview (image/video/audio/pdf/text) + download  
-- [x] Grid/list + fullscreen lightbox (←/→/Esc)  
-- [x] Collections + tags + catalog filters  
-- [x] EXIF panel (graceful if exiftool missing)  
+**Last commit on main:** `d3fd658` — MVP only. Everything below is **working tree** (modified + untracked).
 
-### Agent
+### High-signal new modules (untracked)
 
-- [x] Local librarian intent routing + same conceptual tools  
-- [x] Optional xAI streaming + tools (opt-in)  
-- [x] Thread persistence  
-- [x] Clear UI copy: subscription ≠ developer API  
+| Path | Role |
+| --- | --- |
+| `src/app/graph/` | Knowledge Graph page |
+| `src/lib/graph/build.ts` | Graph snapshot from SQLite |
+| `src/components/KnowledgeGraph.tsx` | 3D force UI (client) |
+| `src/components/HelixMark.tsx` | Brand mark image |
+| `src/components/ThemeToggle.tsx`, `ThemeScript.tsx` | Theme |
+| `src/components/CollapsibleTagList.tsx` | Dense tag chips |
+| `src/components/AssistantMarkdown.tsx` | Ask markdown |
+| `public/helix-mark.{png,webp,jpg}`, `public/hero-helix.jpg` | Brand / hero assets |
+| `src/types/force-graph.d.ts` | Module shims |
+| `tests/search.test.ts` | Hybrid search |
+| `scripts/vision_tag_images.py`, `ingest-photo-gallery.py`, `probe_vision.py` | Owner OpenClaw/gallery tooling (not app runtime) |
 
-### UX / chrome
+### Major modified areas
 
-- [x] In-app `/docs` with Getting Started  
-- [x] Tooltips / HelpTips (CSS `.tip`; disabled custom tips on touch)  
-- [x] Responsive layout + collapsing nav (hamburger &lt; `lg`)  
-- [x] Footer nav links  
+- Agent: confirm intercept, `collect_by_name`, create+shelve, prompts, tools  
+- Catalog/query hybrid search  
+- Space theme (`globals.css`), Header/Footer, pages  
+- Middleware: loopback exempt from LAN Basic auth  
 
-### Docs for developers
+**Do not commit:** `.env.local`, `library.config.json`, `data/`, personal `archive/**`, `scripts/__pycache__/`.
 
-- [x] AGENTS.md, ARCHITECTURE.md, this handoff, README, PRODUCT  
+**Suggested commit strategy (owner decides):**
+
+1. Product rename + theme + brand assets  
+2. Agent approve fixes + hybrid search + tests  
+3. Graph feature + deps (`three`, `3d-force-graph`, `three-spritetext`)  
+4. Tag density UI + card chrome + nav  
+5. Optional: vision scripts under `scripts/` if owner wants them tracked  
+
+---
+
+## Environment
+
+```bash
+# .env.local (gitignored) — typical:
+# XAI_API_KEY=...
+# NON_OS_AGENT_MODE=auto
+# NON_OS_USE_XAI=1
+# NON_OS_MODEL=grok-4.3
+# NON_OS_ACCESS_PASSWORD=...   # LAN only
+# NON_OS_LAN=1                 # only with dev:lan; loopback still open
+```
+
+| Item | Value |
+| --- | --- |
+| Port | **4747** |
+| Dev | `npm run dev` → `http://127.0.0.1:4747` |
+| LAN | `npm run dev:lan` + password; user `library` |
+| Model | Prefer a team-enabled id; chat path `xai(model)` not `responses()` |
+
+---
+
+## Key code map
+
+| Path | Role |
+| --- | --- |
+| `src/lib/agent/mode.ts` | local / xai / auto |
+| `src/lib/agent/prompt.ts` | Grok system prompt |
+| `src/lib/agent/tools.ts` | catalog_search/get/read, propose_actions |
+| `src/lib/agent/actions.ts` | Mutations + **tryHandleConfirmOrCancel** |
+| `src/lib/agent/local.ts` | Offline NLP + create+shelve proposals |
+| `src/app/api/ask/route.ts` | Stream; **confirm before LLM** |
+| `src/app/api/agent/actions/route.ts` | POST execute actions |
+| `src/lib/catalog/query.ts` | Hybrid search |
+| `src/lib/graph/build.ts` | Graph thinning (minTagCount=2, maxTags=36) |
+| `src/lib/nav.ts` | PRIMARY_NAV / SECONDARY_NAV |
+| `src/components/Header.tsx` | Nav + HelixMark |
+| `src/components/KnowledgeGraph.tsx` | 3D graph + fullscreen |
+| `src/middleware.ts` | LAN Basic auth; **loopback skip** |
+| `src/app/globals.css` | Design system + cards + helix well |
+
+---
+
+## Architecture snapshot (2026-08-04)
+
+```text
+Browser → Next.js App Router (127.0.0.1:4747)
+            ├─ /  /catalog  /graph  /collections  /locations  /services  /ask  /docs
+            ├─ API: reindex, media, thumbs, ask, agent/actions, collections, items tags
+            └─ lib/
+                 config → db (SQLite + FTS5)
+                 indexer, catalog, collections, locations
+                 media, machine
+                 agent (local | xai)
+                 graph (buildKnowledgeGraph)
+```
+
+Deps of note: `three`, `3d-force-graph`, `three-spritetext`, `ai` / `@ai-sdk/xai`, `better-sqlite3`, `sharp`.
 
 ---
 
 ## Known gaps / natural next work
 
-Prioritize with the user; none of these are required for basic daily use.
-
-1. **Auth if bind ever leaves loopback**  
-2. **Agent write tools** with explicit approval UI (tags, collections, reindex only — still no shell)  
-3. ~~**PDF text extraction** into FTS~~ **done** (`pdftotext` + `pdf-parse` fallback → `item_text`)  
-4. **Watch mode** / auto-reindex on filesystem events  
-5. ~~**Tests** (classify / local librarian / indexer on fixtures)~~ **done** (`npm test`)  
-6. **exiftool install** on host when apt lock free — panel already wired  
-7. **Ollama / other local LLM** as third agent mode (optional)  
-8. **Background reindex queue UX** for multi-GB trees (job polling already partial)  
-9. **Empty `src/server/`** — unused; can remove or use for future workers  
-10. **HMR / SegmentViewNode** — if UI looks corrupt after hot reload: `rm -rf .next && npm run dev`  
+1. **Commit** the uncommitted tree (staged slices preferred)  
+2. FS **watch** / debounced auto-reindex  
+3. Search **snippets** + hit highlighting  
+4. Missing-holdings **weeding** desk  
+5. Graph: optional “show singleton tags” advanced mode; performance at 1k+ items  
+6. Tag hygiene tools (merge/delete vision noise; hide meta tag `vision-tagged`)  
+7. Light-mode brand mark variant (current mark is dark-field)  
+8. OpenClaw / Ollama — optional, not started as app features  
+9. Empty `src/server/` cleanup if still present  
 
 ---
 
-## Gotchas (will save hours)
+## Gotchas
 
 | Gotcha | Detail |
 | --- | --- |
-| Port | **4747**, not 3000 |
-| Config | `library.config.json` is **gitignored**; example file is the template |
-| Locations source of truth | UI writes DB + config; reindex syncs config → DB and **disables** roots removed from config |
-| Agent mode | Default **local** even if `XAI_API_KEY` is set (prevents exhausted-key 403s); cloud requires opt-in |
-| Media security | Never stream by raw path — only by catalog id through `resolveMediaItem` |
-| Client vs server | Do not import `hasThumb` / fs / better-sqlite3 into client components; pass `thumbIds` from RSC |
-| FTS content tables | Triggers keep FTS in sync; empty FTS after manual DB surgery needs rebuild (reindex path has a heal) |
-| Tooltips | Custom CSS tooltips; for nav prefer `title=` to avoid layout wrappers |
-| Native modules | `better-sqlite3`, `sharp` must stay in `serverExternalPackages` |
+| Port | **4747** |
+| Secrets | Never commit `.env.local`, config, `data/`, personal archive |
+| Agent hallucinated “created collection” | Fixed: confirm is **server-side**; needs `[[action:…]]` tokens |
+| RSC client props | **No functions** from server → client (e.g. tag `href` must be string) |
+| LAN env in `.env.local` | Middleware requires Basic for non-loopback; **127.0.0.1 stays open** |
+| Dense tags | ~900 tags after vision gallery; UI collapses; graph omits singles |
+| SuperGrok | ≠ developer API |
+| HMR | `rm -rf .next && npm run dev` |
+| Graph fullscreen | CSS `.graph-shell-fs` + canvas resize on toggle |
+| Compound names | Hybrid search: `phoebe` → `finnandphoebe.jpeg` |
 
 ---
 
-## How to resume in a new session (script)
+## Resume script (next session)
 
 ```bash
 cd /home/brandon/Projects/non-os
-# optional: git status / git log -5
-cat AGENTS.md docs/SESSION-HANDOFF.md   # this file + agents entry
-npm install                             # if needed
-npm run reindex                         # if archive changed
-NON_OS_AGENT_MODE=local npm run dev     # http://127.0.0.1:4747
+git status && git log -3 --oneline
+# AGENTS.md → this file → ARCHITECTURE.md if deep work
+npm install
+npm run typecheck && npm test
+# .env.local for Grok if needed
+npm run reindex    # if archive/gallery changed
+npm run dev        # http://127.0.0.1:4747
 ```
 
-Smoke:
-
-1. Home shows holdings count  
-2. Catalog grid opens lightbox on an image  
-3. Item page plays video / shows image  
-4. Ask: “Where is my resume?” returns real path  
-5. Docs loads Getting started  
-6. Mobile width: hamburger opens drawer  
-
-Then implement the next slice from “Known gaps” with the user’s priority.
+**Smoke:** home → catalog grid (kind edges) → search “phoebe” → `/graph` (layers, fullscreen) → collections uniform cards → Ask “where is resume?” / approve-gated tag → `/docs` → logo mark visible.
 
 ---
 
-## Important paths (bookmark)
+## User context
 
-```text
-src/lib/config.ts              # config + bind guard + save locations
-src/lib/db/migrate.ts          # schema truth at runtime
-src/lib/indexer/run.ts         # reindex orchestration
-src/lib/catalog/query.ts       # search + FTS
-src/lib/media/serve.ts         # secure file streaming
-src/lib/agent/mode.ts          # local vs xai
-src/lib/agent/local.ts         # no-API librarian
-src/app/api/ask/route.ts       # chat endpoint
-src/components/Header.tsx      # responsive nav
-src/app/docs/page.tsx          # end-user docs
-library.config.example.json
-archive/README.md
-```
+- Libraries / STEM / full-stack; OPAC metaphor intentional  
+- Sole personal use; agent completes library tasks after confirm  
+- SuperGrok sub + developer API for in-app Grok  
+- OpenClaw used outside app to index/tag photo gallery (Python scripts under `scripts/`)  
+- Brand: Helix Library; space UI; generated H+helix mark preferred over SVG animation  
+- Verified: resume review, Finn/Phoebe search, Outer Space collection (after approve fix), dense tags UX, graph  
 
 ---
 
-## User context (for tone and priorities)
+## Session wrap (2026-08-04)
 
-- Background: public libraries (full-stack + STEM educator); built Pike Library frontend.  
-- Wants personal OPAC + one agent for assistance, system adjustment (later), and resource location.  
-- Resources: files, agent knowledge, machine limits.  
-- Has Grok **subscription**, not necessarily working xAI API credits — local agent is correct default.
+This multi-day stretch delivered (among prior agent/search work):
 
----
+- Product name **Helix Library**; space dark/light theme  
+- **Knowledge Graph** + tag thinning + mobile-ish controls + fullscreen fix  
+- Tag density UX (collapsible chips, popular dropdown)  
+- Agent **confirm intercept** + `collect_by_name` / create+shelve batch  
+- Header: primary/More nav, generated **H+helix** brand mark  
+- Kind-tinted holding cards/rows; shelf + service tiles; uniform collection cards  
+- Middleware loopback LAN exemption  
+- Hero image + brand assets in `public/`  
 
-## Suggested next (post–daily-use milestone)
-
-Pick with user; none required for basic use:
-
-- **D.** FS watch / debounce reindex for `archive/`  
-- **E.** Ollama / other local LLM as third agent mode  
-- **F.** Search snippets + match highlighting  
-- **G.** Missing-holdings weeding desk  
-- **H.** First git commit of the working tree (almost all uncommitted on `main`)  
-
-### Ask agent (2026-08-01)
-
-- Unified `src/lib/agent/actions.ts` + `POST /api/agent/actions`
-- Local: propose → **approve** / **yes** / buttons; create collection, tag, shelf, reindex, locations
-- xAI: `propose_actions` tool (does not execute); same UI tokens
-- Forbidden: shell, wipe DB, delete project source, arbitrary file delete  
-
-### Milestone stack (completed)
-
-- Catalog + media + collections/tags + local Librarian  
-- Tests (`npm test`), PDF body FTS  
-- Async reindex + polling; discovery (sort / under / facets); bulk Select  
-- Approval-gated librarian proposals  
-- Design system (quiet desk): tokens, surfaces, chips, toolstrips, `/` focuses search  
-- Secondary surfaces aligned (locations, collections, item curation/detail)  
-- Optional LAN: `npm run dev:lan` + Basic auth
+**Not done:** git commit of the above; FS watch; snippet UI; weeding desk.

@@ -13,7 +13,7 @@ import {
 
 export const metadata: Metadata = {
   title: "Docs",
-  description: "Getting started and how to use your personal non-os library.",
+  description: "Getting started and how to use your personal Helix Library.",
 };
 
 const toc = [
@@ -24,6 +24,7 @@ const toc = [
   { id: "locations", label: "Locations" },
   { id: "services", label: "Services & reindex" },
   { id: "librarian", label: "Ask the Librarian" },
+  { id: "agent-tasks", label: "Agent tasks & approve" },
   { id: "tips", label: "Tips & troubleshooting" },
 ];
 
@@ -31,9 +32,7 @@ export default function DocsPage() {
   return (
     <div className="grid gap-6 sm:gap-10 lg:grid-cols-[200px_1fr] xl:grid-cols-[220px_1fr]">
       <aside className="min-w-0 lg:sticky lg:top-20 lg:self-start">
-        <p className="text-xs font-semibold uppercase tracking-wider text-stone-500">
-          On this page
-        </p>
+        <p className="eyebrow">On this page</p>
         {/* Horizontal chips on mobile; vertical list on lg */}
         <nav
           className="-mx-1 mt-2 flex gap-1 overflow-x-auto px-1 pb-1 lg:mt-3 lg:flex-col lg:space-y-1 lg:overflow-visible lg:pb-0"
@@ -43,7 +42,7 @@ export default function DocsPage() {
             <a
               key={item.id}
               href={`#${item.id}`}
-              className="shrink-0 rounded-full border border-stone-200 bg-white px-3 py-1.5 text-xs font-medium text-stone-700 hover:border-teal-700/40 hover:bg-teal-50 sm:text-sm lg:rounded-md lg:border-0 lg:bg-transparent lg:px-2 lg:py-1.5 lg:font-normal lg:hover:bg-stone-100"
+              className="shrink-0 rounded-full border border-[var(--line)] bg-[var(--surface)] px-3 py-1.5 text-xs font-medium text-[var(--ink-soft)] hover:border-[var(--accent-ring)] hover:bg-[var(--accent-soft)] sm:text-sm lg:rounded-md lg:border-0 lg:bg-transparent lg:px-2 lg:py-1.5 lg:font-normal lg:hover:bg-[var(--surface-hover)]"
             >
               {item.label}
             </a>
@@ -51,7 +50,7 @@ export default function DocsPage() {
         </nav>
         <Link
           href="/"
-          className="mt-3 hidden text-sm font-medium text-teal-800 hover:underline lg:mt-6 lg:inline-flex"
+          className="link-accent mt-3 hidden text-sm lg:mt-6 lg:inline-flex"
         >
           ← Back home
         </Link>
@@ -59,14 +58,12 @@ export default function DocsPage() {
 
       <article className="min-w-0 space-y-10 sm:space-y-12">
         <header>
-          <p className="text-xs font-medium uppercase tracking-wider text-teal-800 sm:text-sm">
-            Documentation
-          </p>
-          <h1 className="mt-1 text-2xl font-semibold tracking-tight text-stone-900 sm:text-3xl">
-            Using non-os
+          <p className="eyebrow">Documentation</p>
+          <h1 className="page-title mt-1 text-2xl sm:text-3xl">
+            Using Helix Library
           </h1>
-          <p className="mt-3 max-w-2xl text-sm text-stone-600 sm:text-base">
-            non-os is your personal library for files on this machine: a catalog
+          <p className="page-sub mt-3 max-w-2xl text-sm sm:text-base">
+            Helix Library is your personal library for files on this machine: a catalog
             to find and preview holdings, shelves to curate them, and a
             Librarian to ask for help — all on localhost only.
           </p>
@@ -78,12 +75,12 @@ export default function DocsPage() {
           <ol className="mt-4 space-y-4">
             <Step n={1} title="Know your archive">
               Primary holdings live under{" "}
-              <code className="rounded bg-stone-100 px-1 text-sm">archive/</code>{" "}
+              <code className="code-inline">archive/</code>{" "}
               in the project (
-              <code className="rounded bg-stone-100 px-1 text-sm">documents</code>,{" "}
-              <code className="rounded bg-stone-100 px-1 text-sm">images</code>,{" "}
-              <code className="rounded bg-stone-100 px-1 text-sm">notes</code>,{" "}
-              <code className="rounded bg-stone-100 px-1 text-sm">video</code>
+              <code className="code-inline">documents</code>,{" "}
+              <code className="code-inline">images</code>,{" "}
+              <code className="code-inline">notes</code>,{" "}
+              <code className="code-inline">video</code>
               ). Drop files into the matching folder.
             </Step>
             <Step n={2} title="Index the catalog">
@@ -91,7 +88,7 @@ export default function DocsPage() {
               <DocLink href="/services">Services</DocLink> or{" "}
               <DocLink href="/locations">Locations</DocLink> and click{" "}
               <strong>Run reindex</strong>, or in a terminal:{" "}
-              <code className="rounded bg-stone-100 px-1 text-sm">
+              <code className="code-inline">
                 npm run reindex
               </code>
               . Unchanged files are skipped automatically.
@@ -110,10 +107,11 @@ export default function DocsPage() {
               item and use <strong>Curation</strong> to add tags or put it on a
               shelf.
             </Step>
-            <Step n={5} title="Ask for help">
-              <DocLink href="/ask">Ask the Librarian</DocLink> answers
-              find-and-locate questions using the catalog (local mode by
-              default — no API key required).
+            <Step n={5} title="Ask the Librarian">
+              <DocLink href="/ask">Ask</DocLink> finds holdings, reads extracted
+              PDF/note text, and can propose library tasks. With an xAI{" "}
+              <strong>developer</strong> API key it uses Grok; otherwise a local
+              assistant. Mutations always need your <strong>approve</strong>.
             </Step>
           </ol>
 
@@ -151,7 +149,7 @@ export default function DocsPage() {
             </Term>
             <Term title="Location">
               A scan root — like a library branch. Only enabled locations are
-              indexed. Default: <code className="text-xs">archive/</code>.
+              indexed. Default: <code className="code-inline">archive/</code>.
             </Term>
             <Term title="Collection">
               A manual shelf you curate (e.g. “STEM materials”). Does not move
@@ -175,7 +173,7 @@ export default function DocsPage() {
         {/* Catalog */}
         <section id="catalog" className="scroll-mt-28">
           <SectionTitle icon={<Search className="h-5 w-5" />} title="Catalog & media" />
-          <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-stone-700">
+          <ul className="mt-4 prose-body list-disc space-y-2 pl-5">
             <li>
               <strong>Search</strong> matches names, paths, note/code samples,
               and <strong>PDF text layers</strong> (extracted on reindex).
@@ -203,7 +201,7 @@ export default function DocsPage() {
         {/* Collections */}
         <section id="collections" className="scroll-mt-28">
           <SectionTitle icon={<Layers className="h-5 w-5" />} title="Collections & tags" />
-          <p className="mt-3 text-sm text-stone-700">
+          <p className="prose-body mt-3">
             Collections are named shelves. Create one, open any catalog item,
             and use the Curation panel to add the item or attach tags. Filtering
             the catalog by collection or tag narrows results without changing
@@ -214,12 +212,12 @@ export default function DocsPage() {
         {/* Locations */}
         <section id="locations" className="scroll-mt-28">
           <SectionTitle icon={<FolderOpen className="h-5 w-5" />} title="Locations" />
-          <p className="mt-3 text-sm text-stone-700">
+          <p className="prose-body mt-3">
             Add absolute or project-relative folder paths. Enable/disable
             without deleting history; remove only when you no longer want that
             root in the catalog. After adding a location, always reindex.
             Ignore patterns (node_modules, .git, …) are configured in{" "}
-            <code className="rounded bg-stone-100 px-1 text-xs">
+            <code className="code-inline">
               library.config.json
             </code>
             .
@@ -229,7 +227,7 @@ export default function DocsPage() {
         {/* Services */}
         <section id="services" className="scroll-mt-28">
           <SectionTitle icon={<HardDrive className="h-5 w-5" />} title="Services & reindex" />
-          <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-stone-700">
+          <ul className="mt-4 prose-body list-disc space-y-2 pl-5">
             <li>
               <strong>Run reindex</strong> refreshes holdings after you add or
               move files.
@@ -240,7 +238,7 @@ export default function DocsPage() {
             </li>
             <li>
               CLI alternative:{" "}
-              <code className="rounded bg-stone-100 px-1 text-xs">
+              <code className="code-inline">
                 npm run reindex
               </code>
             </li>
@@ -253,45 +251,211 @@ export default function DocsPage() {
             icon={<MessageCircle className="h-5 w-5" />}
             title="Ask the Librarian"
           />
-          <p className="mt-3 text-sm text-stone-700">
-            Default mode is a <strong>local catalog assistant</strong> — no API
-            key. It answers questions like “Where is my resume?” by searching
-            the index. A Grok chat subscription is separate from the xAI
-            developer API; optional cloud phrasing needs{" "}
-            <code className="rounded bg-stone-100 px-1 text-xs">XAI_API_KEY</code>{" "}
-            and an opt-in mode (see README).
+          <p className="prose-body mt-3">
+            Open <DocLink href="/ask">Ask</DocLink> for natural-language help
+            over your catalog. The librarian can locate holdings, read extracted
+            document text, summarize or evaluate content (e.g. a resume), and
+            propose in-app tasks. Paths and file contents come only from the
+            catalog tools — not invented.
           </p>
-          <p className="mt-2 text-sm text-stone-700">
-            Try: find a file by name, list images, ask how to reindex, or check
-            free disk space.
+
+          <h3 className="mt-5 text-sm font-semibold text-[var(--ink)]">
+            Grok vs local
+          </h3>
+          <ul className="mt-2 prose-body list-disc space-y-2 pl-5">
+            <li>
+              <strong>Grok (preferred when configured)</strong> — needs an xAI{" "}
+              <em>developer</em> API key in{" "}
+              <code className="code-inline">
+                .env.local
+              </code>{" "}
+              as{" "}
+              <code className="code-inline">
+                XAI_API_KEY
+              </code>{" "}
+              from{" "}
+              <a
+                href="https://console.x.ai"
+                className="link-accent"
+                target="_blank"
+                rel="noreferrer"
+              >
+                console.x.ai
+              </a>
+              . Model defaults to{" "}
+              <code className="code-inline">
+                grok-4.3
+              </code>{" "}
+              (
+              <code className="code-inline">
+                NON_OS_MODEL
+              </code>
+              ).
+            </li>
+            <li>
+              <strong>Local</strong> — no key; finds files and proposes tasks
+              with template answers. Always available as fallback.
+            </li>
+            <li>
+              A <strong>SuperGrok / X Premium chat subscription is not an API
+              key</strong>. It does not power in-app Grok. (Partner apps like
+              OpenClaw can use subscription OAuth separately.)
+            </li>
+          </ul>
+
+          <h3 className="mt-5 text-sm font-semibold text-[var(--ink)]">
+            What to ask
+          </h3>
+          <ul className="mt-2 prose-body list-disc space-y-1.5 pl-5">
+            <li>
+              <em>Find:</em> “Where is my resume?” · “Images of Finn or Phoebe?”
+            </li>
+            <li>
+              <em>Read / review:</em> “Is my resume good?” · “Summarize the
+              Science PDF”
+            </li>
+            <li>
+              <em>Machine:</em> “How much disk free?” · “Is ffmpeg available?”
+            </li>
+            <li>
+              <em>How-to:</em> “How do I reindex?” · “What are locations?”
+            </li>
+          </ul>
+          <p className="prose-body mt-2">
+            Hits should include a clickable{" "}
+            <code className="code-inline">
+              /catalog/…
+            </code>{" "}
+            link. Search matches names, paths, and body text — including
+            fragments inside compound filenames (e.g.{" "}
+            <code className="code-inline">
+              finnandphoebe
+            </code>
+            ).
+          </p>
+          <p className="prose-body mt-2 text-[var(--muted)]">
+            Press <kbd className="kbd">/</kbd>{" "}
+            anywhere (outside a field) to focus catalog search on pages that
+            have it.
+          </p>
+        </section>
+
+        {/* Agent tasks */}
+        <section id="agent-tasks" className="scroll-mt-28">
+          <SectionTitle
+            icon={<Layers className="h-5 w-5" />}
+            title="Agent tasks & approval"
+          />
+          <p className="prose-body mt-3">
+            The librarian can <strong>propose</strong> catalog and config
+            changes. Nothing mutates until you confirm — click{" "}
+            <strong>Approve</strong> on the message, or reply{" "}
+            <code className="code-inline">approve</code>,{" "}
+            <code className="code-inline">yes</code>, or{" "}
+            <code className="code-inline">do it</code>.
+            Cancel with{" "}
+            <code className="code-inline">cancel</code> /{" "}
+            <code className="code-inline">no</code>.
+          </p>
+
+          <h3 className="mt-5 text-sm font-semibold text-[var(--ink)]">
+            Example task prompts
+          </h3>
+          <ul className="mt-2 prose-body list-disc space-y-1.5 pl-5">
+            <li>
+              <code className="code-inline">
+                reindex now
+              </code>
+            </li>
+            <li>
+              <code className="code-inline">
+                tag resume as career
+              </code>
+            </li>
+            <li>
+              <code className="code-inline">
+                create collection STEM
+              </code>
+            </li>
+            <li>
+              <code className="code-inline">
+                add resume to collection Career
+              </code>
+            </li>
+            <li>
+              <code className="code-inline">
+                rename collection career to Career
+              </code>
+            </li>
+            <li>
+              <code className="code-inline">
+                describe collection Career as Job search materials
+              </code>
+            </li>
+          </ul>
+
+          <h3 className="mt-5 text-sm font-semibold text-[var(--ink)]">
+            What it will not do
+          </h3>
+          <ul className="mt-2 prose-body list-disc space-y-1.5 pl-5">
+            <li>Run shell commands or install packages</li>
+            <li>Delete your personal files on disk</li>
+            <li>Wipe the app or database</li>
+            <li>Apply tags/shelves/reindex without your approval</li>
+          </ul>
+          <p className="prose-body mt-3 text-[var(--muted)]">
+            You can also curate without the agent: catalog{" "}
+            <strong>Select</strong> for bulk shelf/tag, or item detail →
+            Curation. Edit a collection’s name/description on its shelf page.
           </p>
         </section>
 
         {/* Tips */}
         <section id="tips" className="scroll-mt-28">
           <SectionTitle icon={<RefreshCw className="h-5 w-5" />} title="Tips & troubleshooting" />
-          <ul className="mt-4 list-disc space-y-2 pl-5 text-sm text-stone-700">
+          <ul className="mt-4 prose-body list-disc space-y-2 pl-5">
             <li>
               New files not showing? Reindex. Confirm the folder is under an
               enabled location.
             </li>
             <li>
-              Huge trees: keep ignore globs strong; avoid scanning all of{" "}
-              <code className="rounded bg-stone-100 px-1 text-xs">node_modules</code>
+              Agent says it can’t evaluate a PDF? Reindex so text is extracted;
+              scanned image-only PDFs may have no text layer.
+            </li>
+            <li>
+              Grok errors about a model “not on your team”? Set{" "}
+              <code className="code-inline">
+                NON_OS_MODEL=grok-4.3
+              </code>{" "}
+              (or another id listed for your console key) and restart{" "}
+              <code className="code-inline">
+                npm run dev
+              </code>
               .
             </li>
             <li>
-              Video posters need ffmpeg; duration needs ffprobe (usually from
-              the same package).
+              Huge trees: keep ignore globs strong; avoid scanning all of{" "}
+              <code className="code-inline">node_modules</code>
+              .
             </li>
             <li>
-              Hover controls site-wide for short hints; this page is the deeper
-              guide.
+              Video posters need ffmpeg; duration needs ffprobe. EXIF needs{" "}
+              <code className="code-inline">exiftool</code>{" "}
+              on <code className="code-inline">PATH</code>.
             </li>
             <li>
-              Privacy: only scan roots you add. Personal archive files under{" "}
-              <code className="rounded bg-stone-100 px-1 text-xs">archive/</code>{" "}
-              are gitignored by default.
+              UI looks broken after hot reload?{" "}
+              <code className="code-inline">
+                rm -rf .next && npm run dev
+              </code>
+              .
+            </li>
+            <li>
+              Privacy: only scan roots you add. Personal files under{" "}
+              <code className="code-inline">archive/</code>{" "}
+              are gitignored. Never commit{" "}
+              <code className="code-inline">.env.local</code>
+              .
             </li>
           </ul>
         </section>
@@ -308,8 +472,8 @@ function SectionTitle({
   title: string;
 }) {
   return (
-    <h2 className="flex items-center gap-2 text-xl font-semibold text-stone-900">
-      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-teal-50 text-teal-800">
+    <h2 className="flex items-center gap-2 text-xl font-semibold tracking-tight text-[var(--ink)]">
+      <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
         {icon}
       </span>
       {title}
@@ -328,12 +492,12 @@ function Step({
 }) {
   return (
     <li className="flex gap-3">
-      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-teal-800 text-xs font-bold text-white">
+      <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-[var(--accent)] text-xs font-bold text-[var(--accent-fg)]">
         {n}
       </span>
       <div>
-        <p className="font-medium text-stone-900">{title}</p>
-        <p className="mt-0.5 text-sm text-stone-600">{children}</p>
+        <p className="font-medium text-[var(--ink)]">{title}</p>
+        <p className="mt-0.5 text-sm text-[var(--muted)]">{children}</p>
       </div>
     </li>
   );
@@ -347,9 +511,9 @@ function Term({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm">
-      <dt className="font-semibold text-stone-900">{title}</dt>
-      <dd className="mt-1 text-sm text-stone-600">{children}</dd>
+    <div className="surface p-4">
+      <dt className="font-semibold text-[var(--ink)]">{title}</dt>
+      <dd className="mt-1 text-sm text-[var(--muted)]">{children}</dd>
     </div>
   );
 }
@@ -362,7 +526,7 @@ function DocLink({
   children: React.ReactNode;
 }) {
   return (
-    <Link href={href} className="font-medium text-teal-800 hover:underline">
+    <Link href={href} className="link-accent">
       {children}
     </Link>
   );
@@ -380,10 +544,10 @@ function QuickLink({
   return (
     <Link
       href={href}
-      className="rounded-xl border border-stone-200 bg-white p-4 shadow-sm transition hover:border-teal-700/40 hover:shadow"
+      className="surface p-4 transition hover:border-[var(--accent-ring)] hover:shadow-[var(--shadow-lift)]"
     >
-      <p className="font-semibold text-stone-900">{title}</p>
-      <p className="mt-0.5 text-sm text-stone-600">{body}</p>
+      <p className="font-semibold text-[var(--ink)]">{title}</p>
+      <p className="mt-0.5 text-sm text-[var(--muted)]">{body}</p>
     </Link>
   );
 }

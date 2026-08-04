@@ -6,9 +6,11 @@ import {
   isConfirmUtterance,
   isCancelUtterance,
   executeLibrarianAction,
+  executeLibrarianActions,
   parseLegacyPropose,
 } from "@/lib/agent/actions";
 import { localLibrarianReply } from "@/lib/agent/local";
+import { searchCatalog } from "@/lib/catalog/query";
 import { runReindex } from "@/lib/indexer/run";
 import { listCollections } from "@/lib/collections/manage";
 import { createTestEnv, ensureThumbsParent } from "./helpers/harness";
@@ -92,5 +94,55 @@ describe("agent actions", () => {
     assert.ok(
       listCollections().some((c) => c.name === "Pending Approve Shelf"),
     );
+  });
+
+  it("create+place proposes create_collection and collect_by_name without writing", () => {
+    const reply = localLibrarianReply(
+      "Create a collection titled Outer Space and place pixel.png inside of it",
+    );
+    assert.match(reply, /Create collection & shelve|Proposed/i);
+    assert.match(reply, /create_collection/);
+    assert.match(reply, /collect_by_name/);
+    assert.ok(
+      !listCollections().some((c) => c.name === "Outer Space"),
+      "must not create before approve",
+    );
+  });
+
+  it("approve with no action tokens does not invent success", async () => {
+    const { createThread, appendMessage } = await import(
+      "@/lib/agent/threads"
+    );
+    const tid = createThread("hallucination-guard");
+    appendMessage({
+      threadId: tid,
+      role: "assistant",
+      content:
+        "Collection Outer Space created (id 3). Ready to add the image. Reply approve.",
+    });
+    const reply = localLibrarianReply("yes", { threadId: tid });
+    assert.match(reply, /no pending action tokens/i);
+    assert.ok(
+      !listCollections().some((c) => c.name === "Outer Space"),
+      "must not create when tokens missing",
+    );
+  });
+
+  it("create then collect_by_name in one batch executes both", () => {
+    const hits = searchCatalog({ q: "pixel", pageSize: 1 });
+    assert.ok(hits.items[0], "fixture pixel.png should be indexed");
+    const itemId = hits.items[0].id;
+    const results = executeLibrarianActions([
+      { type: "create_collection", name: "Outer Space Batch" },
+      {
+        type: "collect_by_name",
+        itemId,
+        collectionName: "Outer Space Batch",
+      },
+    ]);
+    assert.equal(results.every((r) => r.ok), true);
+    const col = listCollections().find((c) => c.name === "Outer Space Batch");
+    assert.ok(col);
+    assert.ok((col.itemCount ?? 0) >= 1);
   });
 });

@@ -7,6 +7,7 @@ import {
 } from "@/lib/agent/actions";
 import {
   getItemById,
+  getItemText,
   listLocationsWithCounts,
   searchCatalog,
 } from "@/lib/catalog/query";
@@ -16,7 +17,14 @@ import { probeMachine } from "@/lib/machine/probe";
 import { ITEM_KINDS } from "@/lib/types";
 import { formatBytes } from "@/lib/format";
 
+/** Cap body size returned to the model (tokens / latency). */
+const BODY_MAX_CHARS = 24_000;
+const PREVIEW_CHARS = 400;
+
 function summarizeItem(item: NonNullable<ReturnType<typeof getItemById>>) {
+  const text = getItemText(item.id);
+  const hasBody = Boolean(text?.body?.trim());
+  const catalogUrl = `/catalog/${item.id}`;
   return {
     id: item.id,
     name: item.name,
@@ -28,18 +36,65 @@ function summarizeItem(item: NonNullable<ReturnType<typeof getItemById>>) {
     sizeBytes: item.sizeBytes,
     sizeHuman: formatBytes(item.sizeBytes),
     mime: item.mime,
-    catalogUrl: `/catalog/${item.id}`,
+    /** Always surface this so the model links every hit. */
+    catalogUrl,
+    /** Markdown ready: [filename](/catalog/id) */
+    catalogMarkdownLink: `[${item.name}](${catalogUrl})`,
     isMissing: Boolean(item.isMissing),
     width: item.width,
     height: item.height,
     durationMs: item.durationMs,
+    /** True when note/PDF text was extracted into the catalog for FTS + reading. */
+    hasExtractedText: hasBody,
+    bodyPreview: hasBody
+      ? text!.body.slice(0, PREVIEW_CHARS) +
+        (text!.body.length > PREVIEW_CHARS ? "…" : "")
+      : null,
+  };
+}
+
+function readItemBody(itemId: number, maxChars: number) {
+  const item = getItemById(itemId);
+  if (!item) return { error: "Item not found", id: itemId };
+
+  const text = getItemText(itemId);
+  const raw = text?.body?.trim() ?? "";
+  if (!raw) {
+    return {
+      ...summarizeItem(item),
+      body: null,
+      bodyChars: 0,
+      truncated: false,
+      note:
+        item.kind === "document" || item.mime === "application/pdf"
+          ? "No extracted text yet (scanned PDF, empty layer, or reindex needed). Metadata only."
+          : item.kind === "text" || item.kind === "code"
+            ? "No body sample stored. Reindex this location."
+            : "This kind usually has no text body (e.g. pure image/video).",
+    };
+  }
+
+  const limit = Math.min(Math.max(1_000, maxChars), BODY_MAX_CHARS);
+  const truncated = raw.length > limit;
+  const body = truncated ? raw.slice(0, limit) : raw;
+
+  return {
+    ...summarizeItem(item),
+    body,
+    bodyChars: raw.length,
+    returnedChars: body.length,
+    truncated,
+    extractedAt: text?.extractedAt ?? null,
+    note: truncated
+      ? `Body truncated to ${limit} characters for the model; full sample is longer in the catalog.`
+      : "Full indexed text sample returned.",
   };
 }
 
 export const librarianTools = {
   catalog_search: tool({
     description:
-      "Search the personal library catalog by keyword and optional filters. Returns holdings with absolute paths. Use this to find files before answering location questions.",
+      "Search the personal library catalog by keyword and optional filters. Each hit includes catalogUrl and catalogMarkdownLink — always paste catalogMarkdownLink into your reply when you mention a hit.",
     inputSchema: z.object({
       q: z
         .string()
@@ -89,7 +144,8 @@ export const librarianTools = {
   }),
 
   catalog_get: tool({
-    description: "Get full metadata for one catalog item by numeric id.",
+    description:
+      "Get metadata for one catalog item by id, including whether extracted text is available and a short bodyPreview. For full document content (evaluate resume, summarize PDF/notes), call catalog_read next.",
     inputSchema: z.object({
       id: z.number().int().positive().describe("Catalog item id"),
     }),
@@ -97,6 +153,28 @@ export const librarianTools = {
       const item = getItemById(id);
       if (!item) return { error: "Item not found", id };
       return summarizeItem(item);
+    },
+  }),
+
+  catalog_read: tool({
+    description:
+      "Read the indexed text content of a holding (PDF text layer, notes, code samples). Use this whenever the user asks to evaluate, review, summarize, critique, or discuss what a document/note says. Do not claim you cannot read documents without trying this tool first.",
+    inputSchema: z.object({
+      id: z
+        .number()
+        .int()
+        .positive()
+        .describe("Catalog item id from search or catalog_get"),
+      maxChars: z
+        .number()
+        .int()
+        .min(1000)
+        .max(BODY_MAX_CHARS)
+        .optional()
+        .describe(`Max characters of body to return (default 16000, max ${BODY_MAX_CHARS})`),
+    }),
+    execute: async ({ id, maxChars }) => {
+      return readItemBody(id, maxChars ?? 16_000);
     },
   }),
 
@@ -166,7 +244,7 @@ export const librarianTools = {
 
   system_help: tool({
     description:
-      "Get short how-to text for using non-os. Topics: overview, reindex, locations, collections, search, safety.",
+      "Get short how-to text for using Helix Library. Topics: overview, reindex, locations, collections, search, safety.",
     inputSchema: z.object({
       topic: z
         .enum([
@@ -211,6 +289,7 @@ export const librarianTools = {
               "tag",
               "untag",
               "collect",
+              "collect_by_name",
               "uncollect",
               "bulk_tag",
               "bulk_collect",
@@ -225,6 +304,8 @@ export const librarianTools = {
             tagId: z.number().int().positive().optional(),
             tagName: z.string().optional(),
             collectionId: z.number().int().positive().optional(),
+            /** For collect_by_name — shelf title resolved when the user approves. */
+            collectionName: z.string().optional(),
             itemIds: z.array(z.number().int().positive()).optional(),
             name: z.string().optional(),
             description: z.string().optional(),
@@ -267,6 +348,15 @@ export const librarianTools = {
                 type: "collect",
                 itemId: a.itemId,
                 collectionId: a.collectionId,
+              });
+            }
+            break;
+          case "collect_by_name":
+            if (a.itemId && a.collectionName) {
+              actions.push({
+                type: "collect_by_name",
+                itemId: a.itemId,
+                collectionName: a.collectionName,
               });
             }
             break;

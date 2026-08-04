@@ -28,7 +28,7 @@ export function RemoveFromCollectionButton({
           router.refresh();
         });
       }}
-      className="text-xs text-stone-500 hover:text-rose-700 disabled:opacity-60"
+      className="text-xs text-[var(--muted)] hover:text-[var(--danger)] disabled:opacity-60"
     >
       {pending ? "…" : "Remove"}
     </button>

@@ -1,10 +1,10 @@
-# AGENTS.md — non-os (session handoff)
+# AGENTS.md — Helix Library (session handoff)
 
 **Read this first** if you are an AI agent or a human resuming work on this repo.
 
 ## What this project is
 
-**non-os** is a **personal library system** for files on one machine:
+**Helix Library** is a **personal library system** for files on one machine:
 
 - Backend catalog (SQLite) over configured scan roots
 - Next.js web UI (catalog, collections, locations, services, media preview)
@@ -31,7 +31,7 @@ Product metaphor: public-library OPAC (holdings, branches, services, “ask a li
 1. **Localhost by default** — bind is loopback unless explicit LAN preview (`NON_OS_LAN=1` + `NON_OS_ACCESS_PASSWORD` + `npm run dev:lan`). Never expose without a password.
 2. **Explicit scan roots** — never default-scan `$HOME`; privacy-first.
 3. **Librarian mutations are approval-gated** — no shell, no unsolicited writes, no deleting project source. After user confirm (button or “approve”/“yes”), in-app actions may run: reindex, tags, collections, location config. Never arbitrary filesystem/shell.
-4. **Grok chat subscription ≠ API** — consumer SuperGrok/X Premium cannot power `/api/ask`. Cloud mode needs `XAI_API_KEY` from [console.x.ai](https://console.x.ai) and **opt-in** (`NON_OS_AGENT_MODE=xai` or `NON_OS_USE_XAI=1`). Default agent mode is **local**.
+4. **Grok chat subscription ≠ developer API** — SuperGrok/X Premium power grok.com and partner OAuth (e.g. OpenClaw), **not** Helix Library Ask. In-app Grok needs `XAI_API_KEY` from [console.x.ai](https://console.x.ai). Default mode is **auto**: use Grok when a key is present, else local. Opt out with `NON_OS_USE_XAI=0` or force local with `NON_OS_AGENT_MODE=local`.
 5. **Paths from tools only** — agent system prompt + local librarian must not invent file paths.
 6. **Media serve is gated** — `/api/media/[id]` only serves indexed files under enabled location roots (`src/lib/media/serve.ts`).
 7. **Do not commit** `library.config.json`, `data/`, personal `archive/**` (except `archive/README.md`), or secrets. See `.gitignore`.
@@ -56,10 +56,10 @@ Port is **4747** (not 3000). Scripts pin hostname to `127.0.0.1`.
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `NON_OS_CONFIG` | `./library.config.json` | Config path override |
-| `NON_OS_AGENT_MODE` | `local` | `local` \| `xai` \| `auto` |
-| `NON_OS_USE_XAI` | unset | With `auto`: only use xAI if `1`/`true` **and** key present |
-| `XAI_API_KEY` | unset | xAI **developer** key (server-side only) |
-| `NON_OS_MODEL` | `grok-4.5` | Model id when using xAI |
+| `NON_OS_AGENT_MODE` | `auto` | `local` \| `xai` \| `auto` (prefer Grok when key exists) |
+| `NON_OS_USE_XAI` | allow | Set `0`/`false` to force local even if `XAI_API_KEY` is set |
+| `XAI_API_KEY` | unset | xAI **developer** key from console.x.ai (not SuperGrok) |
+| `NON_OS_MODEL` | `grok-4.3` | Model id when using Grok API (override if your team has others) |
 
 ### Optional host tools
 
@@ -93,19 +93,21 @@ Browser → Next.js App Router (127.0.0.1:4747)
 
 ```text
 src/
-  app/                 # routes + API
-  components/          # UI (Header is client: hamburger nav)
+  app/                 # routes + API (/graph knowledge map)
+  components/          # Header (nav + HelixMark), catalog, graph, chat
   lib/
-    agent/             # Librarian modes, tools, threads, local NLP
-    catalog/           # searchCatalog, FTS, stats
+    agent/             # modes, tools, threads, local NLP, actions
+    catalog/           # hybrid searchCatalog, FTS, stats
     collections/       # shelves + tags
+    graph/             # buildKnowledgeGraph for /graph
     db/                # client, schema, migrate
     indexer/           # walk, hash, classify, enrich, runReindex
     locations/         # add/update/remove locations + config persist
     media/             # secure serve, preview types, exif
     machine/           # host probe
     config.ts, types.ts, nav.ts, format.ts
-scripts/reindex.ts
+public/                # helix-mark.*, hero-helix.jpg
+scripts/reindex.ts     # + optional vision_tag_images.py (gallery tooling)
 archive/               # primary personal holdings (gitignored files)
 fixtures/sample-root/  # tiny fixture tree (optional)
 library.config.example.json
@@ -131,22 +133,26 @@ npm run typecheck
 npm run test             # classify, indexer fixtures, local librarian, PDF
 npm run reindex          # if indexer/enrichment/schema touched
 npm run build            # before calling a slice “done”
-# manual smoke: /  /catalog  /catalog/{id}  /ask  /docs  /locations
+# manual smoke: /  /catalog  /graph  /catalog/{id}  /ask  /docs  /collections  /locations
 # media: GET /api/media/{id}  and Range request on video
 ```
 
 ## Current status (high level)
 
-**Implemented and working (MVP+):**
+**Daily-usable Helix Library (2026-08-04 handoff):**
 
-- Config + SQLite catalog + FTS (name/path + body)
-- Indexer + enrichment (thumbs, posters, duration, text sample, PDF body)
-- Catalog grid/list, filters, lightbox, item media viewer, EXIF panel (optional tool)
-- Locations admin, collections & tags
-- Local Librarian + optional xAI agent path
-- In-app `/docs` + responsive chrome
+- Config + SQLite catalog + **hybrid** FTS/LIKE search
+- Indexer + enrichment; media/lightbox/EXIF
+- Catalog + kind-tinted cards; collapsible tag facets (dense vision tags)
+- Collections (uniform shelf cards); locations; services
+- **`/graph`** 3D knowledge map (thinned tags; layer toggles)
+- Ask: Grok when keyed; **`catalog_read`**; server-side approve (no hallucinated writes)
+- Space dark/light UI; **generated H+helix** brand mark; primary/More nav
+- Tests: `npm test` (28) green as of handoff
 
-**Not done / natural next work:** see [docs/SESSION-HANDOFF.md](./docs/SESSION-HANDOFF.md).
+**Working tree:** large uncommitted delta since `d3fd658` — see SESSION-HANDOFF.
+
+**Next work:** see [docs/SESSION-HANDOFF.md](./docs/SESSION-HANDOFF.md).
 
 ## Safety for future agent features
 

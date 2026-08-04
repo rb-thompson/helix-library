@@ -4,7 +4,7 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Loader2, Send, Sparkles, Trash2 } from "lucide-react";
-import Link from "next/link";
+import { AssistantMarkdown } from "@/components/AssistantMarkdown";
 import { Tooltip } from "@/components/Tooltip";
 
 type ThreadRow = {
@@ -39,6 +39,7 @@ function actionButtonLabel(payload: string): string {
         case "bulk_tag":
           return "Approve tag";
         case "collect":
+        case "collect_by_name":
         case "bulk_collect":
           return "Approve shelf";
         case "create_collection":
@@ -67,90 +68,74 @@ function actionButtonLabel(payload: string): string {
   return "Approve";
 }
 
+type ActionHit =
+  | { kind: "json"; payload: string }
+  | { kind: "legacy"; payload: string };
+
+function extractActions(text: string): {
+  markdown: string;
+  actions: ActionHit[];
+} {
+  const actions: ActionHit[] = [];
+  let markdown = text;
+
+  markdown = markdown.replace(/\[\[action:(\{[\s\S]*?\})\]\]/g, (_, json: string) => {
+    actions.push({ kind: "json", payload: json });
+    return "\n";
+  });
+  markdown = markdown.replace(/\[\[propose:([^\]]+)\]\]/g, (_, legacy: string) => {
+    actions.push({ kind: "legacy", payload: legacy });
+    return "\n";
+  });
+
+  // Collapse leftover blank lines from stripped tokens
+  markdown = markdown.replace(/\n{3,}/g, "\n\n").trim();
+  return { markdown, actions };
+}
+
 function renderAssistantText(
   text: string,
   onAction?: (kind: "legacy" | "json", payload: string) => void,
   proposeBusy?: string | null,
   onApproveAll?: () => void,
-): React.ReactNode[] {
-  // Links, bold, [[action:{json}]], legacy [[propose:...]]
-  const withLinks = text.split(
-    /(\/catalog\/\d+|\*\*[^*]+\*\*|\[\[action:\{[\s\S]*?\}\]\]|\[\[propose:[^\]]+\]\])/g,
+): React.ReactNode {
+  const { markdown, actions } = extractActions(text);
+
+  return (
+    <div className="space-y-2">
+      {markdown ? <AssistantMarkdown text={markdown} /> : null}
+      {actions.length > 0 ? (
+        <div className="flex flex-wrap items-center gap-1.5 pt-0.5">
+          {actions.map((a, i) => {
+            const busy = proposeBusy === a.payload;
+            return (
+              <button
+                key={`${a.kind}-${i}-${a.payload.slice(0, 24)}`}
+                type="button"
+                disabled={busy || !onAction}
+                onClick={() => onAction?.(a.kind, a.payload)}
+                className="btn btn-primary btn-sm"
+              >
+                {busy ? "Working…" : actionButtonLabel(a.payload)}
+              </button>
+            );
+          })}
+          {actions.length > 1 && onApproveAll ? (
+            <button
+              type="button"
+              disabled={Boolean(proposeBusy)}
+              onClick={onApproveAll}
+              className="btn btn-secondary btn-sm"
+            >
+              {proposeBusy === "__all__"
+                ? "Working…"
+                : `Approve all (${actions.length})`}
+            </button>
+          ) : null}
+        </div>
+      ) : null}
+    </div>
   );
-
-  const actionCount = (text.match(/\[\[action:\{/g) || []).length +
-    (text.match(/\[\[propose:/g) || []).length;
-
-  const nodes = withLinks.map((part, i) => {
-    if (/^\/catalog\/\d+$/.test(part)) {
-      return (
-        <Link
-          key={i}
-          href={part}
-          className="font-medium text-[var(--accent)] underline-offset-2 hover:underline"
-        >
-          {part}
-        </Link>
-      );
-    }
-    if (/^\*\*[^*]+\*\*$/.test(part)) {
-      return (
-        <strong key={i} className="font-semibold">
-          {part.slice(2, -2)}
-        </strong>
-      );
-    }
-    const actionJson = part.match(/^\[\[action:(\{[\s\S]*\})\]\]$/);
-    if (actionJson) {
-      const payload = actionJson[1];
-      const busy = proposeBusy === payload;
-      return (
-        <button
-          key={i}
-          type="button"
-          disabled={busy || !onAction}
-          onClick={() => onAction?.("json", payload)}
-          className="btn btn-primary btn-sm my-1"
-        >
-          {busy ? "Working…" : actionButtonLabel(payload)}
-        </button>
-      );
-    }
-    const propose = part.match(/^\[\[propose:([^\]]+)\]\]$/);
-    if (propose) {
-      const payload = propose[1];
-      const busy = proposeBusy === payload;
-      return (
-        <button
-          key={i}
-          type="button"
-          disabled={busy || !onAction}
-          onClick={() => onAction?.("legacy", payload)}
-          className="btn btn-primary btn-sm my-1"
-        >
-          {busy ? "Working…" : actionButtonLabel(payload)}
-        </button>
-      );
-    }
-    return <span key={i}>{part}</span>;
-  });
-
-  if (actionCount > 1 && onApproveAll) {
-    nodes.push(
-      <div key="approve-all" className="mt-2">
-        <button
-          type="button"
-          disabled={Boolean(proposeBusy)}
-          onClick={onApproveAll}
-          className="btn btn-secondary btn-sm"
-        >
-          {proposeBusy === "__all__" ? "Working…" : `Approve all (${actionCount})`}
-        </button>
-      </div>,
-    );
-  }
-
-  return nodes;
 }
 
 export function LibrarianChat({
@@ -369,7 +354,7 @@ export function LibrarianChat({
         {/* Horizontal thread chips on small screens; list on lg+ */}
         <ul className="flex max-h-28 gap-1.5 overflow-x-auto pb-1 sm:max-h-36 lg:max-h-[28rem] lg:flex-col lg:space-y-1 lg:overflow-y-auto lg:pb-0">
           {threads.length === 0 ? (
-            <li className="w-full px-2 py-3 text-center text-xs text-stone-500 lg:py-4">
+            <li className="w-full px-2 py-3 text-center text-xs text-[var(--muted)] lg:py-4">
               No conversations yet
             </li>
           ) : (
@@ -383,8 +368,8 @@ export function LibrarianChat({
                   onClick={() => loadThread(t.id)}
                   className={`min-w-[9rem] max-w-[12rem] flex-1 rounded-md px-2.5 py-2 text-left text-xs lg:min-w-0 lg:max-w-none ${
                     threadId === t.id
-                      ? "bg-teal-50 font-medium text-teal-900"
-                      : "bg-stone-50 text-stone-700 hover:bg-stone-100 lg:bg-transparent lg:hover:bg-stone-50"
+                      ? "bg-[var(--accent-soft)] font-medium text-[var(--accent)]"
+                      : "bg-[var(--paper-deep)] text-[var(--ink-soft)] hover:bg-[var(--surface-hover)] lg:bg-transparent lg:hover:bg-[var(--surface-hover)]"
                   }`}
                 >
                   <span className="line-clamp-2">{t.title}</span>
@@ -392,7 +377,7 @@ export function LibrarianChat({
                 <button
                   type="button"
                   onClick={() => removeThread(t.id)}
-                  className="rounded p-1.5 text-stone-400 hover:bg-rose-50 hover:text-rose-700 lg:opacity-0 lg:group-hover:opacity-100"
+                  className="rounded p-1.5 text-[var(--muted-faint)] hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] lg:opacity-0 lg:group-hover:opacity-100"
                   aria-label="Delete conversation"
                   title="Delete this conversation history"
                 >
@@ -462,11 +447,11 @@ export function LibrarianChat({
               return (
                 <div
                   key={m.id}
-                  className={`max-w-[90%] rounded-[var(--radius-sm)] px-3 py-2 text-sm whitespace-pre-wrap ${
+                  className={
                     m.role === "user"
-                      ? "ml-auto bg-[var(--accent)] text-white"
-                      : "bg-[var(--paper-deep)] text-[var(--ink)]"
-                  }`}
+                      ? "ml-auto max-w-[85%] whitespace-pre-wrap rounded-[var(--radius-sm)] bg-[var(--accent)] px-3 py-2 text-sm text-[var(--accent-fg)]"
+                      : "max-w-[min(100%,36rem)] rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3.5 py-2.5 text-sm shadow-[var(--shadow-soft)] sm:max-w-[90%]"
+                  }
                 >
                   {m.role === "assistant"
                     ? renderAssistantText(

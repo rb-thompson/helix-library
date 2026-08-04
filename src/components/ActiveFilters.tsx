@@ -30,7 +30,7 @@ export function ActiveFilters({
           className="chip chip-active group"
         >
           <span className="max-w-[14rem] truncate">{chip.label}</span>
-          <span className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[var(--accent)] transition group-hover:bg-[rgb(15_92_86_/_0.12)]">
+          <span className="inline-flex h-4 w-4 items-center justify-center rounded-full text-[var(--accent)] transition group-hover:bg-[var(--accent-muted)]">
             <X className="h-3 w-3" aria-hidden />
             <span className="sr-only">Remove {chip.label}</span>
           </span>

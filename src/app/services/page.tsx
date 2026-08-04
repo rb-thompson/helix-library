@@ -48,12 +48,12 @@ export default function ServicesPage() {
             <ReindexButton initialJob={initialJob} />
           </div>
           {latest ? (
-            <div className="mt-4 rounded-lg bg-stone-50 p-3 text-sm text-stone-700">
+            <div className="surface-inset mt-4 p-3 text-sm text-[var(--ink-soft)]">
               <p>
                 <span className="font-medium">Last job</span> #{latest.id} ·{" "}
                 {latest.status}
               </p>
-              <p className="text-xs text-stone-500">
+              <p className="text-xs text-[var(--muted)]">
                 Started {formatDate(latest.startedAt)} · Finished{" "}
                 {formatDate(latest.finishedAt)}
               </p>
@@ -66,13 +66,13 @@ export default function ServicesPage() {
                 </p>
               ) : null}
               {latest.error ? (
-                <p className="mt-1 text-rose-700">{latest.error}</p>
+                <p className="mt-1 text-[var(--danger)]">{latest.error}</p>
               ) : null}
             </div>
           ) : null}
-          <p className="mt-3 text-xs text-stone-500">
+          <p className="mt-3 text-xs text-[var(--muted)]">
             CLI:{" "}
-            <code className="rounded bg-stone-100 px-1">npm run reindex</code>
+            <code className="code-inline">npm run reindex</code>
           </p>
         </section>
 

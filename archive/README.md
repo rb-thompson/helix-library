@@ -1,6 +1,6 @@
 # Archive
 
-Primary holdings root for this non-os library instance.
+Primary holdings root for this Helix Library instance.
 
 Project docs for developers/agents: [../AGENTS.md](../AGENTS.md), [../docs/SESSION-HANDOFF.md](../docs/SESSION-HANDOFF.md).
 

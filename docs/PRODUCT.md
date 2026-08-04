@@ -1,4 +1,4 @@
-# non-os — Product notes
+# Helix Library — Product notes
 
 Personal library system: catalog engine + web surface + single Librarian agent.
 
@@ -6,7 +6,7 @@ Personal library system: catalog engine + web surface + single Librarian agent.
 
 Public library OPAC/services mapped onto personal files and host machine limits.
 
-| Library | non-os |
+| Library | Helix Library |
 | --- | --- |
 | Holdings | Indexed files |
 | Branches / locations | Configured scan roots |
@@ -24,8 +24,9 @@ Public library OPAC/services mapped onto personal files and host machine limits.
 - Catalog grid/list, media preview, lightbox
 - Locations admin; collections & tags
 - Read-only machine probe
-- Librarian: **local by default**; optional developer API (not a Grok chat sub)
-- In-app Getting Started (`/docs`); responsive UI
+- Librarian: **Grok when developer API key present**; else local; content read via catalog extract; mutations approval-gated
+- In-app Getting Started (`/docs`) including agent guide
+- Space UI (dark/light), knowledge graph (`/graph`), kind-tinted cards, Helix brand mark
 
 ## Non-goals (v1)
 

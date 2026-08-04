@@ -1,4 +1,4 @@
-# Architecture — non-os
+# Architecture — Helix Library
 
 ## Goals
 
@@ -119,18 +119,21 @@ EXIF: `readExif()` via system exiftool when available.
 
 | Piece | Path |
 | --- | --- |
-| Mode resolution | `src/lib/agent/mode.ts` |
-| Local answers | `src/lib/agent/local.ts` (intent → catalog/machine/help) |
+| Mode resolution | `src/lib/agent/mode.ts` (`auto` → Grok if key, else local) |
+| Local answers | `src/lib/agent/local.ts` (intent + propose/confirm via thread) |
+| Mutations | `src/lib/agent/actions.ts` + `POST /api/agent/actions` |
 | LLM tools | `src/lib/agent/tools.ts` (AI SDK `tool()`) |
 | System prompt | `src/lib/agent/prompt.ts` |
 | Persistence | `src/lib/agent/threads.ts` |
-| HTTP | `POST /api/ask`, `GET /api/ask` (status), threads API |
-| UI | `src/components/LibrarianChat.tsx` |
+| HTTP | `POST /api/ask`, `GET /api/ask`, threads API |
+| UI | `LibrarianChat.tsx` + `AssistantMarkdown.tsx` |
 
-**local:** `createUIMessageStream` of `localLibrarianReply(userText)`.  
-**xai:** `streamText` + `createXai` + `xai.responses(model)` + tools, `stopWhen: stepCountIs(8)`.
+**local:** stream of `localLibrarianReply(userText, { threadId })`.  
+**xai (Grok):** `streamText` + `createXai` + **`xai(model)`** (chat completions; default model `grok-4.3`) + tools, `stopWhen: stepCountIs(8)`.
 
-Tools (read-only): `catalog_search`, `catalog_get`, `list_locations`, `list_collections`, `machine_status`, `system_help`.
+**Tools:** `catalog_search`, `catalog_get`, **`catalog_read`** (indexed body), `list_locations`, `list_collections`, `machine_status`, `system_help`, **`propose_actions`** (stages mutations; user must approve).
+
+**Search hybrid:** `searchTokens` + FTS prefix OR + `LIKE %token%` on name/rel_path/title (compound filenames).
 
 ## Locations & collections
 

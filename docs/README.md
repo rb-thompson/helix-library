@@ -10,3 +10,5 @@
 | App route `/docs` | End users | Getting started in the UI |
 
 When picking up work after a break: open **AGENTS.md**, then **SESSION-HANDOFF.md**, then run `npm run dev`.
+
+End-user agent guidance lives in the app at **`/docs#librarian`** and **`/docs#agent-tasks`**.

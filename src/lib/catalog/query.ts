@@ -144,20 +144,100 @@ function buildBaseFilters(
   return { filters, args };
 }
 
-function ftsMatchClause(q: string): { clause: string; match: string } | null {
-  const sanitized = q
+/** Drop filler so "images of Finn or Phoebe" → finn, phoebe */
+const SEARCH_STOPWORDS = new Set([
+  "a",
+  "an",
+  "and",
+  "any",
+  "are",
+  "do",
+  "does",
+  "for",
+  "from",
+  "have",
+  "i",
+  "in",
+  "is",
+  "me",
+  "my",
+  "of",
+  "on",
+  "or",
+  "the",
+  "to",
+  "with",
+  "where",
+  "what",
+  "which",
+  "show",
+  "find",
+  "list",
+  "get",
+  "there",
+  "files",
+  "file",
+  "images",
+  "image",
+  "photos",
+  "photo",
+  "pictures",
+  "picture",
+  "docs",
+  "documents",
+  "holdings",
+  "holding",
+  "catalog",
+]);
+
+/**
+ * Meaningful search tokens from a free-text query.
+ * Splits on whitespace and explicit OR/| so compound names can hit via LIKE.
+ */
+export function searchTokens(q: string): string[] {
+  const raw = q
     .replace(/["']/g, " ")
+    .replace(/\bOR\b/gi, " ")
+    .replace(/\|/g, " ")
     .split(/\s+/)
-    .filter(Boolean)
-    .map((t) => `"${t.replace(/"/g, "")}"*`)
-    .join(" ");
-  if (!sanitized) return null;
-  return {
-    match: sanitized,
-    clause: `(
+    .map((t) => t.replace(/[^\w.+-]/g, "").toLowerCase())
+    .filter((t) => t.length >= 2 && !SEARCH_STOPWORDS.has(t));
+  return [...new Set(raw)];
+}
+
+/**
+ * Hybrid match: FTS prefix OR (any token) + substring on name/path/title.
+ * Fixes compound filenames like finnandphoebe.jpeg matching "phoebe".
+ */
+function textMatchSql(tokens: string[]): {
+  clause: string;
+  args: unknown[];
+} | null {
+  if (!tokens.length) return null;
+
+  // FTS: OR so "finn phoebe" can hit either prefix
+  const ftsMatch = tokens.map((t) => `"${t.replace(/"/g, "")}"*`).join(" OR ");
+
+  // Substring: %phoebe% inside finnandphoebe.jpeg
+  const likeParts: string[] = [];
+  const likeArgs: unknown[] = [];
+  for (const t of tokens) {
+    const pat = `%${t}%`;
+    likeParts.push(
+      `(i.name LIKE ? COLLATE NOCASE OR i.rel_path LIKE ? COLLATE NOCASE OR i.title LIKE ? COLLATE NOCASE)`,
+    );
+    likeArgs.push(pat, pat, pat);
+  }
+
+  const clause = `(
       i.id IN (SELECT rowid FROM items_fts WHERE items_fts MATCH ?)
       OR i.id IN (SELECT rowid FROM item_body_fts WHERE item_body_fts MATCH ?)
-    )`,
+      OR (${likeParts.join(" OR ")})
+    )`;
+
+  return {
+    clause,
+    args: [ftsMatch, ftsMatch, ...likeArgs],
   };
 }
 
@@ -188,10 +268,14 @@ export function searchCatalog(params: CatalogSearchParams = {}): {
   const order = orderSql(sort, sortDir);
 
   if (q) {
-    const fts = ftsMatchClause(q);
-    if (!fts) {
+    const tokens = searchTokens(q);
+    const textMatch = textMatchSql(tokens);
+    if (!textMatch) {
       return { items: [], total: 0, page, pageSize, sort, sortDir };
     }
+
+    const matchArgs = textMatch.args;
+    const matchClause = textMatch.clause;
 
     const totalRow = sqlite
       .prepare(
@@ -199,10 +283,10 @@ export function searchCatalog(params: CatalogSearchParams = {}): {
         SELECT count(*) as c
         FROM items i
         JOIN locations l ON l.id = i.location_id
-        WHERE ${fts.clause} AND ${where}
+        WHERE ${matchClause} AND ${where}
       `,
       )
-      .get(fts.match, fts.match, ...args) as { c: number };
+      .get(...matchArgs, ...args) as { c: number };
 
     const rows = sqlite
       .prepare(
@@ -229,12 +313,12 @@ export function searchCatalog(params: CatalogSearchParams = {}): {
           i.is_missing as isMissing
         FROM items i
         JOIN locations l ON l.id = i.location_id
-        WHERE ${fts.clause} AND ${where}
+        WHERE ${matchClause} AND ${where}
         ORDER BY ${order}
         LIMIT ? OFFSET ?
       `,
       )
-      .all(fts.match, fts.match, ...args, pageSize, offset) as Array<
+      .all(...matchArgs, ...args, pageSize, offset) as Array<
       Parameters<typeof mapRow>[0]
     >;
 
@@ -308,7 +392,7 @@ export function searchCatalog(params: CatalogSearchParams = {}): {
 export function catalogFacets(params: CatalogSearchParams = {}): CatalogFacets {
   const sqlite = getSqlite();
   const q = params.q?.trim() ?? "";
-  const fts = q ? ftsMatchClause(q) : null;
+  const textMatch = q ? textMatchSql(searchTokens(q)) : null;
 
   function run(
     omit: { omitKind?: boolean; omitLocation?: boolean; omitTag?: boolean },
@@ -316,10 +400,9 @@ export function catalogFacets(params: CatalogSearchParams = {}): CatalogFacets {
     groupBy: string,
   ): Array<Record<string, unknown>> {
     const { filters, args } = buildBaseFilters(params, omit);
-    // When omitting tag filter, rebuild without tagId for collection-only
     const where = filters.join(" AND ");
-    const matchArgs = fts ? [fts.match, fts.match] : [];
-    const matchClause = fts ? `${fts.clause} AND ` : "";
+    const matchArgs = textMatch ? textMatch.args : [];
+    const matchClause = textMatch ? `${textMatch.clause} AND ` : "";
     return sqlite
       .prepare(
         `
@@ -351,8 +434,8 @@ export function catalogFacets(params: CatalogSearchParams = {}): CatalogFacets {
   // tags: counts of tags among matching items (omit tag filter)
   const { filters, args } = buildBaseFilters(params, { omitTag: true });
   const where = filters.join(" AND ");
-  const matchArgs = fts ? [fts.match, fts.match] : [];
-  const matchClause = fts ? `${fts.clause} AND ` : "";
+  const matchArgs = textMatch ? textMatch.args : [];
+  const matchClause = textMatch ? `${textMatch.clause} AND ` : "";
   const tagRows = sqlite
     .prepare(
       `

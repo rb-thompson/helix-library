@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { ActiveFilters, type FilterChip } from "@/components/ActiveFilters";
 import { CatalogResults } from "@/components/CatalogResults";
+import { CollapsibleTagList } from "@/components/CollapsibleTagList";
 import { SearchForm } from "@/components/SearchForm";
 import {
   catalogFacets,
@@ -88,7 +89,15 @@ export default async function CatalogPage({
   const facets = catalogFacets(searchParamsObj);
   const locations = listLocationsWithCounts();
   const collections = listCollections();
-  const tags = listTags();
+  // Full tag list for resolving active chip; dropdown uses popular only.
+  const tags = listTags({ sortBy: "count" });
+  const popularTags = tags.filter((t) => Number(t.itemCount) >= 2).slice(0, 60);
+  const activeTag =
+    tagId === "" ? null : (tags.find((t) => t.id === tagId) ?? null);
+  const tagSelectOptions =
+    activeTag && !popularTags.some((t) => t.id === activeTag.id)
+      ? [activeTag, ...popularTags]
+      : popularTags;
   const totalPages = Math.max(1, Math.ceil(result.total / result.pageSize));
   const thumbIds = result.items
     .filter((i) => hasThumb(i.id))
@@ -298,11 +307,17 @@ export default async function CatalogPage({
             name="tag"
             defaultValue={tagId === "" ? "" : String(tagId)}
             className="field"
+            title={
+              tags.length > tagSelectOptions.length
+                ? `Showing ${tagSelectOptions.length} popular tags (${tags.length} total). Use facet chips or expand below for more.`
+                : undefined
+            }
           >
             <option value="">Any tag</option>
-            {tags.map((t) => (
+            {tagSelectOptions.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}
+                {t.itemCount != null ? ` (${t.itemCount})` : ""}
               </option>
             ))}
           </select>
@@ -365,28 +380,19 @@ export default async function CatalogPage({
             </div>
           ) : null}
           {facets.tags.length > 0 ? (
-            <div className="min-w-0">
-              <p className="label-quiet">By tag</p>
-              <ul className="flex flex-wrap gap-1.5">
-                {facets.tags.map((f) => (
-                  <li key={f.id}>
-                    <Link
-                      href={hrefFor({
-                        tag: tagId === f.id ? "" : String(f.id),
-                        page: 1,
-                      })}
-                      className={
-                        tagId === f.id ? "chip chip-active" : "chip"
-                      }
-                    >
-                      #{f.name}
-                      <span className="tabular-nums text-[var(--muted-faint)]">
-                        {f.c}
-                      </span>
-                    </Link>
-                  </li>
-                ))}
-              </ul>
+            <div className="min-w-0 max-w-full flex-1">
+              <CollapsibleTagList
+                label="By tag"
+                tags={facets.tags.map((f) => ({
+                  ...f,
+                  href: hrefFor({
+                    tag: tagId === f.id ? "" : String(f.id),
+                    page: 1,
+                  }),
+                }))}
+                activeId={tagId}
+                initial={10}
+              />
             </div>
           ) : null}
         </div>

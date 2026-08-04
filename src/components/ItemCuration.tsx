@@ -7,6 +7,53 @@ import { HelpTip, Tooltip } from "@/components/Tooltip";
 
 type Named = { id: number; name: string };
 
+const TAG_PREVIEW = 6;
+
+function ItemTagChips({
+  itemTags,
+  pending,
+  onRemove,
+}: {
+  itemTags: Named[];
+  pending: boolean;
+  onRemove: (tagId: number) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  if (itemTags.length === 0) {
+    return <span className="text-sm text-[var(--muted)]">No tags yet</span>;
+  }
+  const visible = open ? itemTags : itemTags.slice(0, TAG_PREVIEW);
+  const more = itemTags.length - TAG_PREVIEW;
+
+  return (
+    <div className="flex flex-wrap items-center gap-1.5">
+      {visible.map((t) => (
+        <span key={t.id} className="chip chip-active">
+          #{t.name}
+          <button
+            type="button"
+            disabled={pending}
+            onClick={() => onRemove(t.id)}
+            className="rounded-full p-0.5 hover:bg-[var(--accent-muted)]"
+            aria-label={`Remove tag ${t.name}`}
+          >
+            <X className="h-3 w-3" />
+          </button>
+        </span>
+      ))}
+      {more > 0 ? (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
+          className="text-xs font-medium text-[var(--muted)] hover:text-[var(--ink)]"
+        >
+          {open ? "Show less" : `+${more} more`}
+        </button>
+      ) : null}
+    </div>
+  );
+}
+
 export function ItemCuration({
   itemId,
   collections,
@@ -122,26 +169,11 @@ export function ItemCuration({
           Tags
           <HelpTip content="Short labels for filtering (e.g. stem, resume)." />
         </h3>
-        <div className="flex flex-wrap gap-1.5">
-          {itemTags.length === 0 ? (
-            <span className="text-sm text-[var(--muted)]">No tags yet</span>
-          ) : (
-            itemTags.map((t) => (
-              <span key={t.id} className="chip chip-active">
-                #{t.name}
-                <button
-                  type="button"
-                  disabled={pending}
-                  onClick={() => removeTag(t.id)}
-                  className="rounded-full p-0.5 hover:bg-[rgb(15_92_86_/_0.12)]"
-                  aria-label={`Remove tag ${t.name}`}
-                >
-                  <X className="h-3 w-3" />
-                </button>
-              </span>
-            ))
-          )}
-        </div>
+        <ItemTagChips
+          itemTags={itemTags}
+          pending={pending}
+          onRemove={removeTag}
+        />
         <form onSubmit={addTag} className="mt-2 flex gap-2">
           <input
             value={tagInput}

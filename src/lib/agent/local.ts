@@ -5,15 +5,11 @@ import {
 } from "@/lib/catalog/query";
 import { listCollections } from "@/lib/collections/manage";
 import {
-  extractActionsFromText,
   findCollectionByName,
   findLocationByName,
-  formatActionResults,
   formatProposalMessage,
-  isCancelUtterance,
-  isConfirmUtterance,
+  tryHandleConfirmOrCancel,
   type LibrarianAction,
-  executeLibrarianActions,
 } from "@/lib/agent/actions";
 import { SYSTEM_HELP_TOPICS } from "@/lib/agent/prompt";
 import { listMessages } from "@/lib/agent/threads";
@@ -68,9 +64,8 @@ function formatItemLine(item: {
   sizeBytes: number;
 }): string {
   const loc = item.locationName ?? item.location ?? "";
-  return `• **${item.name}** (${item.kind}) — ${loc}
-  Path: \`${item.path}\`
-  Catalog: /catalog/${item.id} · ${formatBytes(item.sizeBytes)}`;
+  return `• [${item.name}](/catalog/${item.id}) (${item.kind}) — ${loc}
+  Path: \`${item.path}\` · ${formatBytes(item.sizeBytes)}`;
 }
 
 function lastAssistantContent(threadId: number | undefined): string | null {
@@ -103,27 +98,10 @@ export function localLibrarianReply(
   const lower = q.toLowerCase();
   const threadId = opts?.threadId;
 
-  // --- Confirm / cancel pending proposals ---
-  if (isConfirmUtterance(q)) {
-    const last = lastAssistantContent(threadId);
-    if (!last) {
-      return "Nothing pending to approve. Ask me to do something first (e.g. **reindex now**, **create collection Career**).";
-    }
-    const actions = extractActionsFromText(last);
-    if (!actions.length) {
-      return "The last reply had no pending actions. Propose something first, then say **approve**.";
-    }
-    const results = executeLibrarianActions(actions);
-    return formatActionResults(results);
-  }
-
-  if (isCancelUtterance(q)) {
-    const last = lastAssistantContent(threadId);
-    const actions = last ? extractActionsFromText(last) : [];
-    if (!actions.length) {
-      return "No pending plan to cancel.";
-    }
-    return "Cancelled — pending proposals were not applied. Ask again anytime.";
+  // --- Confirm / cancel pending proposals (no LLM — real DB writes) ---
+  {
+    const handled = tryHandleConfirmOrCancel(q, lastAssistantContent(threadId));
+    if (handled != null) return handled;
   }
 
   // --- Mutation proposals ---
@@ -140,15 +118,55 @@ export function localLibrarianReply(
     );
   }
 
-  // create collection
+  // Multi-step first: create collection X and put/place/add Y (one approve batch)
+  const createAndShelve = q.match(
+    /\b(?:create|make|new)\s+(?:a\s+)?(?:collection|shelf)\s+(?:titled\s+|called\s+|named\s+)?(.+?)\s+and\s+(?:add|put|place|shelve)\s+(.+)$/i,
+  );
+  if (createAndShelve) {
+    const colName = createAndShelve[1]
+      .replace(/^["']|["']$/g, "")
+      .replace(/[.!]+$/, "")
+      .trim();
+    const itemQ = createAndShelve[2]
+      .replace(/\b(to it|on it|into it|inside of it|inside it|in it)\b/gi, "")
+      .replace(/^["']|["']$/g, "")
+      .replace(/[.!]+$/, "")
+      .trim();
+    if (colName.length >= 1 && colName.length <= 80) {
+      const hits = resolveSearchHits(itemQ, 5);
+      if (hits.total === 0) {
+        return formatProposalMessage(
+          "Create collection",
+          `No holdings matched “${itemQ}” yet — I can still create the shelf **${colName}**.`,
+          [{ type: "create_collection", name: colName }],
+        );
+      }
+      const item = hits.items[0];
+      const actions: LibrarianAction[] = [
+        { type: "create_collection", name: colName },
+        {
+          type: "collect_by_name",
+          itemId: item.id,
+          collectionName: colName,
+        },
+      ];
+      return formatProposalMessage(
+        "Create collection & shelve",
+        `One approval will create **${colName}** and add **${item.name}**.`,
+        actions,
+      );
+    }
+  }
+
+  // create collection (title only — not multi-step create+shelve)
   const createCol =
     lower.match(
-      /\b(?:create|make|new)\s+(?:a\s+)?(?:collection|shelf)\s+(?:called\s+|named\s+)?["']?(.+?)["']?\s*$/,
+      /\b(?:create|make|new)\s+(?:a\s+)?(?:collection|shelf)\s+(?:titled\s+|called\s+|named\s+)?["']?(.+?)["']?\s*$/,
     ) ||
     lower.match(
       /\b(?:create|make)\s+(?:collection|shelf)\s+["']([^"']+)["']/,
     );
-  if (createCol) {
+  if (createCol && !/\band\s+(?:add|put|place|shelve)\b/.test(lower)) {
     const name = createCol[1].replace(/[.!]+$/, "").trim();
     if (name.length >= 1 && name.length <= 80) {
       return formatProposalMessage(
@@ -358,43 +376,9 @@ export function localLibrarianReply(
     );
   }
 
-  // Multi-step: create collection X and put Y on it
-  const createAndShelve = lower.match(
-    /\bcreate\s+(?:collection|shelf)\s+(.+?)\s+and\s+(?:add|put|shelve)\s+(.+)$/,
-  );
-  if (createAndShelve) {
-    const colName = createAndShelve[1].trim();
-    const itemQ = createAndShelve[2]
-      .replace(/\b(to it|on it|into it)\b/g, "")
-      .trim();
-    const hits = resolveSearchHits(itemQ, 5);
-    if (hits.total === 0) {
-      return formatProposalMessage(
-        "Create collection",
-        `No holdings matched “${itemQ}” yet — I can still create the shelf **${colName}**.`,
-        [{ type: "create_collection", name: colName }],
-      );
-    }
-    // Can't chain collect with new id until create runs — propose create + note to re-ask
-    // Better: create_collection only first, tell user to approve then re-request shelve
-    // OR execute create+collect in one approve via bulk after create returns id in execute path
-    // For multi-step in one approve: use a special handler - for now propose create, and if single hit say "after approve, ask to add X"
-
-    // Smarter: execute path for create_collection then collect needs collection id.
-    // Support sequential in executeLibrarianActions only when create is first - post-process?
-    // Simpler multi-step proposal for local: two-phase message
-
-    const item = hits.items[0];
-    return formatProposalMessage(
-      "Create collection",
-      `Create **${colName}**, then say **add ${item.name} to collection ${colName}** to shelve it (two-step for a safe confirm).`,
-      [{ type: "create_collection", name: colName }],
-    );
-  }
-
   // Help topics
   if (
-    /\b(how (do|to)|help|what is non-os|explain)\b/.test(lower) ||
+    /\b(how (do|to)|help|what is (?:non-os|helix(?: library)?)|explain)\b/.test(lower) ||
     /\b(add location|scan root)\b/.test(lower) ||
     (/\breindex\b/.test(lower) &&
       /\b(how|what|explain|mean|does)\b/.test(lower))

@@ -6,6 +6,17 @@ import type { NextRequest } from "next/server";
  * Username is fixed as "library"; password from NON_OS_ACCESS_PASSWORD.
  * Loopback-only mode (default) leaves auth off.
  */
+function isLoopbackHost(host: string | null): boolean {
+  if (!host) return false;
+  const h = host.split(":")[0]?.toLowerCase() ?? "";
+  return (
+    h === "127.0.0.1" ||
+    h === "localhost" ||
+    h === "[::1]" ||
+    h === "::1"
+  );
+}
+
 export function middleware(req: NextRequest) {
   const lan =
     process.env.NON_OS_LAN === "1" ||
@@ -13,6 +24,11 @@ export function middleware(req: NextRequest) {
     process.env.NON_OS_ALLOW_LAN === "1";
 
   if (!lan) {
+    return NextResponse.next();
+  }
+
+  // Local machine use stays open even when LAN preview is enabled.
+  if (isLoopbackHost(req.headers.get("host"))) {
     return NextResponse.next();
   }
 
@@ -39,10 +55,10 @@ export function middleware(req: NextRequest) {
     }
   }
 
-  return new NextResponse("Authentication required for non-os LAN preview.", {
+  return new NextResponse("Authentication required for Helix Library LAN preview.", {
     status: 401,
     headers: {
-      "WWW-Authenticate": 'Basic realm="non-os library", charset="UTF-8"',
+      "WWW-Authenticate": 'Basic realm="Helix Library", charset="UTF-8"',
       "Content-Type": "text/plain; charset=utf-8",
     },
   });

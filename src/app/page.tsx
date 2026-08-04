@@ -6,6 +6,7 @@ import {
   HardDrive,
   Layers,
   MessageCircle,
+  Network,
   RefreshCw,
   Search,
 } from "lucide-react";
@@ -37,9 +38,20 @@ export default function HomePage() {
 
   return (
     <div className="space-y-7 sm:space-y-10">
-      <section className="surface relative overflow-hidden px-4 py-7 sm:px-8 sm:py-10 lg:px-10">
+      <section className="surface hero-frame relative overflow-hidden px-4 py-7 sm:px-8 sm:py-10 lg:px-10">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/hero-helix.jpg"
+          alt=""
+          className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
+          aria-hidden
+        />
         <div
-          className="pointer-events-none absolute -right-16 -top-20 h-56 w-56 rounded-full bg-[var(--accent-soft)] opacity-70 blur-2xl"
+          className="pointer-events-none absolute inset-0 bg-gradient-to-r from-[var(--surface)] via-[color-mix(in_srgb,var(--surface)_82%,transparent)] to-[color-mix(in_srgb,var(--surface)_40%,transparent)]"
+          aria-hidden
+        />
+        <div
+          className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[var(--surface)] via-transparent to-[color-mix(in_srgb,var(--surface)_50%,transparent)]"
           aria-hidden
         />
         <div className="relative">
@@ -108,12 +120,18 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3 xl:grid-cols-6">
+      <section className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
         <ServiceCard
           href="/catalog"
           icon={<Search className="h-4 w-4" />}
           title="Catalog"
           body="Search & preview holdings"
+        />
+        <ServiceCard
+          href="/graph"
+          icon={<Network className="h-4 w-4" />}
+          title="Graph"
+          body="3D knowledge map"
         />
         <ServiceCard
           href="/collections"
@@ -242,7 +260,7 @@ export default function HomePage() {
       </div>
 
       {stats.total === 0 ? (
-        <section className="surface-flat border-[rgb(15_92_86_/_0.2)] bg-[var(--accent-soft)] px-5 py-4 text-sm text-[var(--ink)]">
+        <section className="surface-flat border-[var(--accent-ring)] bg-[var(--accent-soft)] px-5 py-4 text-sm text-[var(--ink)]">
           <div className="flex items-start gap-3">
             <RefreshCw
               className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]"
@@ -321,17 +339,14 @@ function ServiceCard({
   body: string;
 }) {
   return (
-    <Link
-      href={href}
-      className="group surface-flat flex flex-col p-3 transition hover:border-[rgb(15_92_86_/_0.28)] hover:shadow-[var(--shadow-lift)] sm:p-3.5"
-    >
-      <div className="flex h-8 w-8 items-center justify-center rounded-[0.5rem] bg-[var(--accent-soft)] text-[var(--accent)] transition group-hover:bg-[var(--accent)] group-hover:text-white">
-        {icon}
-      </div>
-      <h3 className="mt-2.5 text-sm font-semibold tracking-tight text-[var(--ink)]">
+    <Link href={href} className="service-tile group">
+      <div className="service-tile__icon relative z-[1]">{icon}</div>
+      <h3 className="relative z-[1] mt-2.5 text-sm font-semibold tracking-tight text-[var(--ink)]">
         {title}
       </h3>
-      <p className="mt-0.5 line-clamp-2 text-xs text-[var(--muted)]">{body}</p>
+      <p className="relative z-[1] mt-0.5 line-clamp-2 text-xs text-[var(--muted)]">
+        {body}
+      </p>
     </Link>
   );
 }

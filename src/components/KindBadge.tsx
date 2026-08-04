@@ -20,9 +20,7 @@ export function KindBadge({
   kind: ItemKind | string;
   className?: string;
 }) {
-  const k = (
-    kind in tips ? kind : "other"
-  ) as ItemKind;
+  const k = (kind in tips ? kind : "other") as ItemKind;
   return (
     <span
       title={tips[k]}

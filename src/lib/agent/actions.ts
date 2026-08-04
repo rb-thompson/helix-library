@@ -1,5 +1,5 @@
 /**
- * Librarian mutations for sole-user local non-os.
+ * Librarian mutations for sole-user local Helix Library.
  *
  * Allowed: catalog / config-location / reindex operations inside the app.
  * Forbidden: shell, deleting project source, wiping the DB, writing arbitrary files.
@@ -33,6 +33,8 @@ export type LibrarianAction =
   | { type: "tag"; itemId: number; tagName: string }
   | { type: "untag"; itemId: number; tagId: number }
   | { type: "collect"; itemId: number; collectionId: number }
+  /** Shelve by collection name (resolves at execute time — use after create in same batch). */
+  | { type: "collect_by_name"; itemId: number; collectionName: string }
   | { type: "uncollect"; itemId: number; collectionId: number }
   | { type: "bulk_tag"; itemIds: number[]; tagName: string }
   | { type: "bulk_collect"; itemIds: number[]; collectionId: number }
@@ -60,6 +62,7 @@ const ACTION_TYPES = new Set([
   "tag",
   "untag",
   "collect",
+  "collect_by_name",
   "uncollect",
   "bulk_tag",
   "bulk_collect",
@@ -143,6 +146,8 @@ export function actionLabel(action: LibrarianAction): string {
       return `Remove tag`;
     case "collect":
       return `Shelf #${action.itemId}`;
+    case "collect_by_name":
+      return `Shelf #${action.itemId}`;
     case "uncollect":
       return `Unshelf`;
     case "bulk_tag":
@@ -180,6 +185,10 @@ export function describeAction(action: LibrarianAction): string {
       const item = getItemById(action.itemId);
       const col = getCollection(action.collectionId);
       return `Add **${item?.name ?? `#${action.itemId}`}** to shelf **${col?.name ?? action.collectionId}**.`;
+    }
+    case "collect_by_name": {
+      const item = getItemById(action.itemId);
+      return `Add **${item?.name ?? `#${action.itemId}`}** to shelf **${action.collectionName}**.`;
     }
     case "uncollect":
       return `Remove item #${action.itemId} from collection #${action.collectionId}.`;
@@ -284,11 +293,30 @@ export function executeLibrarianAction(action: LibrarianAction): ActionResult {
       }
       case "collect": {
         assertItem(action.itemId);
+        if (!getCollection(action.collectionId)) {
+          throw new Error(`Collection #${action.collectionId} not found`);
+        }
         addItemToCollection(action.collectionId, action.itemId);
         return {
           ok: true,
           action,
           message: `Shelved item #${action.itemId} → collection #${action.collectionId}.`,
+        };
+      }
+      case "collect_by_name": {
+        assertItem(action.itemId);
+        const col = findCollectionByName(action.collectionName);
+        if (!col) {
+          throw new Error(
+            `Collection “${action.collectionName}” not found — create it first or approve a create+shelve batch together.`,
+          );
+        }
+        addItemToCollection(col.id, action.itemId);
+        return {
+          ok: true,
+          action,
+          message: `Shelved item #${action.itemId} → **${col.name}** (#${col.id}).`,
+          data: { collectionId: col.id, name: col.name },
         };
       }
       case "uncollect": {
@@ -408,10 +436,100 @@ export function executeLibrarianAction(action: LibrarianAction): ActionResult {
   }
 }
 
+/**
+ * Execute actions in order. After a successful create_collection, later
+ * collect_by_name / collect steps can resolve the new shelf in the same batch.
+ */
 export function executeLibrarianActions(
   actions: LibrarianAction[],
 ): ActionResult[] {
-  return actions.map((a) => executeLibrarianAction(a));
+  const results: ActionResult[] = [];
+  let lastCreatedId: number | undefined;
+  let lastCreatedName: string | undefined;
+
+  for (const raw of actions) {
+    let action = raw;
+
+    // Wire collect → newly created shelf in this batch when id is missing/placeholder.
+    if (
+      raw.type === "collect" &&
+      lastCreatedId != null &&
+      (!Number.isFinite(raw.collectionId) || raw.collectionId <= 0)
+    ) {
+      action = { ...raw, collectionId: lastCreatedId };
+    }
+
+    // Prefer name resolution after create in the same batch.
+    if (raw.type === "collect_by_name" && lastCreatedName) {
+      const want = raw.collectionName.trim().toLowerCase();
+      if (
+        want === lastCreatedName.toLowerCase() ||
+        lastCreatedName.toLowerCase().includes(want) ||
+        want.includes(lastCreatedName.toLowerCase())
+      ) {
+        action = {
+          type: "collect",
+          itemId: raw.itemId,
+          collectionId: lastCreatedId!,
+        };
+      }
+    }
+
+    const result = executeLibrarianAction(action);
+    results.push(result);
+
+    if (
+      result.ok &&
+      raw.type === "create_collection" &&
+      typeof result.data?.id === "number"
+    ) {
+      lastCreatedId = result.data.id as number;
+      lastCreatedName = String(result.data.name ?? raw.name);
+    }
+  }
+
+  return results;
+}
+
+/**
+ * Handle chat confirm/cancel without involving an LLM.
+ * Returns a reply string, or null if the utterance is not confirm/cancel.
+ */
+export function tryHandleConfirmOrCancel(
+  userText: string,
+  lastAssistantText: string | null | undefined,
+): string | null {
+  const q = userText.trim();
+  if (!q) return null;
+
+  if (isConfirmUtterance(q)) {
+    if (!lastAssistantText?.trim()) {
+      return "Nothing pending to approve. Ask me to do something first (e.g. **create collection Outer Space**).";
+    }
+    const actions = extractActionsFromText(lastAssistantText);
+    if (!actions.length) {
+      return (
+        "The last reply had **no pending action tokens** (`[[action:…]]`), so nothing was executed.\n\n" +
+        "That usually means the assistant described a plan without staging it. Ask again in one message " +
+        "(e.g. **create collection Outer Space and add HFTZJn-WQAAV0Gp.jpeg**), then **approve** when buttons appear — " +
+        "or click **Approve** on a message that shows them."
+      );
+    }
+    const results = executeLibrarianActions(actions);
+    return formatActionResults(results);
+  }
+
+  if (isCancelUtterance(q)) {
+    const actions = lastAssistantText
+      ? extractActionsFromText(lastAssistantText)
+      : [];
+    if (!actions.length) {
+      return "No pending plan to cancel.";
+    }
+    return "Cancelled — pending proposals were not applied. Ask again anytime.";
+  }
+
+  return null;
 }
 
 export function formatActionResults(results: ActionResult[]): string {
