@@ -46,6 +46,9 @@ html[data-theme="dark"] {
   --shadow-lift: 0 1px 0 rgb(255 255 255 / 0.06) inset, 0 16px 48px rgb(0 0 0 / 0.45);
   --header-bg: rgb(8 9 12 / 0.82);
   --header-h: 3.5rem;
+  /* Content shell: padded, wider on ultrawide (tools/grids), not prose */
+  --shell-max: 80rem; /* ~max-w-7xl */
+  --shell-pad-x: 0.75rem;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
   --dur: 160ms;
 
@@ -106,6 +109,8 @@ html[data-theme="light"] {
   --shadow-soft: 0 1px 2px rgb(12 14 18 / 0.04), 0 8px 28px rgb(12 14 18 / 0.06);
   --shadow-lift: 0 2px 4px rgb(12 14 18 / 0.05), 0 16px 40px rgb(12 14 18 / 0.1);
   --header-bg: rgb(244 245 247 / 0.86);
+  --shell-max: 80rem;
+  --shell-pad-x: 0.75rem;
 
   --kind-text: #0369a1;
   --kind-text-bg: #e0f2fe;
@@ -132,9 +137,133 @@ html[data-theme="light"] {
   --font-mono: var(--font-geist-mono);
 }
 
+@media (min-width: 640px) {
+  :root,
+  html[data-theme="dark"],
+  html[data-theme="light"] {
+    --shell-pad-x: 1rem;
+  }
+}
+
+@media (min-width: 1024px) {
+  :root,
+  html[data-theme="dark"],
+  html[data-theme="light"] {
+    --shell-pad-x: 1.5rem;
+  }
+}
+
+/* Ultrawide: more room for grids/tools; prose still uses max-w-prose / page-sub */
+@media (min-width: 1536px) {
+  :root,
+  html[data-theme="dark"],
+  html[data-theme="light"] {
+    --shell-max: 90rem;
+  }
+}
+
 /* ─── Base ─── */
 html {
   scroll-behavior: smooth;
+}
+
+/* Shared horizontal shell (header / main / footer align) */
+.shell-x {
+  width: 100%;
+  max-width: var(--shell-max);
+  margin-left: auto;
+  margin-right: auto;
+  padding-left: max(var(--shell-pad-x), env(safe-area-inset-left, 0px));
+  padding-right: max(var(--shell-pad-x), env(safe-area-inset-right, 0px));
+}
+
+.prose-measure {
+  max-width: 42rem; /* ~prose */
+}
+
+/* Ask chat fills remaining viewport under sticky header */
+.ask-page {
+  display: flex;
+  flex-direction: column;
+  gap: 0.75rem;
+  /* header 3.5rem + main py + footer breathing room */
+  min-height: calc(100dvh - var(--header-h) - 5.5rem);
+}
+
+@media (min-width: 640px) {
+  .ask-page {
+    gap: 1rem;
+    min-height: calc(100dvh - var(--header-h) - 6.5rem);
+  }
+}
+
+/* Chat app shell: only the message list scrolls */
+.chat-shell {
+  display: grid;
+  gap: 0.75rem;
+  flex: 1 1 auto;
+  min-height: min(28rem, 70dvh);
+  /* Fill ask-page remaining space */
+  height: min(52rem, calc(100dvh - var(--header-h) - 9.5rem));
+}
+
+@media (min-width: 640px) {
+  .chat-shell {
+    gap: 1rem;
+    height: min(56rem, calc(100dvh - var(--header-h) - 10.5rem));
+  }
+}
+
+@media (min-width: 1024px) {
+  .chat-shell {
+    grid-template-columns: minmax(12rem, 15rem) minmax(0, 1fr);
+    height: min(58rem, calc(100dvh - var(--header-h) - 10rem));
+  }
+}
+
+@media (min-width: 1280px) {
+  .chat-shell {
+    grid-template-columns: minmax(14rem, 17.5rem) minmax(0, 1fr);
+  }
+}
+
+@media (min-width: 1536px) {
+  .chat-shell {
+    grid-template-columns: minmax(16rem, 20rem) minmax(0, 1fr);
+  }
+}
+
+.chat-panel {
+  display: flex;
+  min-height: 0;
+  min-width: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.chat-messages {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chat-composer {
+  flex-shrink: 0;
+  padding-bottom: max(0.5rem, env(safe-area-inset-bottom, 0px));
+}
+
+.chat-composer textarea.field {
+  min-height: 2.75rem;
+  max-height: 8.5rem;
+  resize: none;
+  field-sizing: content;
+  line-height: 1.4;
+  padding-top: 0.65rem;
+  padding-bottom: 0.65rem;
 }
 
 body {
@@ -221,6 +350,66 @@ select:focus:not(:focus-visible) {
 .graph-shell canvas {
   display: block;
   outline: none;
+}
+
+/* Graph view controls — terminal-ish range knobs */
+.graph-control {
+  display: flex;
+  min-width: 0;
+  flex-direction: column;
+  gap: 0.35rem;
+}
+
+.graph-control__label {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.5rem;
+  font-size: 0.65rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-family: var(--font-geist-mono), ui-monospace, monospace;
+}
+
+.graph-slider {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 100%;
+  height: 0.35rem;
+  border-radius: var(--radius-pill);
+  background: color-mix(in srgb, var(--ink) 12%, var(--paper-deep));
+  outline: none;
+  cursor: pointer;
+}
+
+.graph-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 2px;
+  background: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+
+.graph-slider::-moz-range-thumb {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 2px;
+  background: var(--accent);
+  border: 1px solid color-mix(in srgb, var(--ink) 20%, transparent);
+}
+
+html[data-theme="light"] .graph-slider {
+  background: color-mix(in srgb, var(--ink) 10%, var(--paper-deep));
+}
+
+html[data-theme="light"] .graph-shell {
+  /* Slightly cooler paper so phosphor inks contrast */
+  background: #eef0f3;
 }
 
 /* Homepage hero with Helix art */
@@ -629,27 +818,16 @@ select.field {
   border-color: var(--line-strong);
 }
 
-.group:hover .helix-mark-well,
-.group:focus-visible .helix-mark-well {
-  border-color: var(--muted-faint);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+/* Light theme: soften the dark-field mark into the light chrome */
+[data-theme="light"] .helix-mark-well {
+  background: color-mix(in srgb, var(--paper-deep) 70%, #0a0c10);
+  border-color: var(--line);
 }
 
-.group:hover .helix-mark-img,
-.group:focus-visible .helix-mark-img {
-  transform: scale(1.04);
-  transition: transform 220ms var(--ease);
-}
-
-.helix-mark-img {
-  transition: transform 220ms var(--ease);
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .group:hover .helix-mark-img,
-  .group:focus-visible .helix-mark-img {
-    transform: none;
-  }
+[data-theme="light"] .helix-mark-img {
+  /* Slight lift so monogram reads on pale wells without a second asset */
+  filter: contrast(1.05) saturate(1.05);
+  mix-blend-mode: normal;
 }
 
 /* ─── Holdings (kind-tinted quiet chrome) ─── */
@@ -828,6 +1006,19 @@ select.field {
   width: 3px;
   opacity: 1;
   background: var(--card-kind);
+}
+
+/* Search hit highlight (catalog snippets / names) */
+mark.search-hit {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  color: inherit;
+  border-radius: 0.15rem;
+  padding: 0 0.1em;
+  box-decoration-break: clone;
+}
+
+[data-theme="light"] mark.search-hit {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
 }
 
 .holding-row__thumb {
@@ -1242,6 +1433,8 @@ select.field {
   font-size: 0.875rem;
   line-height: 1.45;
   color: var(--ink);
+  overflow-wrap: anywhere;
+  word-break: break-word;
 }
 
 .chat-md > *:first-child {
@@ -1258,6 +1451,17 @@ select.field {
 .chat-md ol ul {
   margin-top: 0.35rem;
   margin-bottom: 0.15rem;
+}
+
+.chat-md pre,
+.chat-md .chat-md-pre {
+  max-width: 100%;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+.chat-md code {
+  overflow-wrap: anywhere;
 }
 
 /* ─── Chrome ─── */
@@ -1365,8 +1569,5 @@ header .tip::after {
   }
   .tip::after {
     transform: translateX(-50%);
-  }
-  .group:hover img {
-    transform: none;
   }
 }

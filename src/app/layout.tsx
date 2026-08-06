@@ -23,6 +23,14 @@ export const metadata: Metadata = {
   },
   description:
     "Personal library catalog for files, knowledge, and this machine. Localhost only.",
+  icons: {
+    icon: [
+      { url: "/helix-mark.png", type: "image/png", sizes: "128x128" },
+      { url: "/helix-mark.webp", type: "image/webp", sizes: "128x128" },
+    ],
+    apple: [{ url: "/helix-mark.png", sizes: "128x128", type: "image/png" }],
+    shortcut: "/helix-mark.png",
+  },
 };
 
 export const viewport = {
@@ -59,7 +67,7 @@ export default function RootLayout({
         <main
           id="main-content"
           tabIndex={-1}
-          className="mx-auto w-full max-w-7xl flex-1 px-3 py-5 outline-none sm:px-4 sm:py-7 lg:px-6"
+          className="shell-x flex-1 py-4 outline-none sm:py-6 lg:py-7"
         >
           {children}
         </main>

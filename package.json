@@ -10,6 +10,7 @@
     "start:lan": "NON_OS_LAN=1 NON_OS_ALLOW_LAN=1 NON_OS_BIND=0.0.0.0 next start --hostname 0.0.0.0 --port 4747",
     "lint": "eslint",
     "reindex": "tsx scripts/reindex.ts",
+    "watch": "tsx scripts/watch-reindex.ts",
     "typecheck": "tsc --noEmit",
     "test": "tsx --test tests/**/*.test.ts"
   },
@@ -23,7 +24,6 @@
     "lucide-react": "^1.27.0",
     "mime": "^4.1.0",
     "next": "15.5.22",
-    "openai": "^7.1.0",
     "pdf-parse": "^2.4.5",
     "picomatch": "^4.0.5",
     "react": "19.1.0",

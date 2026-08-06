@@ -63,14 +63,14 @@ export function Header() {
 
   return (
     <header className="site-header sticky top-0 z-50 supports-[padding:max(0px)]:pt-[env(safe-area-inset-top)]">
-      <div className="mx-auto flex h-14 max-w-7xl items-center justify-between gap-2 px-3 sm:gap-3 sm:px-4 lg:px-6">
+      <div className="shell-x flex h-14 items-center justify-between gap-2 sm:gap-3">
         <Link
           href="/"
           title="Helix Library home"
           aria-label="Helix Library home"
-          className="group flex min-w-0 items-center gap-2.5"
+          className="flex min-w-0 items-center gap-2.5"
         >
-          <span className="helix-mark-well h-9 w-9 shrink-0 rounded-[0.6rem] border transition sm:h-10 sm:w-10">
+          <span className="helix-mark-well h-9 w-9 shrink-0 rounded-[0.6rem] border sm:h-10 sm:w-10">
             <HelixMark />
           </span>
           <span className="min-w-0 leading-tight">

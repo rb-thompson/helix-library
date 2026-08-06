@@ -4,7 +4,7 @@ import { MAIN_NAV } from "@/lib/nav";
 export function Footer() {
   return (
     <footer className="site-footer mt-auto pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-      <div className="mx-auto max-w-7xl px-3 py-7 sm:px-4 lg:px-6">
+      <div className="shell-x py-7">
         <div className="flex flex-col gap-5 sm:flex-row sm:items-start sm:justify-between">
           <div className="max-w-md">
             <p className="text-sm text-[var(--ink-soft)]">
