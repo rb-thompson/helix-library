@@ -3,9 +3,17 @@
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Loader2, Send, Sparkles, Trash2 } from "lucide-react";
+import {
+  Loader2,
+  MessageSquare,
+  Send,
+  Sparkles,
+  Trash2,
+  X,
+} from "lucide-react";
 import { AssistantMarkdown } from "@/components/AssistantMarkdown";
 import { Tooltip } from "@/components/Tooltip";
+import { cn } from "@/lib/cn";
 
 type ThreadRow = {
   id: number;
@@ -151,7 +159,10 @@ export function LibrarianChat({
   const [bootError, setBootError] = useState<string | null>(null);
   const [proposeBusy, setProposeBusy] = useState<string | null>(null);
   const [proposeNote, setProposeNote] = useState<string | null>(null);
+  const [threadsOpen, setThreadsOpen] = useState(false);
   const bottomRef = useRef<HTMLDivElement>(null);
+  const messagesRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
   const threadIdRef = useRef<number | null>(null);
   threadIdRef.current = threadId;
 
@@ -181,8 +192,25 @@ export function LibrarianChat({
   const busy = status === "submitted" || status === "streaming";
 
   useEffect(() => {
-    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+    // Scroll inside the message pane only (not the whole page).
+    const pane = messagesRef.current;
+    if (pane) {
+      pane.scrollTop = pane.scrollHeight;
+    } else {
+      bottomRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
+    }
   }, [messages, status]);
+
+  function resizeComposer() {
+    const el = inputRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    el.style.height = `${Math.min(el.scrollHeight, 136)}px`;
+  }
+
+  useEffect(() => {
+    resizeComposer();
+  }, [input]);
 
   async function loadThread(id: number) {
     setBootError(null);
@@ -195,6 +223,7 @@ export function LibrarianChat({
         return;
       }
       setThreadId(id);
+      setThreadsOpen(false);
       const uiMessages: UIMessage[] = (
         data.messages as Array<{
           id: number;
@@ -217,6 +246,7 @@ export function LibrarianChat({
     setMessages([]);
     clearError();
     setBootError(null);
+    setThreadsOpen(false);
   }
 
   async function removeThread(id: number) {
@@ -300,11 +330,12 @@ export function LibrarianChat({
     }
   }
 
-  async function onSubmit(e: React.FormEvent) {
-    e.preventDefault();
+  async function onSubmit(e?: React.FormEvent) {
+    e?.preventDefault();
     const text = input.trim();
     if (!text || busy) return;
     setInput("");
+    if (inputRef.current) inputRef.current.style.height = "auto";
     clearError();
     setProposeNote(null);
 
@@ -336,92 +367,149 @@ export function LibrarianChat({
     await sendMessage({ text });
   }
 
+  function onComposerKeyDown(e: React.KeyboardEvent<HTMLTextAreaElement>) {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      void onSubmit();
+    }
+  }
+
+  const threadList = (
+    <>
+      <Tooltip
+        className="mb-2 w-full sm:mb-3"
+        content="Start a fresh conversation. Previous chats stay in the list."
+      >
+        <button
+          type="button"
+          onClick={newChat}
+          className="btn btn-primary min-h-11 w-full"
+        >
+          New chat
+        </button>
+      </Tooltip>
+      <ul className="flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto overscroll-contain">
+        {threads.length === 0 ? (
+          <li className="px-2 py-4 text-center text-xs text-[var(--muted)]">
+            No conversations yet
+          </li>
+        ) : (
+          threads.map((t) => (
+            <li
+              key={t.id}
+              className="group flex w-full shrink-0 items-stretch gap-1"
+            >
+              <button
+                type="button"
+                onClick={() => void loadThread(t.id)}
+                className={cn(
+                  "min-h-11 min-w-0 flex-1 rounded-md px-2.5 py-2 text-left text-xs",
+                  threadId === t.id
+                    ? "bg-[var(--accent-soft)] font-medium text-[var(--ink)]"
+                    : "bg-[var(--paper-deep)] text-[var(--ink-soft)] hover:bg-[var(--surface-hover)]",
+                )}
+              >
+                <span className="line-clamp-2">{t.title}</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => void removeThread(t.id)}
+                className="min-h-11 rounded p-2 text-[var(--muted-faint)] hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] lg:opacity-0 lg:group-hover:opacity-100"
+                aria-label="Delete conversation"
+                title="Delete this conversation history"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+              </button>
+            </li>
+          ))
+        )}
+      </ul>
+    </>
+  );
+
   return (
-    <div className="grid gap-3 sm:gap-4 lg:grid-cols-[240px_1fr] xl:grid-cols-[280px_1fr]">
-      <aside className="surface p-3">
-        <Tooltip
-          className="mb-2 w-full sm:mb-3"
-          content="Start a fresh conversation. Previous chats stay in the list."
+    <div className="chat-shell">
+      <aside className="surface hidden min-h-0 flex-col p-3 lg:flex">
+        {threadList}
+      </aside>
+
+      {threadsOpen ? (
+        <div
+          className="fixed inset-0 z-[60] flex flex-col bg-[rgb(0_0_0_/_0.45)] lg:hidden"
+          role="dialog"
+          aria-modal
+          aria-label="Conversations"
         >
           <button
             type="button"
-            onClick={newChat}
-            className="btn btn-primary w-full"
-          >
-            New chat
-          </button>
-        </Tooltip>
-        {/* Horizontal thread chips on small screens; list on lg+ */}
-        <ul className="flex max-h-28 gap-1.5 overflow-x-auto pb-1 sm:max-h-36 lg:max-h-[28rem] lg:flex-col lg:space-y-1 lg:overflow-y-auto lg:pb-0">
-          {threads.length === 0 ? (
-            <li className="w-full px-2 py-3 text-center text-xs text-[var(--muted)] lg:py-4">
-              No conversations yet
-            </li>
-          ) : (
-            threads.map((t) => (
-              <li
-                key={t.id}
-                className="group flex shrink-0 items-stretch gap-1 lg:w-full lg:shrink"
+            className="min-h-[20%] flex-1 cursor-default"
+            aria-label="Close chats"
+            onClick={() => setThreadsOpen(false)}
+          />
+          <div className="surface flex max-h-[75dvh] flex-col rounded-t-[var(--radius)] border-t p-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] shadow-[var(--shadow-lift)]">
+            <div className="mb-2 flex items-center justify-between gap-2">
+              <p className="text-sm font-semibold text-[var(--ink)]">Chats</p>
+              <button
+                type="button"
+                className="btn btn-ghost btn-icon"
+                onClick={() => setThreadsOpen(false)}
+                aria-label="Close"
               >
-                <button
-                  type="button"
-                  onClick={() => loadThread(t.id)}
-                  className={`min-w-[9rem] max-w-[12rem] flex-1 rounded-md px-2.5 py-2 text-left text-xs lg:min-w-0 lg:max-w-none ${
-                    threadId === t.id
-                      ? "bg-[var(--accent-soft)] font-medium text-[var(--accent)]"
-                      : "bg-[var(--paper-deep)] text-[var(--ink-soft)] hover:bg-[var(--surface-hover)] lg:bg-transparent lg:hover:bg-[var(--surface-hover)]"
-                  }`}
-                >
-                  <span className="line-clamp-2">{t.title}</span>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => removeThread(t.id)}
-                  className="rounded p-1.5 text-[var(--muted-faint)] hover:bg-[var(--danger-soft)] hover:text-[var(--danger)] lg:opacity-0 lg:group-hover:opacity-100"
-                  aria-label="Delete conversation"
-                  title="Delete this conversation history"
-                >
-                  <Trash2 className="h-3.5 w-3.5" />
-                </button>
-              </li>
-            ))
-          )}
-        </ul>
-      </aside>
+                <X className="h-4 w-4" />
+              </button>
+            </div>
+            {threadList}
+          </div>
+        </div>
+      ) : null}
 
-      <div className="surface flex min-h-[20rem] flex-col sm:min-h-[28rem]">
-        <div className="border-b border-[var(--line)] px-3 py-3 sm:px-4">
-          <div className="flex flex-wrap items-center gap-2 text-sm font-semibold text-[var(--ink)]">
-            <Sparkles className="h-4 w-4 shrink-0 text-[var(--accent)]" aria-hidden />
-            Librarian
+      <div className="chat-panel surface">
+        <div className="flex shrink-0 flex-wrap items-center gap-2 border-b border-[var(--line)] px-3 py-2.5 sm:px-4 sm:py-3">
+          <button
+            type="button"
+            className="btn btn-secondary btn-sm lg:hidden"
+            onClick={() => setThreadsOpen(true)}
+            aria-expanded={threadsOpen}
+          >
+            <MessageSquare className="h-3.5 w-3.5" aria-hidden />
+            Chats
+            {threads.length > 0 ? (
+              <span className="tabular-nums text-[var(--muted)]">
+                {threads.length}
+              </span>
+            ) : null}
+          </button>
+          <div className="flex min-w-0 flex-1 flex-wrap items-center gap-2 text-sm font-semibold text-[var(--ink)]">
+            <Sparkles
+              className="hidden h-4 w-4 shrink-0 text-[var(--accent)] sm:block"
+              aria-hidden
+            />
+            <span className="truncate">Librarian</span>
             <span className="chip !py-0.5 text-[0.65rem]">confirm to act</span>
             <span
-              className={`chip !py-0.5 text-[0.65rem] ${
-                agent.mode === "local" ? "chip-active" : ""
-              }`}
+              className={cn(
+                "chip !py-0.5 text-[0.65rem]",
+                agent.mode === "local" && "chip-active",
+              )}
             >
               {agent.label}
             </span>
           </div>
-          {agent.mode === "local" ? (
-            <p className="mt-1 hidden text-xs text-[var(--muted)] sm:block">
-              <strong className="font-medium text-[var(--ink-soft)]">No API key.</strong>{" "}
-              Local catalog tools. See{" "}
-              <a href="/docs#librarian" className="link-accent">
-                Docs
-              </a>{" "}
-              for optional xAI.
-            </p>
-          ) : (
-            <p className="mt-1 text-xs text-[var(--muted)]">
-              Using xAI developer API. Paths only from catalog tools.
-            </p>
-          )}
+          <button
+            type="button"
+            onClick={newChat}
+            className="btn btn-ghost btn-sm lg:hidden"
+          >
+            New
+          </button>
         </div>
 
-        <div className="flex-1 space-y-3 overflow-y-auto px-3 py-3 sm:px-4 sm:py-4">
+        <div
+          ref={messagesRef}
+          className="chat-messages space-y-3 px-3 py-3 sm:px-4 sm:py-4"
+        >
           {messages.length === 0 ? (
-            <div className="empty-state !py-8">
+            <div className="empty-state !py-6 sm:!py-8">
               <strong>Try asking</strong>
               <ul className="mt-2 space-y-1 text-[var(--muted)]">
                 <li>“Where is my resume?”</li>
@@ -449,8 +537,8 @@ export function LibrarianChat({
                   key={m.id}
                   className={
                     m.role === "user"
-                      ? "ml-auto max-w-[85%] whitespace-pre-wrap rounded-[var(--radius-sm)] bg-[var(--accent)] px-3 py-2 text-sm text-[var(--accent-fg)]"
-                      : "max-w-[min(100%,36rem)] rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface)] px-3.5 py-2.5 text-sm shadow-[var(--shadow-soft)] sm:max-w-[90%]"
+                      ? "ml-auto max-w-[min(92%,28rem)] whitespace-pre-wrap break-words rounded-[var(--radius-sm)] bg-[var(--accent)] px-3 py-2 text-sm text-[var(--accent-fg)] sm:max-w-[min(85%,32rem)]"
+                      : "max-w-[min(100%,36rem)] break-words rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-raised)] px-3.5 py-2.5 text-sm shadow-[var(--shadow-soft)] sm:max-w-[min(92%,40rem)] xl:max-w-3xl"
                   }
                 >
                   {m.role === "assistant"
@@ -485,25 +573,29 @@ export function LibrarianChat({
         </div>
 
         <form
-          onSubmit={onSubmit}
-          className="flex gap-2 border-t border-[var(--line)] p-2 sm:p-3"
+          onSubmit={(e) => void onSubmit(e)}
+          className="chat-composer flex items-end gap-2 border-t border-[var(--line)] p-2 sm:p-3"
         >
           <label htmlFor="librarian-input" className="sr-only">
             Message
           </label>
-          <input
+          <textarea
             id="librarian-input"
+            ref={inputRef}
+            rows={1}
             value={input}
             onChange={(e) => setInput(e.target.value)}
+            onKeyDown={onComposerKeyDown}
             disabled={busy}
             placeholder="Ask the Librarian…"
+            enterKeyHint="send"
             className="field min-w-0 flex-1 disabled:opacity-60"
           />
-          <Tooltip content="Send. Paths come only from catalog tools.">
+          <Tooltip content="Send (Enter). Shift+Enter for newline. Paths only from catalog tools.">
             <button
               type="submit"
               disabled={busy || !input.trim()}
-              className="btn btn-primary shrink-0"
+              className="btn btn-primary min-h-11 shrink-0 px-3 sm:px-4"
             >
               <Send className="h-4 w-4" aria-hidden />
               <span className="sr-only sm:not-sr-only sm:inline">Send</span>

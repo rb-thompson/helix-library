@@ -77,7 +77,7 @@ export function AssistantMarkdown({ text }: { text: string }) {
       const block = className?.includes("language-");
       if (block) {
         return (
-          <code className="mt-2 block overflow-x-auto rounded-[var(--radius-sm)] bg-[var(--paper-deep)] px-2.5 py-2 font-mono text-[0.75rem] text-[var(--ink-soft)]">
+          <code className="chat-md-pre mt-2 block max-w-full overflow-x-auto rounded-[var(--radius-sm)] bg-[var(--paper-deep)] px-2.5 py-2 font-mono text-[0.75rem] text-[var(--ink-soft)]">
             {children}
           </code>
         );
