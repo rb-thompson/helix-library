@@ -111,7 +111,7 @@ export function migrate(sqlite: Database.Database): void {
     );
 
     CREATE INDEX IF NOT EXISTS item_tags_item_idx ON item_tags(item_id);
-    CREATE INDEX IF NOT EXISTS item_tags_source_idx ON item_tags(source);
+    -- item_tags_source_idx is created after ensureColumn (legacy DBs lack source).
 
     CREATE TABLE IF NOT EXISTS chat_threads (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -179,6 +179,7 @@ export function migrate(sqlite: Database.Database): void {
   `);
 
   // Existing DBs created before these columns only get them via ALTER.
+  // Must run *before* any index/query that references the new columns.
   ensureColumn(
     sqlite,
     "items",

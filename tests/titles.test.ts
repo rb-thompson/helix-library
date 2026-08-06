@@ -144,3 +144,67 @@ describe("migrate greenfield title_source", () => {
     }
   });
 });
+
+describe("migrate legacy item_tags without source", () => {
+  it("adds source column when upgrading a pre-season DB", () => {
+    const dir = mkdtempSync(path.join(tmpdir(), "helix-legacy-"));
+    const dbPath = path.join(dir, "legacy.db");
+    try {
+      const sqlite = new Database(dbPath);
+      // Minimal pre-PR2 shape (no source / no title_source)
+      sqlite.exec(`
+        CREATE TABLE locations (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL,
+          root_path TEXT NOT NULL UNIQUE,
+          enabled INTEGER NOT NULL DEFAULT 1,
+          created_at INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE items (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          location_id INTEGER NOT NULL REFERENCES locations(id),
+          path TEXT NOT NULL UNIQUE,
+          rel_path TEXT NOT NULL,
+          name TEXT NOT NULL,
+          ext TEXT,
+          kind TEXT NOT NULL,
+          mime TEXT,
+          size_bytes INTEGER NOT NULL,
+          mtime_ms INTEGER NOT NULL,
+          ctime_ms INTEGER NOT NULL,
+          content_hash TEXT,
+          title TEXT NOT NULL,
+          width INTEGER,
+          height INTEGER,
+          duration_ms INTEGER,
+          indexed_at INTEGER NOT NULL,
+          is_missing INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE tags (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          name TEXT NOT NULL UNIQUE,
+          created_at INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE item_tags (
+          tag_id INTEGER NOT NULL REFERENCES tags(id),
+          item_id INTEGER NOT NULL REFERENCES items(id),
+          PRIMARY KEY (tag_id, item_id)
+        );
+      `);
+      migrate(sqlite);
+      const itemCols = sqlite
+        .prepare(`PRAGMA table_info(items)`)
+        .all() as Array<{ name: string }>;
+      const tagCols = sqlite
+        .prepare(`PRAGMA table_info(item_tags)`)
+        .all() as Array<{ name: string }>;
+      assert.ok(itemCols.some((c) => c.name === "title_source"));
+      assert.ok(tagCols.some((c) => c.name === "source"));
+      // Query must work (the original runtime failure mode)
+      sqlite.prepare(`SELECT source FROM item_tags LIMIT 1`).all();
+      sqlite.close();
+    } finally {
+      rmSync(dir, { recursive: true, force: true });
+    }
+  });
+});
