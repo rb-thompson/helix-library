@@ -1,13 +1,44 @@
 import { NextResponse } from "next/server";
-import { deleteTags, listTags } from "@/lib/collections/manage";
+import {
+  deleteTags,
+  listTags,
+  renameTag,
+} from "@/lib/collections/manage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-/** List tags with usage counts (for hygiene UI). */
+/** List tags with usage counts + source stats (for hygiene UI). */
 export async function GET() {
   const tags = listTags({ sortBy: "count" });
   return NextResponse.json({ ok: true, tags });
+}
+
+/**
+ * PATCH body: { id: number, name: string, mergeIfExists?: boolean }
+ * Rename a tag (optional merge when name already exists).
+ */
+export async function PATCH(req: Request) {
+  try {
+    const body = (await req.json()) as {
+      id?: number;
+      name?: string;
+      mergeIfExists?: boolean;
+    };
+    if (!body?.id || !body?.name?.trim()) {
+      return NextResponse.json(
+        { ok: false, error: "id and name are required" },
+        { status: 400 },
+      );
+    }
+    const result = renameTag(Number(body.id), body.name, {
+      mergeIfExists: Boolean(body.mergeIfExists),
+    });
+    return NextResponse.json({ ok: true, ...result });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ ok: false, error: message }, { status: 400 });
+  }
 }
 
 /**

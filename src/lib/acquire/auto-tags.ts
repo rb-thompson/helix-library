@@ -1,6 +1,10 @@
 import { addTagToItem } from "@/lib/collections/manage";
 import { readExifRaw } from "@/lib/media/exif";
 import type { AcquireJobKind } from "@/lib/acquire/jobs";
+import type { TagSource } from "@/lib/tags/source";
+import { ACQUIRE_TAG_NAMES } from "@/lib/tags/backfill-source";
+
+const ACQUIRE_LABELS = new Set<string>(ACQUIRE_TAG_NAMES);
 
 /** EXIF/metadata keys that make good catalog labels (short, human). */
 const TAG_SOURCE_KEYS = [
@@ -120,7 +124,10 @@ export function applyAcquireTags(
     const names = tagsFromExifAndSource(row, source);
     for (const name of names) {
       try {
-        addTagToItem(itemId, name);
+        const tagSource: TagSource = ACQUIRE_LABELS.has(name)
+          ? "acquire"
+          : "exif";
+        addTagToItem(itemId, name, tagSource);
         applied.push(name);
       } catch {
         // skip invalid individual tags
@@ -129,18 +136,18 @@ export function applyAcquireTags(
   } catch {
     // still try minimal source tags
     try {
-      addTagToItem(itemId, "acquired");
+      addTagToItem(itemId, "acquired", "acquire");
       applied.push("acquired");
       if (source === "youtube") {
-        addTagToItem(itemId, "youtube");
+        addTagToItem(itemId, "youtube", "acquire");
         applied.push("youtube");
       }
       if (source === "arxiv") {
-        addTagToItem(itemId, "arxiv");
+        addTagToItem(itemId, "arxiv", "acquire");
         applied.push("arxiv");
       }
       if (source === "image") {
-        addTagToItem(itemId, "grok-image");
+        addTagToItem(itemId, "grok-image", "acquire");
         applied.push("grok-image");
       }
     } catch {

@@ -59,8 +59,12 @@ def ensure_tag(conn: sqlite3.Connection, name: str) -> int:
 
 def attach_tag(conn: sqlite3.Connection, item_id: int, tag_name: str) -> None:
     tag_id = ensure_tag(conn, tag_name)
+    # Provenance: vision (do not demote a better source if row exists)
     conn.execute(
-        "INSERT OR IGNORE INTO item_tags(tag_id, item_id) VALUES (?, ?)",
+        """
+        INSERT INTO item_tags(tag_id, item_id, source) VALUES (?, ?, 'vision')
+        ON CONFLICT(tag_id, item_id) DO NOTHING
+        """,
         (tag_id, item_id),
     )
 

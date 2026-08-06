@@ -1,5 +1,5 @@
 import { and, asc, count, desc, eq, sql } from "drizzle-orm";
-import { getDb } from "@/lib/db/client";
+import { getDb, getSqlite } from "@/lib/db/client";
 import {
   collectionItems,
   collections,
@@ -8,6 +8,10 @@ import {
   locations,
   tags,
 } from "@/lib/db/schema";
+import {
+  type TagSource,
+  upsertItemTag,
+} from "@/lib/tags/source";
 import type { CatalogItemRow, ItemKind } from "@/lib/types";
 
 function mapItem(row: {
@@ -231,6 +235,7 @@ export function addItemsToCollection(
 export function addTagToItems(
   itemIds: number[],
   tagName: string,
+  source: TagSource = "manual",
 ): { tagged: number; skipped: number } {
   const tagId = getOrCreateTag(tagName);
   const db = getDb();
@@ -249,10 +254,12 @@ export function addTagToItems(
       .where(and(eq(itemTags.itemId, itemId), eq(itemTags.tagId, tagId)))
       .get();
     if (existing) {
+      // Still allow source upgrade
+      upsertItemTag(itemId, tagId, source);
       skipped += 1;
       continue;
     }
-    db.insert(itemTags).values({ tagId, itemId }).run();
+    upsertItemTag(itemId, tagId, source);
     tagged += 1;
   }
   return { tagged, skipped };
@@ -289,13 +296,24 @@ export function getItemCollections(itemId: number) {
 
 // --- Tags ---
 
+export type ListedTag = {
+  id: number;
+  name: string;
+  createdAt: number;
+  itemCount: number;
+  /** Distinct sources on this tag's applications */
+  sources: TagSource[];
+  hasVision: boolean;
+  hasAcquire: boolean;
+};
+
 export function listTags(opts?: {
   /** Prefer popular tags first (for dense vision-tag libraries). */
   sortBy?: "name" | "count";
   /** Only tags used on at least this many items. */
   minCount?: number;
   limit?: number;
-}) {
+}): ListedTag[] {
   const db = getDb();
   const sortBy = opts?.sortBy ?? "name";
   const minCount = opts?.minCount ?? 0;
@@ -314,20 +332,57 @@ export function listTags(opts?: {
     .orderBy(asc(tags.name))
     .all();
 
+  const sqlite = getSqlite();
+  const sourceRows = sqlite
+    .prepare(
+      `
+    SELECT tag_id AS tagId, source
+    FROM item_tags
+    GROUP BY tag_id, source
+  `,
+    )
+    .all() as Array<{ tagId: number; source: string }>;
+  const byTag = new Map<number, Set<TagSource>>();
+  for (const r of sourceRows) {
+    const src = r.source as TagSource;
+    if (!byTag.has(r.tagId)) byTag.set(r.tagId, new Set());
+    if (
+      src === "manual" ||
+      src === "vision" ||
+      src === "exif" ||
+      src === "acquire"
+    ) {
+      byTag.get(r.tagId)!.add(src);
+    }
+  }
+
+  let out: ListedTag[] = rows.map((r) => {
+    const sources = [...(byTag.get(r.id) ?? [])];
+    return {
+      id: r.id,
+      name: r.name,
+      createdAt: r.createdAt,
+      itemCount: Number(r.itemCount),
+      sources,
+      hasVision: sources.includes("vision"),
+      hasAcquire: sources.includes("acquire"),
+    };
+  });
+
   if (minCount > 0) {
-    rows = rows.filter((r) => Number(r.itemCount) >= minCount);
+    out = out.filter((r) => r.itemCount >= minCount);
   }
   if (sortBy === "count") {
-    rows = [...rows].sort((a, b) => {
-      const d = Number(b.itemCount) - Number(a.itemCount);
+    out = [...out].sort((a, b) => {
+      const d = b.itemCount - a.itemCount;
       if (d !== 0) return d;
       return a.name.localeCompare(b.name);
     });
   }
   if (limit != null && limit > 0) {
-    rows = rows.slice(0, limit);
+    out = out.slice(0, limit);
   }
-  return rows;
+  return out;
 }
 
 export function getOrCreateTag(name: string): number {
@@ -354,15 +409,114 @@ export function getItemTags(itemId: number) {
     .all();
 }
 
-export function addTagToItem(itemId: number, tagName: string): void {
+export function addTagToItem(
+  itemId: number,
+  tagName: string,
+  source: TagSource = "manual",
+): void {
   const db = getDb();
   const item = db.select().from(items).where(eq(items.id, itemId)).get();
   if (!item) throw new Error("Item not found");
   const tagId = getOrCreateTag(tagName);
-  db.insert(itemTags)
-    .values({ tagId, itemId })
-    .onConflictDoNothing()
-    .run();
+  upsertItemTag(itemId, tagId, source);
+}
+
+/**
+ * Merge source tags into a target (by id or new/existing name).
+ * Re-links item_tags then deletes source tag rows. Never touches files.
+ */
+export function mergeTags(opts: {
+  sourceTagIds: number[];
+  targetTagId?: number;
+  targetName?: string;
+}): { targetId: number; moved: number; deletedSources: number } {
+  const sourceIds = [
+    ...new Set(
+      opts.sourceTagIds.map(Number).filter((n) => Number.isFinite(n) && n > 0),
+    ),
+  ];
+  if (!sourceIds.length) throw new Error("sourceTagIds required");
+  if (sourceIds.length > 50) throw new Error("At most 50 source tags per merge");
+
+  const db = getDb();
+  let targetId = opts.targetTagId;
+  if (targetId != null) {
+    const t = db.select().from(tags).where(eq(tags.id, targetId)).get();
+    if (!t) throw new Error("Target tag not found");
+  } else if (opts.targetName?.trim()) {
+    targetId = getOrCreateTag(opts.targetName);
+  } else {
+    throw new Error("targetTagId or targetName required");
+  }
+
+  const sources = sourceIds.filter((id) => id !== targetId);
+  if (!sources.length) {
+    return { targetId: targetId!, moved: 0, deletedSources: 0 };
+  }
+
+  const sqlite = getSqlite();
+  let moved = 0;
+  const tx = sqlite.transaction(() => {
+    for (const sid of sources) {
+      const links = sqlite
+        .prepare(
+          `SELECT item_id AS itemId, source FROM item_tags WHERE tag_id = ?`,
+        )
+        .all(sid) as Array<{ itemId: number; source: string }>;
+      for (const link of links) {
+        const src =
+          link.source === "manual" ||
+          link.source === "vision" ||
+          link.source === "exif" ||
+          link.source === "acquire"
+            ? link.source
+            : "manual";
+        upsertItemTag(link.itemId, targetId!, src);
+        moved += 1;
+      }
+      sqlite.prepare(`DELETE FROM tags WHERE id = ?`).run(sid);
+    }
+  });
+  tx();
+
+  return {
+    targetId: targetId!,
+    moved,
+    deletedSources: sources.length,
+  };
+}
+
+/**
+ * Rename a tag. If the name exists and mergeIfExists, merge into existing.
+ */
+export function renameTag(
+  tagId: number,
+  newName: string,
+  opts?: { mergeIfExists?: boolean },
+): { id: number; merged: boolean } {
+  const n = newName.trim().toLowerCase();
+  if (!n) throw new Error("Tag name is required");
+  if (n.length > 48) throw new Error("Tag name too long");
+
+  const db = getDb();
+  const row = db.select().from(tags).where(eq(tags.id, tagId)).get();
+  if (!row) throw new Error("Tag not found");
+  if (row.name === n) return { id: tagId, merged: false };
+
+  const clash = db.select().from(tags).where(eq(tags.name, n)).get();
+  if (clash) {
+    if (!opts?.mergeIfExists) {
+      throw new Error(`Tag “${n}” already exists`);
+    }
+    const result = mergeTags({
+      sourceTagIds: [tagId],
+      targetTagId: clash.id,
+    });
+    return { id: result.targetId, merged: true };
+  }
+
+  db.update(tags).set({ name: n }).where(eq(tags.id, tagId)).run();
+  return { id: tagId, merged: false };
 }
 
 export function removeTagFromItem(itemId: number, tagId: number): void {
