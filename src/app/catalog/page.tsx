@@ -13,6 +13,7 @@ import { listCollections, listTags } from "@/lib/collections/manage";
 import { hasThumb } from "@/lib/indexer/enrich";
 import { ensureLocationsSynced } from "@/lib/locations/manage";
 import { filterVisibleTags } from "@/lib/tags/hidden";
+import { graphHrefFromFilters } from "@/lib/graph/build";
 import {
   CATALOG_SORTS,
   ITEM_KINDS,
@@ -276,7 +277,28 @@ export default async function CatalogPage({
         </p>
       </div>
 
-      <SearchForm defaultQuery={q} />
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+        <div className="min-w-0 flex-1">
+          <SearchForm defaultQuery={q} />
+        </div>
+        {result.total > 0 && !missingOnly ? (
+          <Link
+            href={graphHrefFromFilters({
+              q: q || undefined,
+              kind: kind || undefined,
+              locationId:
+                locationId === "" ? undefined : Number(locationId),
+              tagId: tagId === "" ? undefined : Number(tagId),
+              collectionId:
+                collectionId === "" ? undefined : Number(collectionId),
+            })}
+            className="btn btn-secondary btn-sm shrink-0"
+            title="Open the knowledge graph for the current filter set"
+          >
+            Map these
+          </Link>
+        ) : null}
+      </div>
 
       <ActiveFilters chips={filterChips} clearAllHref={clearAllHref} />
 

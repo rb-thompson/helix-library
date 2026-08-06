@@ -7,10 +7,11 @@
  */
 
 import { displayTitle } from "@/lib/catalog/display";
+import { searchCatalog } from "@/lib/catalog/query";
 import { CONCEPT_COLORS, KIND_COLORS } from "@/lib/graph/colors";
 import { getSqlite } from "@/lib/db/client";
 import { isHiddenFacetTag } from "@/lib/tags/hidden";
-import type { ItemKind } from "@/lib/types";
+import { ITEM_KINDS, type ItemKind } from "@/lib/types";
 
 export type GraphNodeType =
   | "item"
@@ -41,6 +42,31 @@ export type GraphLink = {
   relation: "tagged" | "shelved" | "kind_of" | "located_in";
 };
 
+/** Catalog-aligned subset for /graph and “Map these”. */
+export type GraphFilters = {
+  kind?: ItemKind;
+  locationId?: number;
+  tagId?: number;
+  collectionId?: number;
+  q?: string;
+};
+
+export type GraphBuildOpts = {
+  maxItems?: number;
+  /** Minimum item uses for a tag to appear (default 2). */
+  minTagCount?: number;
+  /** Max tag nodes (default 36; filtered default 48). */
+  maxTags?: number;
+  /** Include format hub nodes (default true). */
+  includeKinds?: boolean;
+  /** Include location hub nodes (default true). */
+  includeLocations?: boolean;
+  /** Include collection nodes (default true). */
+  includeCollections?: boolean;
+  /** Include tag nodes (default true). */
+  includeTags?: boolean;
+} & GraphFilters;
+
 export type KnowledgeGraph = {
   nodes: GraphNode[];
   links: GraphLink[];
@@ -54,6 +80,8 @@ export type KnowledgeGraph = {
     /** Tag types skipped (singleton / over cap) */
     tagsOmitted: number;
     minTagCount: number;
+    /** Echo of applied filters (empty if none). */
+    filters: GraphFilters;
   };
 };
 
@@ -64,11 +92,27 @@ export const KIND_NODE_COLORS: Record<string, string> = {
 
 const CONCEPT_NODE_COLORS = CONCEPT_COLORS.dark;
 
-const MAX_ITEMS = 600;
+const DEFAULT_MAX_ITEMS = 600;
+const HARD_MAX_ITEMS = 800;
 /** Only tags used on this many holdings (cuts singleton vision labels). */
 const DEFAULT_MIN_TAG_COUNT = 2;
 /** Cap tag concept nodes even after min filter. */
 const DEFAULT_MAX_TAGS = 36;
+const FILTERED_MAX_TAGS = 48;
+
+function hasActiveFilters(f: GraphFilters): boolean {
+  return Boolean(
+    f.kind ||
+      f.locationId ||
+      f.tagId ||
+      f.collectionId ||
+      (f.q && f.q.trim()),
+  );
+}
+
+export function isItemKind(v: string): v is ItemKind {
+  return (ITEM_KINDS as readonly string[]).includes(v);
+}
 
 function itemNodeId(id: number) {
   return `item:${id}`;
@@ -109,26 +153,23 @@ function importanceVal(
 /**
  * Build graph snapshot from SQLite holdings + curation.
  * Prioritizes tagged/shelved items when over the node cap.
- * Tags: shared-only by default, top-N by frequency.
+ * Optional GraphFilters restrict items (catalog “Map these” / /graph?q=…).
  */
-export function buildKnowledgeGraph(opts?: {
-  maxItems?: number;
-  /** Minimum item uses for a tag to appear (default 2). */
-  minTagCount?: number;
-  /** Max tag nodes (default 36). */
-  maxTags?: number;
-  /** Include format hub nodes (default true). */
-  includeKinds?: boolean;
-  /** Include location hub nodes (default true). */
-  includeLocations?: boolean;
-  /** Include collection nodes (default true). */
-  includeCollections?: boolean;
-  /** Include tag nodes (default true). */
-  includeTags?: boolean;
-}): KnowledgeGraph {
-  const maxItems = opts?.maxItems ?? MAX_ITEMS;
-  const minTagCount = opts?.minTagCount ?? DEFAULT_MIN_TAG_COUNT;
-  const maxTags = opts?.maxTags ?? DEFAULT_MAX_TAGS;
+export function buildKnowledgeGraph(opts?: GraphBuildOpts): KnowledgeGraph {
+  const filters: GraphFilters = {
+    kind: opts?.kind,
+    locationId: opts?.locationId,
+    tagId: opts?.tagId,
+    collectionId: opts?.collectionId,
+    q: opts?.q?.trim() || undefined,
+  };
+  const filtered = hasActiveFilters(filters);
+
+  const hardMax = HARD_MAX_ITEMS;
+  const maxItems = Math.min(
+    hardMax,
+    Math.max(1, opts?.maxItems ?? (filtered ? hardMax : DEFAULT_MAX_ITEMS)),
+  );
   const includeKinds = opts?.includeKinds !== false;
   const includeLocations = opts?.includeLocations !== false;
   const includeCollections = opts?.includeCollections !== false;
@@ -150,6 +191,94 @@ export function buildKnowledgeGraph(opts?: {
     col_n: number;
   };
 
+  const emptyGraph = (minTagCount: number): KnowledgeGraph => ({
+    nodes: [],
+    links: [],
+    meta: {
+      itemCount: 0,
+      conceptCount: 0,
+      linkCount: 0,
+      truncated: false,
+      tagsShown: 0,
+      tagsOmitted: 0,
+      minTagCount,
+      filters,
+    },
+  });
+
+  // Optional q → catalog hybrid search, one page only
+  let qIdSet: Set<number> | null = null;
+  if (filters.q) {
+    const hit = searchCatalog({
+      q: filters.q,
+      kind: filters.kind ?? "",
+      locationId: filters.locationId ?? "",
+      tagId: filters.tagId ?? "",
+      collectionId: filters.collectionId ?? "",
+      page: 1,
+      pageSize: maxItems,
+      sort: "mtime",
+    });
+    qIdSet = new Set(hit.items.map((i) => i.id));
+    if (qIdSet.size === 0) {
+      return emptyGraph(opts?.minTagCount ?? DEFAULT_MIN_TAG_COUNT);
+    }
+  }
+
+  const where: string[] = ["i.is_missing = 0", "l.enabled = 1"];
+  const args: unknown[] = [];
+
+  if (filters.kind) {
+    where.push("i.kind = ?");
+    args.push(filters.kind);
+  }
+  if (filters.locationId) {
+    where.push("i.location_id = ?");
+    args.push(filters.locationId);
+  }
+  if (filters.tagId) {
+    where.push(
+      "EXISTS (SELECT 1 FROM item_tags itf WHERE itf.item_id = i.id AND itf.tag_id = ?)",
+    );
+    args.push(filters.tagId);
+  }
+  if (filters.collectionId) {
+    where.push(
+      "EXISTS (SELECT 1 FROM collection_items cif WHERE cif.item_id = i.id AND cif.collection_id = ?)",
+    );
+    args.push(filters.collectionId);
+  }
+  if (qIdSet) {
+    const ids = [...qIdSet];
+    where.push(`i.id IN (${ids.map(() => "?").join(",")})`);
+    args.push(...ids);
+  }
+
+  const whereSql = where.join(" AND ");
+
+  const countRow = sqlite
+    .prepare(
+      `
+    SELECT count(*) AS c
+    FROM items i
+    JOIN locations l ON l.id = i.location_id
+    WHERE ${whereSql}
+  `,
+    )
+    .get(...args) as { c: number };
+  const totalItems = countRow.c;
+
+  if (totalItems === 0) {
+    return emptyGraph(opts?.minTagCount ?? DEFAULT_MIN_TAG_COUNT);
+  }
+
+  // Adaptive tag density when filtered set is small
+  const defaultMinTag =
+    filtered && totalItems < 80 ? 1 : DEFAULT_MIN_TAG_COUNT;
+  const minTagCount = opts?.minTagCount ?? defaultMinTag;
+  const maxTags =
+    opts?.maxTags ?? (filtered ? FILTERED_MAX_TAGS : DEFAULT_MAX_TAGS);
+
   const items = sqlite
     .prepare(
       `
@@ -167,20 +296,15 @@ export function buildKnowledgeGraph(opts?: {
       (SELECT count(*) FROM collection_items ci WHERE ci.item_id = i.id) AS col_n
     FROM items i
     JOIN locations l ON l.id = i.location_id
-    WHERE i.is_missing = 0
+    WHERE ${whereSql}
     ORDER BY
       (tag_n + col_n) DESC,
       i.mtime_ms DESC
     LIMIT ?
   `,
     )
-    .all(maxItems) as ItemRow[];
+    .all(...args, maxItems) as ItemRow[];
 
-  const totalItems = (
-    sqlite
-      .prepare(`SELECT count(*) AS c FROM items WHERE is_missing = 0`)
-      .get() as { c: number }
-  ).c;
   const truncated = totalItems > items.length;
 
   const itemIds = new Set(items.map((i) => i.id));
@@ -266,94 +390,90 @@ export function buildKnowledgeGraph(opts?: {
   let tagsShown = 0;
 
   if (includeTags) {
-    // Global frequency for all tags, then filter + cap
-    const tagFreqRaw = sqlite
-      .prepare(
-        `
-      SELECT t.id, t.name, count(*) AS c
-      FROM tags t
-      JOIN item_tags it ON it.tag_id = t.id
-      GROUP BY t.id
-      HAVING c >= ?
-      ORDER BY c DESC, t.name
-      LIMIT ?
-    `,
-      )
-      .all(minTagCount, maxTags * 2) as { id: number; name: string; c: number }[];
-    // Drop meta noise tags (e.g. vision-tagged), then re-cap.
-    const tagFreq = tagFreqRaw
-      .filter((t) => !isHiddenFacetTag(t.name))
-      .slice(0, maxTags);
-
-    const totalEligible = (
-      sqlite
+    // Frequency among items in the current graph set (not global)
+    const idList = [...itemIds];
+    if (idList.length > 0) {
+      const tagFreqRaw = sqlite
         .prepare(
           `
-        SELECT count(*) AS c FROM (
-          SELECT t.id FROM tags t
-          JOIN item_tags it ON it.tag_id = t.id
-          GROUP BY t.id
-          HAVING count(*) >= ?
-        )
+        SELECT t.id, t.name, count(*) AS c
+        FROM tags t
+        JOIN item_tags it ON it.tag_id = t.id
+        WHERE it.item_id IN (${idList.map(() => "?").join(",")})
+        GROUP BY t.id
+        HAVING c >= ?
+        ORDER BY c DESC, t.name
+        LIMIT ?
       `,
         )
-        .get(minTagCount) as { c: number }
-    ).c;
+        .all(...idList, minTagCount, maxTags * 2) as {
+        id: number;
+        name: string;
+        c: number;
+      }[];
+      const tagFreq = tagFreqRaw
+        .filter((t) => !isHiddenFacetTag(t.name))
+        .slice(0, maxTags);
 
-    const totalTags = (
-      sqlite.prepare(`SELECT count(*) AS c FROM tags`).get() as { c: number }
-    ).c;
+      const totalEligible = (
+        sqlite
+          .prepare(
+            `
+          SELECT count(*) AS c FROM (
+            SELECT t.id FROM tags t
+            JOIN item_tags it ON it.tag_id = t.id
+            WHERE it.item_id IN (${idList.map(() => "?").join(",")})
+            GROUP BY t.id
+            HAVING count(*) >= ?
+          )
+        `,
+          )
+          .get(...idList, minTagCount) as { c: number }
+      ).c;
 
-    tagsOmitted = Math.max(0, totalTags - tagFreq.length);
-    // Also count eligible-but-capped
-    if (totalEligible > tagFreq.length) {
-      tagsOmitted = Math.max(tagsOmitted, totalTags - tagFreq.length);
-    }
+      tagsOmitted = Math.max(0, totalEligible - tagFreq.length);
 
-    const allowList = tagFreq.map((t) => t.id);
-    const allowTags = new Set(allowList);
+      const allowList = tagFreq.map((t) => t.id);
+      const allowTags = new Set(allowList);
 
-    const tagRows =
-      allowList.length === 0
-        ? []
-        : (sqlite
-            .prepare(
-              `
-      SELECT t.id, t.name, it.item_id
-      FROM item_tags it
-      JOIN tags t ON t.id = it.tag_id
-      WHERE t.id IN (${allowList.map(() => "?").join(",")})
-    `,
-            )
-            .all(...allowList) as {
-            id: number;
-            name: string;
-            item_id: number;
-          }[]);
+      const tagRows =
+        allowList.length === 0
+          ? []
+          : (sqlite
+              .prepare(
+                `
+        SELECT t.id, t.name, it.item_id
+        FROM item_tags it
+        JOIN tags t ON t.id = it.tag_id
+        WHERE t.id IN (${allowList.map(() => "?").join(",")})
+          AND it.item_id IN (${idList.map(() => "?").join(",")})
+      `,
+              )
+              .all(...allowList, ...idList) as {
+              id: number;
+              name: string;
+              item_id: number;
+            }[]);
 
-    for (const row of tagRows) {
-      if (!itemIds.has(row.item_id)) continue;
-      if (!allowTags.has(row.id)) continue;
-      const tid = tagNodeId(row.id);
-      if (!nodes.has(tid)) {
-        nodes.set(tid, {
-          id: tid,
-          type: "tag",
-          label: row.name,
-          val: 2,
-          degree: 0,
-          color: CONCEPT_NODE_COLORS.tag,
-          href: `/catalog?tag=${row.id}`,
-        });
-        tagsShown += 1;
+      for (const row of tagRows) {
+        if (!itemIds.has(row.item_id)) continue;
+        if (!allowTags.has(row.id)) continue;
+        const tid = tagNodeId(row.id);
+        if (!nodes.has(tid)) {
+          nodes.set(tid, {
+            id: tid,
+            type: "tag",
+            label: row.name,
+            val: 2,
+            degree: 0,
+            color: CONCEPT_NODE_COLORS.tag,
+            href: `/catalog?tag=${row.id}`,
+          });
+          tagsShown += 1;
+        }
+        addLink(itemNodeId(row.item_id), tid, "tagged");
       }
-      addLink(itemNodeId(row.item_id), tid, "tagged");
     }
-  } else {
-    const totalTags = (
-      sqlite.prepare(`SELECT count(*) AS c FROM tags`).get() as { c: number }
-    ).c;
-    tagsOmitted = totalTags;
   }
 
   if (includeCollections) {
@@ -414,6 +534,23 @@ export function buildKnowledgeGraph(opts?: {
       tagsShown,
       tagsOmitted,
       minTagCount,
+      filters,
     },
   };
+}
+
+/** Build /graph query string from catalog-style filters. */
+export function graphHrefFromFilters(
+  filters: GraphFilters & { singletons?: boolean },
+): string {
+  const params = new URLSearchParams();
+  if (filters.kind) params.set("kind", filters.kind);
+  if (filters.locationId) params.set("locationId", String(filters.locationId));
+  if (filters.tagId) params.set("tagId", String(filters.tagId));
+  if (filters.collectionId)
+    params.set("collectionId", String(filters.collectionId));
+  if (filters.q?.trim()) params.set("q", filters.q.trim());
+  if (filters.singletons) params.set("singletons", "1");
+  const s = params.toString();
+  return s ? `/graph?${s}` : "/graph";
 }
