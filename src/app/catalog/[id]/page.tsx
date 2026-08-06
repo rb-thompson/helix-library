@@ -15,6 +15,7 @@ import {
   listCollectionItems,
   listCollections,
 } from "@/lib/collections/manage";
+import { displayTitle } from "@/lib/catalog/display";
 import { formatBytes, formatDate } from "@/lib/format";
 import { hasThumb } from "@/lib/indexer/enrich";
 import { readExif } from "@/lib/media/exif";
@@ -30,7 +31,7 @@ export async function generateMetadata({
 }) {
   const { id } = await params;
   const item = getItemById(Number(id));
-  return { title: item?.name ?? "Item" };
+  return { title: item ? displayTitle(item) : "Item" };
 }
 
 export default async function ItemPage({
@@ -112,7 +113,8 @@ export default async function ItemPage({
       : "—";
 
   const fields: { label: string; value: string }[] = [
-    { label: "Title", value: item.title },
+    { label: "Title", value: displayTitle(item) },
+    { label: "Filename", value: item.name },
     { label: "Location", value: item.locationName },
     { label: "Relative path", value: item.relPath },
     { label: "Absolute path", value: item.path },
@@ -145,9 +147,14 @@ export default async function ItemPage({
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <h1 className="break-all text-xl font-semibold tracking-tight text-[var(--ink)] sm:text-2xl">
-              {item.name}
+            <h1 className="break-words text-xl font-semibold tracking-tight text-[var(--ink)] sm:text-2xl">
+              {displayTitle(item)}
             </h1>
+            {displayTitle(item) !== item.name ? (
+              <p className="mt-1 font-mono text-xs text-[var(--muted)]">
+                {item.name}
+              </p>
+            ) : null}
             <KindBadge kind={item.kind} />
             {item.isMissing ? (
               <span className="text-xs font-semibold text-[var(--danger)]">

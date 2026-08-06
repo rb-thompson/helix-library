@@ -33,6 +33,7 @@ function mapRow(row: {
   ctimeMs: number;
   contentHash: string | null;
   title: string;
+  titleSource?: string | null;
   width: number | null;
   height: number | null;
   durationMs: number | null;
@@ -42,8 +43,32 @@ function mapRow(row: {
   return {
     ...row,
     kind: row.kind as ItemKind,
+    titleSource: row.titleSource ?? "filename",
   };
 }
+
+const ITEM_SELECT = `
+          i.id as id,
+          i.location_id as locationId,
+          l.name as locationName,
+          i.path as path,
+          i.rel_path as relPath,
+          i.name as name,
+          i.ext as ext,
+          i.kind as kind,
+          i.mime as mime,
+          i.size_bytes as sizeBytes,
+          i.mtime_ms as mtimeMs,
+          i.ctime_ms as ctimeMs,
+          i.content_hash as contentHash,
+          i.title as title,
+          coalesce(i.title_source, 'filename') as titleSource,
+          i.width as width,
+          i.height as height,
+          i.duration_ms as durationMs,
+          i.indexed_at as indexedAt,
+          i.is_missing as isMissing
+`;
 
 function itemIdsForFilters(params: CatalogSearchParams): number[] | null {
   const db = getDb();
@@ -297,25 +322,7 @@ export function searchCatalog(params: CatalogSearchParams = {}): {
       .prepare(
         `
         SELECT
-          i.id as id,
-          i.location_id as locationId,
-          l.name as locationName,
-          i.path as path,
-          i.rel_path as relPath,
-          i.name as name,
-          i.ext as ext,
-          i.kind as kind,
-          i.mime as mime,
-          i.size_bytes as sizeBytes,
-          i.mtime_ms as mtimeMs,
-          i.ctime_ms as ctimeMs,
-          i.content_hash as contentHash,
-          i.title as title,
-          i.width as width,
-          i.height as height,
-          i.duration_ms as durationMs,
-          i.indexed_at as indexedAt,
-          i.is_missing as isMissing
+          ${ITEM_SELECT}
         FROM items i
         JOIN locations l ON l.id = i.location_id
         WHERE ${matchClause} AND ${where}
@@ -353,25 +360,7 @@ export function searchCatalog(params: CatalogSearchParams = {}): {
     .prepare(
       `
       SELECT
-        i.id as id,
-        i.location_id as locationId,
-        l.name as locationName,
-        i.path as path,
-        i.rel_path as relPath,
-        i.name as name,
-        i.ext as ext,
-        i.kind as kind,
-        i.mime as mime,
-        i.size_bytes as sizeBytes,
-        i.mtime_ms as mtimeMs,
-        i.ctime_ms as ctimeMs,
-        i.content_hash as contentHash,
-        i.title as title,
-        i.width as width,
-        i.height as height,
-        i.duration_ms as durationMs,
-        i.indexed_at as indexedAt,
-        i.is_missing as isMissing
+        ${ITEM_SELECT}
       FROM items i
       JOIN locations l ON l.id = i.location_id
       WHERE ${where}
@@ -530,6 +519,7 @@ export function getItemById(id: number): CatalogItemRow | null {
       ctimeMs: items.ctimeMs,
       contentHash: items.contentHash,
       title: items.title,
+      titleSource: items.titleSource,
       width: items.width,
       height: items.height,
       durationMs: items.durationMs,
@@ -542,6 +532,21 @@ export function getItemById(id: number): CatalogItemRow | null {
     .get();
 
   return row ? mapRow(row) : null;
+}
+
+/** Set catalog display title without renaming on-disk basename. */
+export function setItemCatalogTitle(
+  itemId: number,
+  title: string,
+  titleSource: "arxiv" | "manual",
+): void {
+  const t = title.trim();
+  if (!t) return;
+  const db = getDb();
+  db.update(items)
+    .set({ title: t, titleSource })
+    .where(eq(items.id, itemId))
+    .run();
 }
 
 /** Extracted body sample used for FTS (text, code, PDF). */

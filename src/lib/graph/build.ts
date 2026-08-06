@@ -6,6 +6,7 @@
  * graph stays navigable — especially on mobile.
  */
 
+import { displayTitle } from "@/lib/catalog/display";
 import { CONCEPT_COLORS, KIND_COLORS } from "@/lib/graph/colors";
 import { getSqlite } from "@/lib/db/client";
 import { isHiddenFacetTag } from "@/lib/tags/hidden";
@@ -138,6 +139,8 @@ export function buildKnowledgeGraph(opts?: {
   type ItemRow = {
     id: number;
     name: string;
+    title: string;
+    title_source: string | null;
     kind: string;
     path: string;
     size_bytes: number;
@@ -153,6 +156,8 @@ export function buildKnowledgeGraph(opts?: {
     SELECT
       i.id,
       i.name,
+      i.title,
+      coalesce(i.title_source, 'filename') AS title_source,
       i.kind,
       i.path,
       i.size_bytes,
@@ -202,7 +207,11 @@ export function buildKnowledgeGraph(opts?: {
     nodes.set(id, {
       id,
       type: "item",
-      label: row.name,
+      label: displayTitle({
+        name: row.name,
+        title: row.title,
+        titleSource: row.title_source,
+      }),
       kind: row.kind,
       val: 1,
       degree: 0,

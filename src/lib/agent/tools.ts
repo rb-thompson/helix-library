@@ -5,6 +5,7 @@ import {
   formatActionToken,
   type LibrarianAction,
 } from "@/lib/agent/actions";
+import { displayTitle } from "@/lib/catalog/display";
 import {
   getItemById,
   getItemText,
@@ -25,10 +26,12 @@ function summarizeItem(item: NonNullable<ReturnType<typeof getItemById>>) {
   const text = getItemText(item.id);
   const hasBody = Boolean(text?.body?.trim());
   const catalogUrl = `/catalog/${item.id}`;
+  const label = displayTitle(item);
   return {
     id: item.id,
     name: item.name,
     title: item.title,
+    displayTitle: label,
     kind: item.kind,
     location: item.locationName,
     path: item.path,
@@ -38,8 +41,8 @@ function summarizeItem(item: NonNullable<ReturnType<typeof getItemById>>) {
     mime: item.mime,
     /** Always surface this so the model links every hit. */
     catalogUrl,
-    /** Markdown ready: [filename](/catalog/id) */
-    catalogMarkdownLink: `[${item.name}](${catalogUrl})`,
+    /** Markdown ready: [display title](/catalog/id) */
+    catalogMarkdownLink: `[${label}](${catalogUrl})`,
     isMissing: Boolean(item.isMissing),
     width: item.width,
     height: item.height,

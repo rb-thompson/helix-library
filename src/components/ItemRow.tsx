@@ -4,6 +4,7 @@ import Link from "next/link";
 import { Check, Play } from "lucide-react";
 import { KindBadge } from "@/components/KindBadge";
 import { SearchHighlight } from "@/components/SearchHighlight";
+import { displayTitle } from "@/lib/catalog/display";
 import { formatBytes, formatRelativeDate } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { ITEM_KINDS, type CatalogItemRow } from "@/lib/types";
@@ -27,6 +28,7 @@ export function ItemRow({
 }) {
   const media = item.kind === "image" || item.kind === "video";
   const showThumb = hasPreview && media;
+  const label = displayTitle(item);
   const kindClass = `kind-${(ITEM_KINDS as readonly string[]).includes(item.kind) ? item.kind : "other"}`;
 
   const body = (
@@ -70,11 +72,14 @@ export function ItemRow({
         )}
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
-            <span className="truncate text-sm font-semibold text-[var(--ink)]">
+            <span
+              className="truncate text-sm font-semibold text-[var(--ink)]"
+              title={label !== item.name ? item.name : undefined}
+            >
               {highlightTokens.length ? (
-                <SearchHighlight text={item.name} tokens={highlightTokens} />
+                <SearchHighlight text={label} tokens={highlightTokens} />
               ) : (
-                item.name
+                label
               )}
             </span>
             <KindBadge kind={item.kind} />

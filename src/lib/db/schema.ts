@@ -40,6 +40,8 @@ export const items = sqliteTable(
     ctimeMs: integer("ctime_ms").notNull(),
     contentHash: text("content_hash"),
     title: text("title").notNull(),
+    /** filename | arxiv | manual (season PR1); later: yt-dlp | pdf | … */
+    titleSource: text("title_source").notNull().default("filename"),
     width: integer("width"),
     height: integer("height"),
     durationMs: integer("duration_ms"),
@@ -125,8 +127,13 @@ export const itemTags = sqliteTable(
     itemId: integer("item_id")
       .notNull()
       .references(() => items.id, { onDelete: "cascade" }),
+    /** manual | vision | exif | acquire — application-level provenance */
+    source: text("source").notNull().default("manual"),
   },
-  (t) => [primaryKey({ columns: [t.tagId, t.itemId] })],
+  (t) => [
+    primaryKey({ columns: [t.tagId, t.itemId] }),
+    index("item_tags_source_idx").on(t.source),
+  ],
 );
 
 export const chatThreads = sqliteTable("chat_threads", {

@@ -11,6 +11,24 @@ import { contentHash } from "@/lib/indexer/hash";
 import { walkFiles } from "@/lib/indexer/walk";
 import type { IndexJobStats, ItemKind } from "@/lib/types";
 
+/** Preserve non-filename catalog titles across reindex (KD6). */
+export function nextTitle(
+  existing:
+    | { title: string; titleSource?: string | null; name: string }
+    | undefined,
+  basename: string,
+): { title: string; titleSource: string } {
+  if (!existing) return { title: basename, titleSource: "filename" };
+  const src = existing.titleSource ?? "filename";
+  if (src && src !== "filename") {
+    return { title: existing.title, titleSource: src };
+  }
+  if (existing.title && existing.title !== existing.name) {
+    return { title: existing.title, titleSource: "manual" };
+  }
+  return { title: basename, titleSource: "filename" };
+}
+
 function emptyStats(): IndexJobStats {
   return {
     seen: 0,
@@ -233,7 +251,7 @@ async function executeReindexJob(
           const mimeType = mime.getType(file.absPath);
           const kind = classifyKind(file.absPath, mimeType) as ItemKind;
           const ext = extensionOf(file.absPath);
-          const title = path.basename(file.absPath);
+          const basename = path.basename(file.absPath);
 
           const existing = db
             .select()
@@ -289,12 +307,23 @@ async function executeReindexJob(
             continue;
           }
 
+          const { title, titleSource } = nextTitle(
+            existing
+              ? {
+                  title: existing.title,
+                  titleSource: existing.titleSource,
+                  name: existing.name,
+                }
+              : undefined,
+            basename,
+          );
+
           // Insert/update base row first so we have an id for thumbs/body
           const baseRow = {
             locationId: loc.id,
             path: file.absPath,
             relPath: file.relPath,
-            name: path.basename(file.absPath),
+            name: basename,
             ext,
             kind,
             mime: mimeType,
@@ -303,6 +332,7 @@ async function executeReindexJob(
             ctimeMs: file.ctimeMs,
             contentHash: hash,
             title,
+            titleSource,
             width: existing?.width ?? null,
             height: existing?.height ?? null,
             durationMs: existing?.durationMs ?? null,

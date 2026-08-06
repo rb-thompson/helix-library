@@ -1,4 +1,28 @@
 import type Database from "better-sqlite3";
+import { backfillItemTagSources } from "@/lib/tags/backfill-source";
+
+function tableHasColumn(
+  sqlite: Database.Database,
+  table: string,
+  column: string,
+): boolean {
+  const cols = sqlite.prepare(`PRAGMA table_info(${table})`).all() as Array<{
+    name: string;
+  }>;
+  return cols.some((c) => c.name === column);
+}
+
+/** Add a column when missing (CREATE TABLE IF NOT EXISTS does not alter legacy DBs). */
+export function ensureColumn(
+  sqlite: Database.Database,
+  table: string,
+  column: string,
+  ddlSuffix: string,
+): boolean {
+  if (tableHasColumn(sqlite, table, column)) return false;
+  sqlite.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${ddlSuffix}`);
+  return true;
+}
 
 /**
  * Idempotent schema bootstrap for local SQLite.
@@ -28,6 +52,7 @@ export function migrate(sqlite: Database.Database): void {
       ctime_ms INTEGER NOT NULL,
       content_hash TEXT,
       title TEXT NOT NULL,
+      title_source TEXT NOT NULL DEFAULT 'filename',
       width INTEGER,
       height INTEGER,
       duration_ms INTEGER,
@@ -81,10 +106,12 @@ export function migrate(sqlite: Database.Database): void {
     CREATE TABLE IF NOT EXISTS item_tags (
       tag_id INTEGER NOT NULL REFERENCES tags(id) ON DELETE CASCADE,
       item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+      source TEXT NOT NULL DEFAULT 'manual',
       PRIMARY KEY (tag_id, item_id)
     );
 
     CREATE INDEX IF NOT EXISTS item_tags_item_idx ON item_tags(item_id);
+    CREATE INDEX IF NOT EXISTS item_tags_source_idx ON item_tags(source);
 
     CREATE TABLE IF NOT EXISTS chat_threads (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -150,4 +177,24 @@ export function migrate(sqlite: Database.Database): void {
       INSERT INTO item_body_fts(rowid, body) VALUES (new.item_id, new.body);
     END;
   `);
+
+  // Existing DBs created before these columns only get them via ALTER.
+  ensureColumn(
+    sqlite,
+    "items",
+    "title_source",
+    "TEXT NOT NULL DEFAULT 'filename'",
+  );
+  ensureColumn(
+    sqlite,
+    "item_tags",
+    "source",
+    "TEXT NOT NULL DEFAULT 'manual'",
+  );
+  sqlite.exec(
+    `CREATE INDEX IF NOT EXISTS item_tags_source_idx ON item_tags(source)`,
+  );
+
+  // Safe to re-run: only upgrades residual source='manual' rows.
+  backfillItemTagSources(sqlite);
 }

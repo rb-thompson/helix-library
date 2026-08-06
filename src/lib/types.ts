@@ -67,6 +67,8 @@ export interface CatalogItemRow {
   ctimeMs: number;
   contentHash: string | null;
   title: string;
+  /** filename | arxiv | manual | … */
+  titleSource?: string | null;
   width: number | null;
   height: number | null;
   durationMs: number | null;

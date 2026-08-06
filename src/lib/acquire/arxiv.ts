@@ -2,6 +2,7 @@ import { writeFile } from "node:fs/promises";
 import { loadConfig } from "@/lib/config";
 import { safeArchivePath } from "@/lib/acquire/paths";
 import { indexAfterAcquire } from "@/lib/acquire/index-after";
+import { setItemCatalogTitle } from "@/lib/catalog/query";
 
 const UA = "HelixLibrary/0.1 (personal OPAC; localhost)";
 
@@ -290,6 +291,21 @@ export async function acquireArxivPdf(
     detail: "Indexing & applying tags…",
   });
   const indexed = await indexAfterAcquire(dest, { source: "arxiv" });
+
+  // Human title from Atom (disk name stays {id}.pdf)
+  if (indexed.itemId != null) {
+    try {
+      const meta = await searchArxiv(arxivId, { max: 1 });
+      const paperTitle = meta.hits.find((h) => h.id === arxivId)?.title
+        ?? meta.hits[0]?.title;
+      if (paperTitle && paperTitle !== arxivId) {
+        setItemCatalogTitle(indexed.itemId, paperTitle, "arxiv");
+      }
+    } catch {
+      // non-fatal — filename title remains
+    }
+  }
+
   return {
     arxivId,
     path: dest,
