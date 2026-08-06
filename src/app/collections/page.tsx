@@ -1,8 +1,10 @@
 import Link from "next/link";
 import { CollapsibleTagList } from "@/components/CollapsibleTagList";
 import { CreateCollectionForm } from "@/components/CreateCollectionForm";
+import { TagHygienePanel } from "@/components/TagHygienePanel";
 import { listCollections, listTags } from "@/lib/collections/manage";
 import { ensureLocationsSynced } from "@/lib/locations/manage";
+import { filterVisibleTags } from "@/lib/tags/hidden";
 
 export const dynamic = "force-dynamic";
 
@@ -14,8 +16,9 @@ export default function CollectionsPage() {
   ensureLocationsSynced();
   const collections = listCollections();
   const tags = listTags({ sortBy: "count" });
-  const shared = tags.filter((t) => Number(t.itemCount) >= 2);
-  const singles = tags.length - shared.length;
+  const facetTags = filterVisibleTags(tags);
+  const shared = facetTags.filter((t) => Number(t.itemCount) >= 2);
+  const singles = facetTags.length - shared.length;
 
   return (
     <div className="space-y-6 sm:space-y-8">
@@ -36,7 +39,7 @@ export default function CollectionsPage() {
           Create one above, then add items from catalog detail or bulk Select.
         </div>
       ) : (
-        <ul className="grid auto-rows-fr gap-2.5 sm:grid-cols-2">
+        <ul className="grid auto-rows-fr gap-2.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
           {collections.map((c) => (
             <li key={c.id} className="min-h-0">
               <Link
@@ -67,7 +70,7 @@ export default function CollectionsPage() {
         </p>
         <div className="mt-3">
           <CollapsibleTagList
-            tags={tags.map((t) => ({
+            tags={facetTags.map((t) => ({
               ...t,
               href: `/catalog?tag=${t.id}`,
             }))}
@@ -77,6 +80,8 @@ export default function CollectionsPage() {
           />
         </div>
       </section>
+
+      <TagHygienePanel tags={tags} />
     </div>
   );
 }

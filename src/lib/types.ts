@@ -40,7 +40,10 @@ export interface CatalogSearchParams {
   sortDir?: CatalogSortDir;
   page?: number;
   pageSize?: number;
+  /** Include missing holdings alongside present ones (default false). */
   includeMissing?: boolean;
+  /** Only missing holdings (weeding desk). Implies includeMissing. */
+  missingOnly?: boolean;
 }
 
 export interface CatalogFacets {
@@ -69,4 +72,7 @@ export interface CatalogItemRow {
   durationMs: number | null;
   indexedAt: number;
   isMissing: number;
+  /** Present when search `q` is set — short match evidence (name/path/body). */
+  snippet?: string | null;
+  matchField?: "name" | "title" | "path" | "body" | null;
 }

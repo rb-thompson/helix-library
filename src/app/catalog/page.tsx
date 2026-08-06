@@ -7,10 +7,12 @@ import {
   catalogFacets,
   listLocationsWithCounts,
   searchCatalog,
+  searchTokens,
 } from "@/lib/catalog/query";
 import { listCollections, listTags } from "@/lib/collections/manage";
 import { hasThumb } from "@/lib/indexer/enrich";
 import { ensureLocationsSynced } from "@/lib/locations/manage";
+import { filterVisibleTags } from "@/lib/tags/hidden";
 import {
   CATALOG_SORTS,
   ITEM_KINDS,
@@ -36,6 +38,8 @@ type SearchParams = Promise<{
   dir?: string;
   page?: string;
   view?: string;
+  /** Weeding desk: only holdings missing on disk */
+  missing?: string;
 }>;
 
 export default async function CatalogPage({
@@ -61,14 +65,18 @@ export default async function CatalogPage({
         ? "asc"
         : "desc";
   const page = sp.page ? Number(sp.page) : 1;
+  const missingOnly =
+    sp.missing === "1" || sp.missing === "true" || sp.missing === "yes";
   const view: "grid" | "list" =
     sp.view === "list"
       ? "list"
       : sp.view === "grid"
         ? "grid"
-        : kind === "image" || kind === "video" || !kind
-          ? "grid"
-          : "list";
+        : missingOnly
+          ? "list"
+          : kind === "image" || kind === "video" || !kind
+            ? "grid"
+            : "list";
 
   const pageSize = view === "grid" ? 24 : 25;
 
@@ -83,6 +91,7 @@ export default async function CatalogPage({
     sortDir,
     page,
     pageSize,
+    missingOnly: missingOnly || undefined,
   };
 
   const result = searchCatalog(searchParamsObj);
@@ -90,8 +99,12 @@ export default async function CatalogPage({
   const locations = listLocationsWithCounts();
   const collections = listCollections();
   // Full tag list for resolving active chip; dropdown uses popular only.
+  // Hidden meta tags (e.g. vision-tagged) stay off facets/dropdown unless active.
   const tags = listTags({ sortBy: "count" });
-  const popularTags = tags.filter((t) => Number(t.itemCount) >= 2).slice(0, 60);
+  const visibleTags = filterVisibleTags(tags);
+  const popularTags = visibleTags
+    .filter((t) => Number(t.itemCount) >= 2)
+    .slice(0, 60);
   const activeTag =
     tagId === "" ? null : (tags.find((t) => t.id === tagId) ?? null);
   const tagSelectOptions =
@@ -112,6 +125,7 @@ export default async function CatalogPage({
       collection: collectionId === "" ? "" : String(collectionId),
       tag: tagId === "" ? "" : String(tagId),
       under,
+      missing: missingOnly ? "1" : "",
       sort: sort === "mtime" ? "" : sort,
       dir:
         sort === "name"
@@ -190,6 +204,13 @@ export default async function CatalogPage({
       clearHref: hrefFor({ tag: "", page: 1 }),
     });
   }
+  if (missingOnly) {
+    filterChips.push({
+      key: "missing",
+      label: "Missing on disk",
+      clearHref: hrefFor({ missing: "", page: 1 }),
+    });
+  }
 
   const clearAllHref = hrefFor({
     q: "",
@@ -198,6 +219,7 @@ export default async function CatalogPage({
     collection: "",
     tag: "",
     under: "",
+    missing: "",
     page: 1,
   });
 
@@ -208,15 +230,21 @@ export default async function CatalogPage({
     <div className="space-y-5 sm:space-y-6">
       <div>
         <p className="eyebrow">Holdings</p>
-        <h1 className="page-title mt-1">Catalog</h1>
+        <h1 className="page-title mt-1">
+          {missingOnly ? "Weeding desk" : "Catalog"}
+        </h1>
         <p className="page-sub">
           <span className="tabular-nums font-medium text-[var(--ink-soft)]">
             {result.total.toLocaleString()}
           </span>{" "}
-          holding
-          {result.total === 1 ? "" : "s"}
+          {missingOnly
+            ? `missing holding${result.total === 1 ? "" : "s"}`
+            : `holding${result.total === 1 ? "" : "s"}`}
           {q ? ` matching “${q}”` : ""}
-          {filterChips.length > 0 && !q ? " with filters" : ""}
+          {!missingOnly && filterChips.length > 0 && !q ? " with filters" : ""}
+          {missingOnly
+            ? " — select and remove from catalog (files already gone)"
+            : ""}
         </p>
       </div>
 
@@ -259,6 +287,7 @@ export default async function CatalogPage({
 
       <form method="get" className="toolstrip catalog-filters">
         {q ? <input type="hidden" name="q" value={q} /> : null}
+        {missingOnly ? <input type="hidden" name="missing" value="1" /> : null}
         {sp.view ? <input type="hidden" name="view" value={view} /> : null}
         <label className="min-w-0 sm:min-w-[7.5rem]">
           <span className="label-quiet">Format</span>
@@ -430,6 +459,8 @@ export default async function CatalogPage({
           view={view}
           viewToggleHref={viewToggleHref}
           collections={collections.map((c) => ({ id: c.id, name: c.name }))}
+          weedingMode={missingOnly}
+          highlightTokens={q ? searchTokens(q) : []}
         />
       )}
 

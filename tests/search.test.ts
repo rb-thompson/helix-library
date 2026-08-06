@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import { searchCatalog, searchTokens } from "@/lib/catalog/query";
+import {
+  buildSearchSnippet,
+  highlightSegments,
+} from "@/lib/catalog/snippet";
 import { runReindex } from "@/lib/indexer/run";
 import { createTestEnv, ensureThumbsParent } from "./helpers/harness";
 import { mkdirSync, writeFileSync } from "node:fs";
@@ -65,5 +69,33 @@ describe("hybrid catalog search", () => {
       byOr.items.some((i) => i.name.includes("finnandphoebe")),
       "natural-language query should still hit compound name",
     );
+  });
+
+  it("attaches name snippets for search hits", () => {
+    const result = searchCatalog({ q: "phoebe" });
+    const hit = result.items.find((i) => i.name.includes("finnandphoebe"));
+    assert.ok(hit);
+    assert.equal(hit!.matchField, "name");
+    assert.ok(hit!.snippet?.toLowerCase().includes("phoebe"));
+  });
+});
+
+describe("snippet helpers", () => {
+  it("buildSearchSnippet prefers body window when name misses", () => {
+    const snip = buildSearchSnippet(["golden"], {
+      name: "notes.pdf",
+      title: "notes.pdf",
+      relPath: "documents/notes.pdf",
+      body: "A long preface before the golden age of science begins in earnest.",
+    });
+    assert.ok(snip);
+    assert.equal(snip!.matchField, "body");
+    assert.match(snip!.snippet, /golden/i);
+  });
+
+  it("highlightSegments marks tokens without HTML injection", () => {
+    const parts = highlightSegments("finnandphoebe", ["phoebe"]);
+    assert.ok(parts.some((p) => p.hit && p.text.toLowerCase() === "phoebe"));
+    assert.ok(parts.some((p) => !p.hit && p.text.toLowerCase().includes("finn")));
   });
 });

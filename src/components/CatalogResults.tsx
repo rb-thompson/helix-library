@@ -16,12 +16,16 @@ export function CatalogResults({
   view,
   viewToggleHref,
   collections = [],
+  weedingMode = false,
+  highlightTokens = [],
 }: {
   items: CatalogItemRow[];
   thumbIds: number[];
   view: "grid" | "list";
   viewToggleHref: { grid: string; list: string };
   collections?: Array<{ id: number; name: string }>;
+  weedingMode?: boolean;
+  highlightTokens?: string[];
 }) {
   const [lightboxId, setLightboxId] = useState<number | null>(null);
   const [selectMode, setSelectMode] = useState(false);
@@ -112,7 +116,7 @@ export function CatalogResults({
       </div>
 
       {view === "grid" ? (
-        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5">
+        <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
           {items.map((item) => (
             <ItemCard
               key={item.id}
@@ -121,6 +125,7 @@ export function CatalogResults({
               selectMode={selectMode}
               selected={selected.has(item.id)}
               onToggleSelect={() => toggle(item.id)}
+              highlightTokens={highlightTokens}
               onOpenLightbox={(id) => {
                 if (selectMode) {
                   toggle(id);
@@ -151,6 +156,7 @@ export function CatalogResults({
               selectMode={selectMode}
               selected={selected.has(item.id)}
               onToggleSelect={() => toggle(item.id)}
+              highlightTokens={highlightTokens}
               onOpenLightbox={
                 !selectMode &&
                 (item.kind === "image" ||
@@ -168,6 +174,7 @@ export function CatalogResults({
         selectedIds={[...selected]}
         collections={collections}
         onClear={clearSelection}
+        weedingMode={weedingMode}
       />
 
       {lightboxId != null && lightboxItems.length > 0 && !selectMode ? (

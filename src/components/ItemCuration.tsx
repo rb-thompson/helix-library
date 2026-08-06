@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, useTransition } from "react";
 import { X } from "lucide-react";
@@ -251,9 +252,9 @@ export function ItemCuration({
         ) : (
           <p className="mt-2 text-xs text-[var(--muted)]">
             Create a collection first from{" "}
-            <a href="/collections" className="link-accent">
+            <Link href="/collections" className="link-accent">
               Collections
-            </a>
+            </Link>
             .
           </p>
         )}

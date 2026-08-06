@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { Check, Play } from "lucide-react";
 import { KindBadge } from "@/components/KindBadge";
+import { SearchHighlight } from "@/components/SearchHighlight";
 import { formatBytes, formatRelativeDate } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { ITEM_KINDS, type CatalogItemRow } from "@/lib/types";
@@ -14,6 +15,7 @@ export function ItemRow({
   selectMode = false,
   selected = false,
   onToggleSelect,
+  highlightTokens = [],
 }: {
   item: CatalogItemRow;
   hasPreview?: boolean;
@@ -21,6 +23,7 @@ export function ItemRow({
   selectMode?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
+  highlightTokens?: string[];
 }) {
   const media = item.kind === "image" || item.kind === "video";
   const showThumb = hasPreview && media;
@@ -68,7 +71,11 @@ export function ItemRow({
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-1.5">
             <span className="truncate text-sm font-semibold text-[var(--ink)]">
-              {item.name}
+              {highlightTokens.length ? (
+                <SearchHighlight text={item.name} tokens={highlightTokens} />
+              ) : (
+                item.name
+              )}
             </span>
             <KindBadge kind={item.kind} />
             {item.isMissing ? (
@@ -80,8 +87,20 @@ export function ItemRow({
           <p className="mt-0.5 truncate font-mono text-[0.7rem] text-[var(--muted)]">
             {item.locationName}
             <span className="text-[var(--muted-faint)]"> · </span>
-            {item.relPath}
+            {highlightTokens.length ? (
+              <SearchHighlight text={item.relPath} tokens={highlightTokens} />
+            ) : (
+              item.relPath
+            )}
           </p>
+          {item.snippet && item.matchField === "body" ? (
+            <p className="mt-1 line-clamp-2 text-[0.75rem] leading-snug text-[var(--ink-soft)]">
+              <span className="text-[0.65rem] font-medium uppercase tracking-wide text-[var(--muted-faint)]">
+                text ·{" "}
+              </span>
+              <SearchHighlight text={item.snippet} tokens={highlightTokens} />
+            </p>
+          ) : null}
         </div>
       </div>
       <div className="flex shrink-0 gap-4 pl-[3.25rem] text-[0.7rem] tabular-nums text-[var(--muted)] sm:pl-0">

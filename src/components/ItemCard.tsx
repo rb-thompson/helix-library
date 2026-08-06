@@ -2,6 +2,7 @@
 
 import { Check, Play } from "lucide-react";
 import { KindBadge } from "@/components/KindBadge";
+import { SearchHighlight } from "@/components/SearchHighlight";
 import { formatBytes } from "@/lib/format";
 import { cn } from "@/lib/cn";
 import { ITEM_KINDS, type CatalogItemRow } from "@/lib/types";
@@ -19,6 +20,7 @@ export function ItemCard({
   selectMode = false,
   selected = false,
   onToggleSelect,
+  highlightTokens = [],
 }: {
   item: CatalogItemRow;
   hasPreview: boolean;
@@ -26,6 +28,7 @@ export function ItemCard({
   selectMode?: boolean;
   selected?: boolean;
   onToggleSelect?: () => void;
+  highlightTokens?: string[];
 }) {
   const media = item.kind === "image" || item.kind === "video";
   const showThumb = hasPreview && media;
@@ -111,13 +114,26 @@ export function ItemCard({
       <div className="holding-card__meta flex flex-1 flex-col gap-0.5 px-2.5 py-2.5 sm:px-3 sm:py-3">
         <div className="flex items-start justify-between gap-1.5">
           <span className="line-clamp-2 text-[0.8125rem] font-semibold leading-snug text-[var(--ink)]">
-            {item.name}
+            {highlightTokens.length ? (
+              <SearchHighlight text={item.name} tokens={highlightTokens} />
+            ) : (
+              item.name
+            )}
           </span>
           {showThumb ? <KindBadge kind={item.kind} className="shrink-0" /> : null}
         </div>
         <p className="truncate font-mono text-[0.65rem] text-[var(--muted)]">
-          {item.relPath}
+          {highlightTokens.length ? (
+            <SearchHighlight text={item.relPath} tokens={highlightTokens} />
+          ) : (
+            item.relPath
+          )}
         </p>
+        {item.snippet && item.matchField === "body" ? (
+          <p className="line-clamp-2 text-[0.65rem] leading-snug text-[var(--ink-soft)]">
+            <SearchHighlight text={item.snippet} tokens={highlightTokens} />
+          </p>
+        ) : null}
         <p className="text-[0.7rem] tabular-nums text-[var(--muted-faint)]">
           {formatBytes(item.sizeBytes)}
           <span className="mx-1 text-[var(--line-strong)]">·</span>

@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { purgeMissingItems } from "@/lib/catalog/weed";
 import {
   addItemsToCollection,
   addTagToItems,
@@ -17,11 +18,16 @@ type BulkBody =
       action: "add_tag";
       itemIds: number[];
       tagName: string;
+    }
+  | {
+      /** Remove missing holdings from catalog only (never deletes files). */
+      action: "purge_missing";
+      itemIds: number[];
     };
 
 /**
  * Batch curation mutations (catalog multi-select / librarian approve).
- * Never mutates files on disk — only catalog shelves and tags.
+ * Never mutates files on disk — only catalog shelves, tags, and missing-row purge.
  */
 export async function POST(req: Request) {
   try {
@@ -58,6 +64,11 @@ export async function POST(req: Request) {
         );
       }
       const result = addTagToItems(body.itemIds, body.tagName);
+      return NextResponse.json({ ok: true, ...result });
+    }
+
+    if (body.action === "purge_missing") {
+      const result = purgeMissingItems(body.itemIds);
       return NextResponse.json({ ok: true, ...result });
     }
 

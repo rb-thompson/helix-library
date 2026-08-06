@@ -2,16 +2,19 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { Layers, Tag, X } from "lucide-react";
+import { Layers, Tag, Trash2, X } from "lucide-react";
 
 export function BulkCurationBar({
   selectedIds,
   collections,
   onClear,
+  weedingMode = false,
 }: {
   selectedIds: number[];
   collections: Array<{ id: number; name: string }>;
   onClear: () => void;
+  /** When true, show “Remove from catalog” for missing holdings. */
+  weedingMode?: boolean;
 }) {
   const router = useRouter();
   const [collectionId, setCollectionId] = useState(
@@ -27,6 +30,7 @@ export function BulkCurationBar({
   async function run(
     body: Record<string, unknown>,
     okMsg: (data: Record<string, number>) => string,
+    opts?: { clearAfter?: boolean },
   ) {
     setBusy(true);
     setError(null);
@@ -43,6 +47,7 @@ export function BulkCurationBar({
         return;
       }
       setMessage(okMsg(data));
+      if (opts?.clearAfter) onClear();
       router.refresh();
     } catch (e) {
       setError(e instanceof Error ? e.message : "Bulk action failed");
@@ -66,81 +71,113 @@ export function BulkCurationBar({
         </button>
       </div>
 
-      <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
-        <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
-          <label className="min-w-[8rem] flex-1 sm:flex-none">
-            <span className="label-quiet">Collection</span>
-            <select
-              value={collectionId}
-              onChange={(e) => setCollectionId(e.target.value)}
-              disabled={!collections.length || busy}
-              className="field"
+      {weedingMode ? (
+        <div className="mt-3 flex flex-wrap items-end gap-2">
+          <button
+            type="button"
+            disabled={busy}
+            title="Remove catalog rows only — does not delete files on disk"
+            onClick={() => {
+              if (
+                !window.confirm(
+                  `Remove ${selectedIds.length} missing holding${selectedIds.length === 1 ? "" : "s"} from the catalog? This does not delete any files on disk.`,
+                )
+              ) {
+                return;
+              }
+              void run(
+                { action: "purge_missing", itemIds: selectedIds },
+                (d) =>
+                  `Removed ${d.purged ?? 0} from catalog${d.skipped ? ` · ${d.skipped} not missing (kept)` : ""}`,
+                { clearAfter: true },
+              );
+            }}
+            className="btn btn-secondary text-[var(--danger)]"
+          >
+            <Trash2 className="h-3.5 w-3.5" aria-hidden />
+            Remove from catalog
+          </button>
+          <p className="text-xs text-[var(--muted)]">
+            Catalog only — files are already gone from disk.
+          </p>
+        </div>
+      ) : (
+        <div className="mt-3 flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-end">
+          <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
+            <label className="min-w-[8rem] flex-1 sm:flex-none">
+              <span className="label-quiet">Collection</span>
+              <select
+                value={collectionId}
+                onChange={(e) => setCollectionId(e.target.value)}
+                disabled={!collections.length || busy}
+                className="field"
+              >
+                {collections.length === 0 ? (
+                  <option value="">No collections yet</option>
+                ) : (
+                  collections.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))
+                )}
+              </select>
+            </label>
+            <button
+              type="button"
+              disabled={!collectionId || busy}
+              onClick={() =>
+                run(
+                  {
+                    action: "add_to_collection",
+                    itemIds: selectedIds,
+                    collectionId: Number(collectionId),
+                  },
+                  (d) =>
+                    `Added ${d.added ?? 0} to shelf${d.skipped ? ` · ${d.skipped} already there` : ""}`,
+                )
+              }
+              className="btn btn-primary"
             >
-              {collections.length === 0 ? (
-                <option value="">No collections yet</option>
-              ) : (
-                collections.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))
-              )}
-            </select>
-          </label>
-          <button
-            type="button"
-            disabled={!collectionId || busy}
-            onClick={() =>
-              run(
-                {
-                  action: "add_to_collection",
-                  itemIds: selectedIds,
-                  collectionId: Number(collectionId),
-                },
-                (d) =>
-                  `Added ${d.added ?? 0} to shelf${d.skipped ? ` · ${d.skipped} already there` : ""}`,
-              )
-            }
-            className="btn btn-primary"
-          >
-            <Layers className="h-3.5 w-3.5" aria-hidden />
-            Shelf
-          </button>
-        </div>
+              <Layers className="h-3.5 w-3.5" aria-hidden />
+              Shelf
+            </button>
+          </div>
 
-        <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
-          <label className="min-w-[8rem] flex-1">
-            <span className="label-quiet">Tag</span>
-            <input
-              type="text"
-              value={tagName}
-              onChange={(e) => setTagName(e.target.value)}
-              placeholder="e.g. stem"
-              disabled={busy}
-              className="field sm:max-w-[10rem]"
-            />
-          </label>
-          <button
-            type="button"
-            disabled={!tagName.trim() || busy}
-            onClick={() =>
-              run(
-                {
-                  action: "add_tag",
-                  itemIds: selectedIds,
-                  tagName: tagName.trim(),
-                },
-                (d) =>
-                  `Tagged ${d.tagged ?? 0}${d.skipped ? ` · ${d.skipped} already tagged` : ""}`,
-              )
-            }
-            className="btn btn-secondary"
-          >
-            <Tag className="h-3.5 w-3.5" aria-hidden />
-            Tag
-          </button>
+          <div className="flex min-w-0 flex-1 flex-wrap items-end gap-2">
+            <label className="min-w-[8rem] flex-1">
+              <span className="label-quiet">Tag</span>
+              <input
+                type="text"
+                value={tagName}
+                onChange={(e) => setTagName(e.target.value)}
+                placeholder="e.g. stem"
+                disabled={busy}
+                className="field sm:max-w-[10rem]"
+              />
+            </label>
+            <button
+              type="button"
+              disabled={!tagName.trim() || busy}
+              onClick={() =>
+                run(
+                  {
+                    action: "add_tag",
+                    itemIds: selectedIds,
+                    tagName: tagName.trim(),
+                  },
+                  (d) =>
+                    `Tagged ${d.tagged ?? 0}${d.skipped ? ` · ${d.skipped} already tagged` : ""}`,
+                )
+              }
+              className="btn btn-secondary"
+            >
+              <Tag className="h-3.5 w-3.5" aria-hidden />
+              Tag
+            </button>
+          </div>
         </div>
-      </div>
+      )}
 
       {message ? (
         <p className="feedback-ok mt-2.5" role="status">

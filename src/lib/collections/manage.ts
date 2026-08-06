@@ -374,7 +374,28 @@ export function removeTagFromItem(itemId: number, tagId: number): void {
 
 export function deleteTag(tagId: number): void {
   const db = getDb();
+  const row = db.select().from(tags).where(eq(tags.id, tagId)).get();
+  if (!row) throw new Error("Tag not found");
   db.delete(tags).where(eq(tags.id, tagId)).run();
+}
+
+/** Delete many tags by id (cascade item_tags). Returns how many removed. */
+export function deleteTags(tagIds: number[]): { deleted: number } {
+  const ids = [
+    ...new Set(
+      tagIds.map(Number).filter((n) => Number.isFinite(n) && n > 0),
+    ),
+  ];
+  if (!ids.length) return { deleted: 0 };
+  const db = getDb();
+  let deleted = 0;
+  for (const id of ids) {
+    const row = db.select().from(tags).where(eq(tags.id, id)).get();
+    if (!row) continue;
+    db.delete(tags).where(eq(tags.id, id)).run();
+    deleted += 1;
+  }
+  return { deleted };
 }
 
 export function collectionCount(): number {

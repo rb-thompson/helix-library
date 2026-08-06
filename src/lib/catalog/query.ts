@@ -1,5 +1,7 @@
-import { and, asc, count, eq, sql } from "drizzle-orm";
+import { and, asc, count, eq, inArray, sql } from "drizzle-orm";
+import { buildSearchSnippet } from "@/lib/catalog/snippet";
 import { getDb, getSqlite } from "@/lib/db/client";
+import { isHiddenFacetTag } from "@/lib/tags/hidden";
 import {
   collectionItems,
   itemTags,
@@ -109,8 +111,11 @@ function buildBaseFilters(
 ): { filters: string[]; args: unknown[] } {
   const filters: string[] = ["l.enabled = 1"];
   const args: unknown[] = [];
-  const includeMissing = params.includeMissing ?? false;
-  if (!includeMissing) filters.push("i.is_missing = 0");
+  if (params.missingOnly) {
+    filters.push("i.is_missing = 1");
+  } else if (!(params.includeMissing ?? false)) {
+    filters.push("i.is_missing = 0");
+  }
 
   if (!opts?.omitKind && params.kind) {
     filters.push("i.kind = ?");
@@ -322,8 +327,9 @@ export function searchCatalog(params: CatalogSearchParams = {}): {
       Parameters<typeof mapRow>[0]
     >;
 
+    const mapped = rows.map(mapRow);
     return {
-      items: rows.map(mapRow),
+      items: attachSearchSnippets(mapped, tokens),
       total: totalRow.c,
       page,
       pageSize,
@@ -383,6 +389,37 @@ export function searchCatalog(params: CatalogSearchParams = {}): {
     sort,
     sortDir,
   };
+}
+
+/** Attach plain-text snippets for search hits (name/path/body). */
+function attachSearchSnippets(
+  rows: CatalogItemRow[],
+  tokens: string[],
+): CatalogItemRow[] {
+  if (!rows.length || !tokens.length) return rows;
+  const db = getDb();
+  const ids = rows.map((r) => r.id);
+  const bodies = db
+    .select({ itemId: itemText.itemId, body: itemText.body })
+    .from(itemText)
+    .where(inArray(itemText.itemId, ids))
+    .all();
+  const bodyById = new Map(bodies.map((b) => [b.itemId, b.body]));
+
+  return rows.map((row) => {
+    const snip = buildSearchSnippet(tokens, {
+      name: row.name,
+      title: row.title,
+      relPath: row.relPath,
+      body: bodyById.get(row.id) ?? null,
+    });
+    if (!snip) return row;
+    return {
+      ...row,
+      snippet: snip.snippet,
+      matchField: snip.matchField,
+    };
+  });
 }
 
 /**
@@ -465,11 +502,13 @@ export function catalogFacets(params: CatalogSearchParams = {}): CatalogFacets {
       name: String(r.name),
       c: Number(r.c),
     })),
-    tags: tagRows.map((r) => ({
-      id: r.id,
-      name: r.name,
-      c: r.c,
-    })),
+    tags: tagRows
+      .filter((r) => !isHiddenFacetTag(r.name))
+      .map((r) => ({
+        id: r.id,
+        name: r.name,
+        c: r.c,
+      })),
   };
 }
 
