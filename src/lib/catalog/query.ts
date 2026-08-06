@@ -142,6 +142,12 @@ function buildBaseFilters(
     filters.push("i.is_missing = 0");
   }
 
+  if (params.untaggedOnly) {
+    filters.push(
+      "NOT EXISTS (SELECT 1 FROM item_tags it WHERE it.item_id = i.id)",
+    );
+  }
+
   if (!opts?.omitKind && params.kind) {
     filters.push("i.kind = ?");
     args.push(params.kind);

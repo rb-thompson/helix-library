@@ -15,6 +15,7 @@ import {
   listCollectionItems,
   listCollections,
 } from "@/lib/collections/manage";
+import { OpenHistoryRecorder } from "@/components/OpenHistoryRecorder";
 import { displayTitle } from "@/lib/catalog/display";
 import { formatBytes, formatDate } from "@/lib/format";
 import { hasThumb } from "@/lib/indexer/enrich";
@@ -136,6 +137,11 @@ export default async function ItemPage({
 
   return (
     <div className="space-y-4 sm:space-y-6">
+      <OpenHistoryRecorder
+        id={item.id}
+        name={displayTitle(item)}
+        kind={item.kind}
+      />
       <Link
         href="/catalog"
         className="inline-flex items-center gap-1.5 text-sm font-medium text-[var(--accent)] hover:underline"

@@ -12,8 +12,11 @@ import {
   Search,
 } from "lucide-react";
 import { ItemRow } from "@/components/ItemRow";
+import { RecentOpens } from "@/components/RecentOpens";
+import { RescuePanel } from "@/components/RescuePanel";
 import { SearchForm } from "@/components/SearchForm";
 import { StatusLine } from "@/components/ui/StatusLine";
+import { getRescueSnapshot } from "@/lib/catalog/rescue";
 import {
   catalogStats,
   listLocationsWithCounts,
@@ -36,6 +39,7 @@ export default function HomePage() {
   const colCount = collectionCount();
   const latestJob = getLatestJob();
   const reindexRunning = isReindexRunning();
+  const rescue = getRescueSnapshot();
 
   return (
     <div className="space-y-7 sm:space-y-10">
@@ -100,6 +104,16 @@ export default function HomePage() {
                 <span className="chip-value">{stats.missing}</span>
               </Link>
             ) : null}
+            {rescue.untaggedCount > 0 ? (
+              <Link
+                href="/catalog?untagged=1"
+                className="chip chip-stat"
+                title="Holdings with no tags"
+              >
+                <span className="chip-label">Untagged</span>
+                <span className="chip-value">{rescue.untaggedCount}</span>
+              </Link>
+            ) : null}
           </div>
           {reindexRunning || (latestJob && latestJob.status === "failed") ? (
             <div className="mt-4">
@@ -124,6 +138,8 @@ export default function HomePage() {
           ) : null}
         </div>
       </section>
+
+      {rescue.hasWork ? <RescuePanel rescue={rescue} /> : null}
 
       <section className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4">
         <ServiceCard
@@ -218,6 +234,9 @@ export default function HomePage() {
               ))}
             </ul>
           )}
+          <div className="mt-5">
+            <RecentOpens limit={8} />
+          </div>
         </section>
 
         <section className="min-w-0">

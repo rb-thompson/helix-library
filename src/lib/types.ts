@@ -44,6 +44,8 @@ export interface CatalogSearchParams {
   includeMissing?: boolean;
   /** Only missing holdings (weeding desk). Implies includeMissing. */
   missingOnly?: boolean;
+  /** Only holdings with no tags (untagged desk). */
+  untaggedOnly?: boolean;
 }
 
 export interface CatalogFacets {

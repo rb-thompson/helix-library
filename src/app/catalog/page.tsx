@@ -40,6 +40,8 @@ type SearchParams = Promise<{
   view?: string;
   /** Weeding desk: only holdings missing on disk */
   missing?: string;
+  /** Only holdings with no tags */
+  untagged?: string;
 }>;
 
 export default async function CatalogPage({
@@ -67,12 +69,14 @@ export default async function CatalogPage({
   const page = sp.page ? Number(sp.page) : 1;
   const missingOnly =
     sp.missing === "1" || sp.missing === "true" || sp.missing === "yes";
+  const untaggedOnly =
+    sp.untagged === "1" || sp.untagged === "true" || sp.untagged === "yes";
   const view: "grid" | "list" =
     sp.view === "list"
       ? "list"
       : sp.view === "grid"
         ? "grid"
-        : missingOnly
+        : missingOnly || untaggedOnly
           ? "list"
           : kind === "image" || kind === "video" || !kind
             ? "grid"
@@ -92,6 +96,7 @@ export default async function CatalogPage({
     page,
     pageSize,
     missingOnly: missingOnly || undefined,
+    untaggedOnly: untaggedOnly || undefined,
   };
 
   const result = searchCatalog(searchParamsObj);
@@ -126,6 +131,7 @@ export default async function CatalogPage({
       tag: tagId === "" ? "" : String(tagId),
       under,
       missing: missingOnly ? "1" : "",
+      untagged: untaggedOnly ? "1" : "",
       sort: sort === "mtime" ? "" : sort,
       dir:
         sort === "name"
@@ -211,6 +217,13 @@ export default async function CatalogPage({
       clearHref: hrefFor({ missing: "", page: 1 }),
     });
   }
+  if (untaggedOnly) {
+    filterChips.push({
+      key: "untagged",
+      label: "Untagged",
+      clearHref: hrefFor({ untagged: "", page: 1 }),
+    });
+  }
 
   const clearAllHref = hrefFor({
     q: "",
@@ -220,6 +233,7 @@ export default async function CatalogPage({
     tag: "",
     under: "",
     missing: "",
+    untagged: "",
     page: 1,
   });
 
@@ -231,7 +245,11 @@ export default async function CatalogPage({
       <div>
         <p className="eyebrow">Holdings</p>
         <h1 className="page-title mt-1">
-          {missingOnly ? "Weeding desk" : "Catalog"}
+          {missingOnly
+            ? "Weeding desk"
+            : untaggedOnly
+              ? "Untagged holdings"
+              : "Catalog"}
         </h1>
         <p className="page-sub">
           <span className="tabular-nums font-medium text-[var(--ink-soft)]">
@@ -239,11 +257,21 @@ export default async function CatalogPage({
           </span>{" "}
           {missingOnly
             ? `missing holding${result.total === 1 ? "" : "s"}`
-            : `holding${result.total === 1 ? "" : "s"}`}
+            : untaggedOnly
+              ? `untagged holding${result.total === 1 ? "" : "s"}`
+              : `holding${result.total === 1 ? "" : "s"}`}
           {q ? ` matching “${q}”` : ""}
-          {!missingOnly && filterChips.length > 0 && !q ? " with filters" : ""}
+          {!missingOnly &&
+          !untaggedOnly &&
+          filterChips.length > 0 &&
+          !q
+            ? " with filters"
+            : ""}
           {missingOnly
             ? " — select and remove from catalog (files already gone)"
+            : ""}
+          {untaggedOnly
+            ? " — add tags from bulk Select or item detail"
             : ""}
         </p>
       </div>
@@ -288,6 +316,9 @@ export default async function CatalogPage({
       <form method="get" className="toolstrip catalog-filters">
         {q ? <input type="hidden" name="q" value={q} /> : null}
         {missingOnly ? <input type="hidden" name="missing" value="1" /> : null}
+        {untaggedOnly ? (
+          <input type="hidden" name="untagged" value="1" />
+        ) : null}
         {sp.view ? <input type="hidden" name="view" value={view} /> : null}
         <label className="min-w-0 sm:min-w-[7.5rem]">
           <span className="label-quiet">Format</span>
