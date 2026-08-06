@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-08-06  
 **Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`)  
-**Status:** Daily-usable OPAC + Ask + graph + **Acquire desk** + responsive shell. Post-`ba23e55` work landed as five commits on `main`.
+**Status:** Daily-usable OPAC. **Curation & intake season fully shipped (PR1–PR7).** Next season design drafted: Discovery depth & reading room (pending owner approval).
 
 Read [AGENTS.md](../AGENTS.md) first, then this file.
 
