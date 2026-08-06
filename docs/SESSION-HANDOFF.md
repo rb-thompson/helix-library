@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-08-06  
 **Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`)  
-**Status:** Daily-usable OPAC. **Curation & intake season fully shipped (PR1–PR7).** Next season design drafted: Discovery depth & reading room (pending owner approval).
+**Status:** Daily-usable OPAC. **Curation & intake shipped (PR1–PR7).** Next season **Discovery depth & reading room approved** — implement from [designs/2026-08-discovery-reading.md](./designs/2026-08-discovery-reading.md).
 
 Read [AGENTS.md](../AGENTS.md) first, then this file.
 

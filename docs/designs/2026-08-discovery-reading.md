@@ -5,8 +5,8 @@
 | **Document** | Season design — Discovery depth & reading room |
 | **Author** | Helix owner + design loop |
 | **Date** | 2026-08-06 |
-| **Status** | **Draft pending owner approval** (rev 3 — smart expansion fix) |
-| **Approval** | Not yet approved — do not implement until owner signs off |
+| **Status** | **Approved** (owner 2026-08-06) — rev 3 |
+| **Approval** | Owner approved design + PR plan; implementation may proceed PR1a → … |
 | **Workspace** | `/home/brandon/Projects/non-os` (package `helix-library`) |
 | **Baseline tip** | `7fcfdd3` on `main` (synced with origin; 83 tests pass) |
 | **Prior season** | [Curation & intake integrity](./2026-08-curation-intake.md) — **Implemented** PR1–PR7 |
