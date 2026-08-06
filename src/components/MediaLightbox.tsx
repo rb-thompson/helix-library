@@ -147,8 +147,9 @@ export function MediaLightbox({
               autoPlay
               playsInline
               className="max-h-[calc(100dvh-7rem)] max-w-full bg-black"
-              src={mediaSrc}
-            />
+            >
+              <source src={mediaSrc} type="video/mp4" />
+            </video>
           ) : null}
           {isAudio ? (
             <div className="w-full max-w-lg px-4">

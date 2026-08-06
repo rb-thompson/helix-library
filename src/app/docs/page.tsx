@@ -2,6 +2,7 @@ import Link from "next/link";
 import type { Metadata } from "next";
 import {
   BookOpen,
+  Download,
   FolderOpen,
   HardDrive,
   Layers,
@@ -22,6 +23,7 @@ const toc = [
   { id: "catalog", label: "Catalog & media" },
   { id: "collections", label: "Collections & tags" },
   { id: "locations", label: "Locations" },
+  { id: "acquire", label: "Acquire (ILL desk)" },
   { id: "services", label: "Services & reindex" },
   { id: "librarian", label: "Ask the Librarian" },
   { id: "agent-tasks", label: "Agent tasks & approve" },
@@ -56,7 +58,7 @@ export default function DocsPage() {
         </Link>
       </aside>
 
-      <article className="min-w-0 space-y-10 sm:space-y-12">
+      <article className="min-w-0 max-w-3xl space-y-10 sm:space-y-12 2xl:max-w-4xl">
         <header>
           <p className="eyebrow">Documentation</p>
           <h1 className="page-title mt-1 text-2xl sm:text-3xl">
@@ -243,6 +245,41 @@ export default function DocsPage() {
               </code>
             </li>
           </ul>
+        </section>
+
+        {/* Acquire */}
+        <section id="acquire" className="scroll-mt-28">
+          <SectionTitle
+            icon={<Download className="h-5 w-5" />}
+            title="Acquire (interlibrary desk)"
+          />
+          <p className="prose-body mt-3">
+            Open <DocLink href="/acquire">Acquire</DocLink> to pull remote
+            resources into your Archive holdings — like an interlibrary loan
+            arriving at your stacks.
+          </p>
+          <ul className="mt-4 prose-body list-disc space-y-2 pl-5">
+            <li>
+              <strong>arXiv PDF</strong> — paste an id or abs URL; saves under{" "}
+              <code className="code-inline">archive/documents/</code>.
+            </li>
+            <li>
+              <strong>YouTube / podcast</strong> — needs host{" "}
+              <code className="code-inline">yt-dlp</code> on{" "}
+              <code className="code-inline">PATH</code> (and often{" "}
+              <code className="code-inline">ffmpeg</code>). Video or audio-only.
+            </li>
+            <li>
+              <strong>Grok image</strong> — needs{" "}
+              <code className="code-inline">XAI_API_KEY</code> (developer API,
+              not SuperGrok alone). Saves under{" "}
+              <code className="code-inline">archive/images/</code>.
+            </li>
+          </ul>
+          <p className="prose-body mt-3">
+            Each successful acquire reindexes automatically. Personal use only;
+            you are responsible for rights to downloaded media.
+          </p>
         </section>
 
         {/* Librarian */}

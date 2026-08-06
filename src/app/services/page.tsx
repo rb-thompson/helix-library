@@ -73,7 +73,25 @@ export default function ServicesPage() {
           <p className="mt-3 text-xs text-[var(--muted)]">
             CLI:{" "}
             <code className="code-inline">npm run reindex</code>
+            {" · "}
+            auto on file changes:{" "}
+            <code className="code-inline">npm run watch</code>
+            {" "}
+            (separate process; enabled location roots only).
           </p>
+        </section>
+
+        <section className="surface p-4 sm:p-5">
+          <h2 className="text-base font-semibold tracking-tight text-[var(--ink)]">
+            Acquire holdings
+          </h2>
+          <p className="mt-1 text-sm text-[var(--muted)]">
+            Interlibrary-style imports: arXiv PDFs, YouTube/podcasts (yt-dlp),
+            and Grok images into Archive.
+          </p>
+          <Link href="/acquire" className="btn btn-secondary mt-4">
+            Open Acquire
+          </Link>
         </section>
 
         <section className="surface p-4 sm:p-5">

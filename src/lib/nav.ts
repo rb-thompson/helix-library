@@ -37,6 +37,11 @@ export const SECONDARY_NAV: readonly NavItem[] = [
     tip: "Scan roots to index",
   },
   {
+    href: "/acquire",
+    label: "Acquire",
+    tip: "Pull papers, media, images into holdings",
+  },
+  {
     href: "/services",
     label: "Services",
     tip: "Reindex & machine",

@@ -11,6 +11,7 @@ cp library.config.example.json library.config.json   # if needed
 npm install
 npm run reindex    # index configured roots (default: ./archive)
 npm run dev        # http://127.0.0.1:4747
+# optional: npm run watch   # debounced reindex when files change under enabled roots
 
 # Home-network preview (password required — set NON_OS_ACCESS_PASSWORD in .env.local)
 # npm run dev:lan  # http://<your-lan-ip>:4747  user: library

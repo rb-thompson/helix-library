@@ -12,21 +12,21 @@
 ```text
 ┌─────────────────────────────────────────────────────────────┐
 │  Web surface (Next.js 15 App Router + React 19)             │
-│  /  /catalog  /catalog/[id]  /collections  /locations       │
-│  /services  /ask  /docs                                     │
+│  /  /catalog  /catalog/[id]  /graph  /collections           │
+│  /locations  /acquire  /services  /ask  /docs               │
 │  Header (client hamburger < lg) · Footer · tooltips         │
 └───────────────────────────┬─────────────────────────────────┘
                             │ RSC / fetch
 ┌───────────────────────────▼─────────────────────────────────┐
 │  API routes (Node runtime)                                  │
 │  reindex · media · thumbs · locations · collections · tags  │
-│  ask · threads                                              │
+│  ask · threads · bulk · acquire                             │
 └───────────────────────────┬─────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
 │  Library core (`src/lib`)                                   │
 │  config · db · indexer · catalog · collections · locations  │
-│  media · agent · machine                                    │
+│  media · agent · machine · graph · acquire                  │
 └───────────────┬─────────────────────────────┬───────────────┘
                 │                             │
                 ▼                             ▼

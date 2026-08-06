@@ -22,7 +22,9 @@ export async function GET(_req: Request, ctx: Ctx) {
       headers: {
         "Content-Type": "image/webp",
         "Content-Length": String(st.size),
-        "Cache-Control": "public, max-age=86400",
+        // Short cache so custom poster edits show up after refresh
+        "Cache-Control": "private, max-age=60",
+        ETag: `"${st.mtimeMs}-${st.size}"`,
       },
     });
   } catch {

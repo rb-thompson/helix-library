@@ -30,10 +30,10 @@ export async function GET(req: Request, ctx: Ctx) {
 
   const url = new URL(req.url);
   const asDownload = url.searchParams.get("download") === "1";
-  const safeName = item.name.replace(/"/g, "");
-  const contentDisposition = asDownload
-    ? `attachment; filename="${safeName}"`
-    : `inline; filename="${safeName}"`;
+  const contentDisposition = contentDispositionFor(
+    item.name,
+    asDownload ? "attachment" : "inline",
+  );
 
   if (range) {
     const { start, end } = range;
@@ -61,4 +61,27 @@ export async function GET(req: Request, ctx: Ctx) {
       "Cache-Control": "private, max-age=3600",
     },
   });
+}
+
+/**
+ * HTTP headers must be ByteString (0–255). yt-dlp titles often include
+ * fullwidth/Unicode (｜ ⧸ …) which crash NextResponse if put in filename=.
+ * Use ASCII fallback + RFC 5987 filename*.
+ */
+function contentDispositionFor(
+  name: string,
+  disposition: "inline" | "attachment",
+): string {
+  const raw = name.replace(/[\r\n"]/g, "_") || "file";
+  const ascii = raw
+    .normalize("NFKD")
+    .replace(/[^\x20-\x7E]/g, "_")
+    .replace(/_+/g, "_")
+    .replace(/^_|_$/g, "")
+    .slice(0, 180);
+  const fallback = ascii || "file";
+  const encoded = encodeURIComponent(raw)
+    .replace(/['()]/g, escape)
+    .replace(/\*/g, "%2A");
+  return `${disposition}; filename="${fallback}"; filename*=UTF-8''${encoded}`;
 }

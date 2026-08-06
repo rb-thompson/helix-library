@@ -35,6 +35,26 @@ const PREFERRED_KEYS: Array<{ key: string; label: string }> = [
 ];
 
 /**
+ * Raw exiftool JSON row (first file). Null if unavailable / failed.
+ */
+export function readExifRaw(filePath: string): Record<string, unknown> | null {
+  if (!commandExists("exiftool")) return null;
+  try {
+    const out = execFileSync(
+      "exiftool",
+      ["-json", "-n", "-coordFormat", "%.6f", filePath],
+      { encoding: "utf8", timeout: 20_000, maxBuffer: 2 * 1024 * 1024 },
+    );
+    const parsed = JSON.parse(out) as Array<Record<string, unknown>>;
+    const row = parsed[0];
+    if (!row || typeof row !== "object") return null;
+    return row;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Read EXIF/metadata via system exiftool when installed.
  * Graceful if missing or on parse failure — never throws to callers.
  */
@@ -48,14 +68,8 @@ export function readExif(filePath: string): ExifResult {
   }
 
   try {
-    const out = execFileSync(
-      "exiftool",
-      ["-json", "-n", "-coordFormat", "%.6f", filePath],
-      { encoding: "utf8", timeout: 20_000, maxBuffer: 2 * 1024 * 1024 },
-    );
-    const parsed = JSON.parse(out) as Array<Record<string, unknown>>;
-    const row = parsed[0];
-    if (!row || typeof row !== "object") {
+    const row = readExifRaw(filePath);
+    if (!row) {
       return { available: false, reason: "No metadata returned." };
     }
 

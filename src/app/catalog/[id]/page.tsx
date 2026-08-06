@@ -7,6 +7,7 @@ import { ExtractedTextPanel } from "@/components/ExtractedTextPanel";
 import { ItemCuration } from "@/components/ItemCuration";
 import { ItemMediaViewer } from "@/components/ItemMediaViewer";
 import { KindBadge } from "@/components/KindBadge";
+import { VideoThumbEditor } from "@/components/VideoThumbEditor";
 import { getItemById, getItemText, searchCatalog } from "@/lib/catalog/query";
 import {
   getItemCollections,
@@ -15,6 +16,7 @@ import {
   listCollections,
 } from "@/lib/collections/manage";
 import { formatBytes, formatDate } from "@/lib/format";
+import { hasThumb } from "@/lib/indexer/enrich";
 import { readExif } from "@/lib/media/exif";
 import { loadMediaPreview } from "@/lib/media/preview";
 import { resolveMediaItem } from "@/lib/media/serve";
@@ -166,6 +168,14 @@ export default async function ItemPage({
         preview={preview}
         neighbors={neighbors}
       />
+
+      {item.kind === "video" && !item.isMissing ? (
+        <VideoThumbEditor
+          itemId={item.id}
+          durationMs={item.durationMs}
+          hasThumb={hasThumb(item.id)}
+        />
+      ) : null}
 
       <div className="grid gap-4 sm:gap-5 lg:grid-cols-3">
         <div className="min-w-0 space-y-4 sm:space-y-5 lg:col-span-2">

@@ -1,8 +1,8 @@
 # Session handoff — Helix Library
 
-**Last updated:** 2026-08-04  
-**Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`; folder may still be `non-os`)  
-**Status:** Daily-usable personal OPAC + Grok Ask + knowledge graph + space UI. **Large uncommitted working tree** since MVP commit `d3fd658` — next session should review and commit intentionally.
+**Last updated:** 2026-08-06  
+**Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`)  
+**Status:** Daily-usable OPAC + Ask + graph + **Acquire desk** + responsive shell. Post-`ba23e55` work landed as five commits on `main`.
 
 Read [AGENTS.md](../AGENTS.md) first, then this file.
 
@@ -10,7 +10,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 ## One-paragraph summary
 
-**Helix Library** is a localhost personal OPAC: Next.js 15 + SQLite FTS over explicit scan roots (`archive/` primary), media preview, collections/tags (bulk + edit), async reindex, PDF/text extraction, hybrid search, **3D knowledge graph**, dark/light space UI with generated brand mark, and **Ask the Librarian** (Grok via xAI developer API when keyed, else local). Mutations need user approve. SuperGrok chat ≠ API key. Dense vision tags (OpenClaw gallery scripts) are handled with collapsed tag UI + thinned graph.
+**Helix Library** is a localhost personal OPAC: Next.js 15 + SQLite FTS over explicit scan roots (`archive/` primary), media preview, collections/tags, hybrid search with snippets, **3D knowledge graph** (retro-terminal colors + physics controls), dark/light space UI, **Ask the Librarian** (Grok when keyed, else local; server-side approve), and **`/acquire`** (ILL desk: arXiv search/fetch, yt-dlp YouTube/podcast, Grok images). Responsive shell (phone → ultrawide). SuperGrok chat ≠ developer API key.
 
 ---
 
@@ -24,9 +24,10 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | Bind | Loopback default; LAN + Basic auth optional |
 | Agent | Grok-first with `XAI_API_KEY`; else local |
 | Agent writes | Approval-gated only; no shell |
-| SuperGrok | Does **not** power Ask |
+| SuperGrok | Does **not** power Ask or Acquire images |
 | Primary holdings | `./archive` |
-| Brand | Generated H+helix mark (`public/helix-mark.*`); space theme |
+| Acquisitions | Own route **`/acquire`** (not buried only in Services) |
+| Brand | Generated H+helix mark; favicon from mark; no logo hover scale |
 
 ---
 
@@ -34,59 +35,37 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 | Area | Notes |
 | --- | --- |
-| Catalog | Hybrid FTS+LIKE, sort, `under`, facets, grid/list, bulk Select |
-| Tags UI | Collapsible lists (popular first); catalog select ≤60 shared tags |
-| Media | Stream + Range, thumbs, lightbox, EXIF if exiftool |
+| Catalog | Hybrid FTS+LIKE, **snippets + highlight**, sort, `under`, facets, grid/list, bulk Select |
+| Weeding | `/catalog?missing=1`; bulk **Remove from catalog** (DB only, never disk) |
+| Tags | Collapsible; **hygiene panel** (Collections); `vision-tagged` hidden from facets/graph |
+| Media | Stream + Range; **unicode filenames fixed** in `Content-Disposition` |
+| Video thumbs | Auto poster via ffmpeg; **VideoThumbEditor** on item detail (frame seek / upload / clear) |
 | PDF/notes | Body → FTS; agent `catalog_read` |
-| Collections | Create/edit/delete; **uniform shelf cards** |
-| Graph `/graph` | 3D force graph (Three.js); tags ≥2 uses, top 36; layer toggles; fullscreen fixed |
-| Reindex | Async + poll |
-| Ask | Grok/local; `propose_actions` + **server-side confirm** (xAI cannot fake writes) |
-| Theme | Dark/light `data-theme`; `ThemeToggle` / `ThemeScript` |
-| Nav | Primary: Catalog, Graph, Collections, Ask · More: Locations, Services, Docs |
-| Brand | `HelixMark` → `/helix-mark.png`; hero art `/hero-helix.jpg` |
-| Cards | Kind-tinted quiet chrome (holding grid/list, shelf, service tiles) |
-| Tests | `npm test` — **28 pass** (2026-08-04) |
-| Docs | In-app `/docs` |
+| Collections | Shelves + tag hygiene |
+| Graph `/graph` | Theme-aware phosphor colors; layers; **physics sliders**; singleton toggle; client-only load |
+| Reindex | Async + poll; `npm run watch` optional |
+| Ask | Viewport chat shell; sticky composer; threads sheet &lt;lg; Grok/local approve |
+| **Acquire `/acquire`** | arXiv search + fetch; YT/podcast (yt-dlp); Grok image; **async jobs + green progress**; auto-tags |
+| Theme / nav | Dark/light; Primary + More (Locations, **Acquire**, Services, Docs) |
+| Shell | `.shell-x`, `--shell-max` wider at 2xl |
+| Tests | `npm test` — **47 pass** (2026-08-05) |
+| Docs | In-app `/docs` includes Acquire |
 
 ---
 
-## Uncommitted work (critical for next agent)
+## Git baseline
 
-**Last commit on main:** `d3fd658` — MVP only. Everything below is **working tree** (modified + untracked).
+**Baseline:** `ba23e55` — Ship Helix Library (graph, Ask, space UI, brand).
 
-### High-signal new modules (untracked)
+**Sliced commits on main (2026-08-06):**
 
-| Path | Role |
-| --- | --- |
-| `src/app/graph/` | Knowledge Graph page |
-| `src/lib/graph/build.ts` | Graph snapshot from SQLite |
-| `src/components/KnowledgeGraph.tsx` | 3D force UI (client) |
-| `src/components/HelixMark.tsx` | Brand mark image |
-| `src/components/ThemeToggle.tsx`, `ThemeScript.tsx` | Theme |
-| `src/components/CollapsibleTagList.tsx` | Dense tag chips |
-| `src/components/AssistantMarkdown.tsx` | Ask markdown |
-| `public/helix-mark.{png,webp,jpg}`, `public/hero-helix.jpg` | Brand / hero assets |
-| `src/types/force-graph.d.ts` | Module shims |
-| `tests/search.test.ts` | Hybrid search |
-| `scripts/vision_tag_images.py`, `ingest-photo-gallery.py`, `probe_vision.py` | Owner OpenClaw/gallery tooling (not app runtime) |
+1. `412ba9f` — responsive shell, brand icons, `npm run watch`
+2. `3d496f0` — catalog weeding, search snippets, tag hygiene
+3. `12997a9` — graph theme colors, controls, client-only load
+4. `0180420` — Ask viewport chat shell
+5. tip — Acquire desk, media unicode, video thumb editor, docs
 
-### Major modified areas
-
-- Agent: confirm intercept, `collect_by_name`, create+shelve, prompts, tools  
-- Catalog/query hybrid search  
-- Space theme (`globals.css`), Header/Footer, pages  
-- Middleware: loopback exempt from LAN Basic auth  
-
-**Do not commit:** `.env.local`, `library.config.json`, `data/`, personal `archive/**`, `scripts/__pycache__/`.
-
-**Suggested commit strategy (owner decides):**
-
-1. Product rename + theme + brand assets  
-2. Agent approve fixes + hybrid search + tests  
-3. Graph feature + deps (`three`, `3d-force-graph`, `three-spritetext`)  
-4. Tag density UI + card chrome + nav  
-5. Optional: vision scripts under `scripts/` if owner wants them tracked  
+**Do not commit:** `.env.local`, `library.config.json`, `data/` (includes `acquire-jobs.json`, thumbs, db), personal `archive/**`, `scripts/__pycache__/`.  
 
 ---
 
@@ -98,69 +77,44 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 # NON_OS_AGENT_MODE=auto
 # NON_OS_USE_XAI=1
 # NON_OS_MODEL=grok-4.3
-# NON_OS_ACCESS_PASSWORD=...   # LAN only
-# NON_OS_LAN=1                 # only with dev:lan; loopback still open
+# NON_OS_IMAGE_MODEL=grok-imagine-image   # Acquire Grok images
 ```
 
 | Item | Value |
 | --- | --- |
 | Port | **4747** |
 | Dev | `npm run dev` → `http://127.0.0.1:4747` |
-| LAN | `npm run dev:lan` + password; user `library` |
-| Model | Prefer a team-enabled id; chat path `xai(model)` not `responses()` |
+| Watch reindex | `npm run watch` (enabled roots only) |
+
+### Host tools
+
+| Tool | Used for |
+| --- | --- |
+| `ffmpeg` / `ffprobe` | Video thumbs, duration, yt-dlp merges |
+| `exiftool` | EXIF panel + **Acquire auto-tags** from embedded metadata |
+| `yt-dlp` | Acquire YouTube/podcast (`pip3 install -U yt-dlp`) |
+| `sharp` (npm) | Image dims/thumbs + custom thumb upload |
 
 ---
 
-## Key code map
+## Key code map (this session)
 
 | Path | Role |
 | --- | --- |
-| `src/lib/agent/mode.ts` | local / xai / auto |
-| `src/lib/agent/prompt.ts` | Grok system prompt |
-| `src/lib/agent/tools.ts` | catalog_search/get/read, propose_actions |
-| `src/lib/agent/actions.ts` | Mutations + **tryHandleConfirmOrCancel** |
-| `src/lib/agent/local.ts` | Offline NLP + create+shelve proposals |
-| `src/app/api/ask/route.ts` | Stream; **confirm before LLM** |
-| `src/app/api/agent/actions/route.ts` | POST execute actions |
-| `src/lib/catalog/query.ts` | Hybrid search |
-| `src/lib/graph/build.ts` | Graph thinning (minTagCount=2, maxTags=36) |
-| `src/lib/nav.ts` | PRIMARY_NAV / SECONDARY_NAV |
-| `src/components/Header.tsx` | Nav + HelixMark |
-| `src/components/KnowledgeGraph.tsx` | 3D graph + fullscreen |
-| `src/middleware.ts` | LAN Basic auth; **loopback skip** |
-| `src/app/globals.css` | Design system + cards + helix well |
-
----
-
-## Architecture snapshot (2026-08-04)
-
-```text
-Browser → Next.js App Router (127.0.0.1:4747)
-            ├─ /  /catalog  /graph  /collections  /locations  /services  /ask  /docs
-            ├─ API: reindex, media, thumbs, ask, agent/actions, collections, items tags
-            └─ lib/
-                 config → db (SQLite + FTS5)
-                 indexer, catalog, collections, locations
-                 media, machine
-                 agent (local | xai)
-                 graph (buildKnowledgeGraph)
-```
-
-Deps of note: `three`, `3d-force-graph`, `three-spritetext`, `ai` / `@ai-sdk/xai`, `better-sqlite3`, `sharp`.
-
----
-
-## Known gaps / natural next work
-
-1. **Commit** the uncommitted tree (staged slices preferred)  
-2. FS **watch** / debounced auto-reindex  
-3. Search **snippets** + hit highlighting  
-4. Missing-holdings **weeding** desk  
-5. Graph: optional “show singleton tags” advanced mode; performance at 1k+ items  
-6. Tag hygiene tools (merge/delete vision noise; hide meta tag `vision-tagged`)  
-7. Light-mode brand mark variant (current mark is dark-field)  
-8. OpenClaw / Ollama — optional, not started as app features  
-9. Empty `src/server/` cleanup if still present  
+| `src/lib/acquire/*` | paths jail, arxiv search/fetch, youtube+progress, grok-image, jobs (globalThis + `data/acquire-jobs.json`), auto-tags |
+| `src/app/acquire/page.tsx` | Acquisitions desk UI shell |
+| `src/components/AcquireDesk.tsx` | Tool cards, search results, job poll + green progress |
+| `src/app/api/acquire/**` | status, arxiv, arxiv/search, youtube, image, jobs/[id] |
+| `src/lib/catalog/weed.ts` | Purge missing catalog rows only |
+| `src/lib/catalog/snippet.ts` | Search snippets + highlight segments |
+| `src/lib/graph/colors.ts` | Theme-aware graph palette |
+| `src/components/KnowledgeGraph.tsx` | 3D graph + controls; layout-safe mount order |
+| `src/components/KnowledgeGraphLoader.tsx` | `dynamic(..., { ssr: false })` |
+| `src/components/LibrarianChat.tsx` | Viewport chat, thread sheet, textarea |
+| `src/components/VideoThumbEditor.tsx` | Frame grab / upload / clear thumb |
+| `src/lib/media/thumb.ts` | Thumb set/clear helpers |
+| `src/app/api/media/[id]/route.ts` | **RFC 5987** Content-Disposition (unicode titles) |
+| `next.config.ts` | `transpilePackages` for three / force-graph |
 
 ---
 
@@ -169,15 +123,23 @@ Deps of note: `three`, `3d-force-graph`, `three-spritetext`, `ai` / `@ai-sdk/xai
 | Gotcha | Detail |
 | --- | --- |
 | Port | **4747** |
-| Secrets | Never commit `.env.local`, config, `data/`, personal archive |
-| Agent hallucinated “created collection” | Fixed: confirm is **server-side**; needs `[[action:…]]` tokens |
-| RSC client props | **No functions** from server → client (e.g. tag `href` must be string) |
-| LAN env in `.env.local` | Middleware requires Basic for non-loopback; **127.0.0.1 stays open** |
-| Dense tags | ~900 tags after vision gallery; UI collapses; graph omits singles |
-| SuperGrok | ≠ developer API |
-| HMR | `rm -rf .next && npm run dev` |
-| Graph fullscreen | CSS `.graph-shell-fs` + canvas resize on toggle |
-| Compound names | Hybrid search: `phoebe` → `finnandphoebe.jpeg` |
+| SuperGrok | ≠ `XAI_API_KEY` for Ask or Acquire images |
+| YT progress | Jobs async + poll; store on `globalThis` + `data/acquire-jobs.json` |
+| YT codecs | Prefer H.264+AAC; AV1 often fails in HTML5 video |
+| Media 500 | Unicode in `Content-Disposition` must use ASCII fallback + `filename*` |
+| Custom thumbs | Reindex does **not** overwrite existing `data/thumbs/{id}.webp` |
+| Graph mount | `graphData` before other props / pauseAnimation — avoid `layout.tick` crash |
+| RSC → client | No functions as props; graph is client-only loaded |
+
+---
+
+## Known gaps / natural next work
+
+1. Acquire: optional Ask tool “fetch arxiv:…” after approve  
+2. Graph perf at 1k+ items  
+3. Tag merge UI (delete + hide done)  
+4. Dedicated light-field brand PNG  
+5. yt-dlp JS runtime warning (optional deno) for more formats  
 
 ---
 
@@ -186,40 +148,24 @@ Deps of note: `three`, `3d-force-graph`, `three-spritetext`, `ai` / `@ai-sdk/xai
 ```bash
 cd /home/brandon/Projects/non-os
 git status && git log -3 --oneline
-# AGENTS.md → this file → ARCHITECTURE.md if deep work
+# AGENTS.md → this file
 npm install
 npm run typecheck && npm test
-# .env.local for Grok if needed
-npm run reindex    # if archive/gallery changed
-npm run dev        # http://127.0.0.1:4747
+npm run dev    # http://127.0.0.1:4747
+# optional: yt-dlp, ffmpeg, exiftool; XAI_API_KEY for Grok Ask/images
 ```
 
-**Smoke:** home → catalog grid (kind edges) → search “phoebe” → `/graph` (layers, fullscreen) → collections uniform cards → Ask “where is resume?” / approve-gated tag → `/docs` → logo mark visible.
+**Smoke:** home → catalog (search highlight) → weeding if missing → `/acquire` (arXiv search + YT progress) → video detail thumb editor → `/graph` (theme + sliders) → `/ask` (composer sticky) → logo/favicon.
 
 ---
 
-## User context
+## Session wrap (2026-08-04 → 2026-08-06)
 
-- Libraries / STEM / full-stack; OPAC metaphor intentional  
-- Sole personal use; agent completes library tasks after confirm  
-- SuperGrok sub + developer API for in-app Grok  
-- OpenClaw used outside app to index/tag photo gallery (Python scripts under `scripts/`)  
-- Brand: Helix Library; space UI; generated H+helix mark preferred over SVG animation  
-- Verified: resume review, Finn/Phoebe search, Outer Space collection (after approve fix), dense tags UX, graph  
+Delivered in this multi-day stretch (on top of `ba23e55`), then committed as five slices:
 
----
-
-## Session wrap (2026-08-04)
-
-This multi-day stretch delivered (among prior agent/search work):
-
-- Product name **Helix Library**; space dark/light theme  
-- **Knowledge Graph** + tag thinning + mobile-ish controls + fullscreen fix  
-- Tag density UX (collapsible chips, popular dropdown)  
-- Agent **confirm intercept** + `collect_by_name` / create+shelve batch  
-- Header: primary/More nav, generated **H+helix** brand mark  
-- Kind-tinted holding cards/rows; shelf + service tiles; uniform collection cards  
-- Middleware loopback LAN exemption  
-- Hero image + brand assets in `public/`  
-
-**Not done:** git commit of the above; FS watch; snippet UI; weeding desk.
+- Project hygiene; weeding desk; search snippets; tag hygiene; FS watch script  
+- Graph: terminal palette, light mode, useful controls; Next load/layout.tick fixes  
+- Responsive shell; Ask as viewport chat  
+- **Acquire** ILL desk (arXiv search/fetch, YT with progress, Grok images, auto-tags)  
+- Media unicode fix; video playable H.264 preference; **catalog video thumb editor**  
+- Green acquire progress bars

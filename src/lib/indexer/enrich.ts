@@ -127,19 +127,26 @@ export function extractVideoDimensions(
 }
 
 /**
- * Grab a poster frame ~1s in (or 0s for short clips) as WebP thumb.
+ * Grab a poster frame at seekSeconds (fallback 1s then 0s) as WebP thumb.
  */
-export function extractVideoPoster(filePath: string, itemId: number): boolean {
+export function extractVideoPoster(
+  filePath: string,
+  itemId: number,
+  seekSeconds?: number,
+): boolean {
   if (!commandExists("ffmpeg")) return false;
   const out = thumbPathForItem(itemId);
   mkdirSync(path.dirname(out), { recursive: true });
 
-  const attempts = [
-    ["-ss", "1"],
-    ["-ss", "0"],
-  ];
+  const seeks: string[][] =
+    seekSeconds != null && Number.isFinite(seekSeconds) && seekSeconds >= 0
+      ? [["-ss", String(seekSeconds)], ["-ss", "0"]]
+      : [
+          ["-ss", "1"],
+          ["-ss", "0"],
+        ];
 
-  for (const seek of attempts) {
+  for (const seek of seeks) {
     try {
       execFileSync(
         "ffmpeg",
@@ -163,6 +170,31 @@ export function extractVideoPoster(filePath: string, itemId: number): boolean {
     }
   }
   return false;
+}
+
+/**
+ * Replace catalog thumb with a user-supplied image buffer (jpeg/png/webp/…).
+ */
+export async function writeThumbFromImageBuffer(
+  itemId: number,
+  input: Buffer,
+): Promise<boolean> {
+  try {
+    const sharp = (await import("sharp")).default;
+    const out = thumbPathForItem(itemId);
+    mkdirSync(path.dirname(out), { recursive: true });
+    await sharp(input, { failOn: "none" })
+      .rotate()
+      .resize(THUMB_SIZE, THUMB_SIZE, {
+        fit: "inside",
+        withoutEnlargement: true,
+      })
+      .webp({ quality: 80 })
+      .toFile(out);
+    return existsSync(out);
+  } catch {
+    return false;
+  }
 }
 
 export function isPdfDocument(

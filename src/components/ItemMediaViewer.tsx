@@ -93,9 +93,12 @@ export function ItemMediaViewer({
                 `/api/thumbs/${item.id}`
               }
               className="max-h-[70vh] w-full max-w-4xl rounded-md bg-black"
-              src={preview.src}
               onClick={(e) => e.stopPropagation()}
             >
+              <source
+                src={preview.src}
+                type={preview.mime ?? "video/mp4"}
+              />
               <a href={preview.src}>Download video</a>
             </video>
           ) : null}

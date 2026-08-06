@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   ArrowUpRight,
   BookOpen,
+  Download,
   FolderOpen,
   HardDrive,
   Layers,
@@ -90,10 +91,14 @@ export default function HomePage() {
               </Link>
             ))}
             {stats.missing > 0 ? (
-              <span className="chip chip-stat text-[var(--danger)]">
+              <Link
+                href="/catalog?missing=1"
+                className="chip chip-stat text-[var(--danger)]"
+                title="Weeding desk — holdings not found on disk"
+              >
                 <span className="chip-label">Missing</span>
                 <span className="chip-value">{stats.missing}</span>
-              </span>
+              </Link>
             ) : null}
           </div>
           {reindexRunning || (latestJob && latestJob.status === "failed") ? (
@@ -120,7 +125,7 @@ export default function HomePage() {
         </div>
       </section>
 
-      <section className="grid grid-cols-2 gap-2.5 sm:gap-3 lg:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-7">
+      <section className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4">
         <ServiceCard
           href="/catalog"
           icon={<Search className="h-4 w-4" />}
@@ -144,6 +149,12 @@ export default function HomePage() {
           icon={<FolderOpen className="h-4 w-4" />}
           title="Locations"
           body="Scan roots"
+        />
+        <ServiceCard
+          href="/acquire"
+          icon={<Download className="h-4 w-4" />}
+          title="Acquire"
+          body="arXiv, YT, Grok images"
         />
         <ServiceCard
           href="/services"

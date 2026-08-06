@@ -13,6 +13,7 @@ Public library OPAC/services mapped onto personal files and host machine limits.
 | Catalog | Search / browse / filters |
 | Collections | Manual shelves + tags |
 | Services | Reindex, machine status |
+| Acquisitions / ILL | `/acquire` — arXiv, YT/podcast, Grok images into Archive |
 | Ask a librarian | `/ask` (local or optional xAI) |
 | Building | Host CPU/RAM/disk/tools |
 

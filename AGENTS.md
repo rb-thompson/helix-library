@@ -60,14 +60,16 @@ Port is **4747** (not 3000). Scripts pin hostname to `127.0.0.1`.
 | `NON_OS_USE_XAI` | allow | Set `0`/`false` to force local even if `XAI_API_KEY` is set |
 | `XAI_API_KEY` | unset | xAI **developer** key from console.x.ai (not SuperGrok) |
 | `NON_OS_MODEL` | `grok-4.3` | Model id when using Grok API (override if your team has others) |
+| `NON_OS_IMAGE_MODEL` | `grok-imagine-image` | xAI image model for Acquire desk |
 
 ### Optional host tools
 
 | Tool | Used for |
 | --- | --- |
-| `ffmpeg` | Video poster thumbs |
+| `ffmpeg` | Video poster thumbs (+ often required by yt-dlp merges) |
 | `ffprobe` | Duration + video dimensions |
 | `exiftool` | Optional EXIF panel (`libimage-exiftool-perl`) |
+| `yt-dlp` | Acquire desk: YouTube / podcast downloads |
 | `sharp` (npm) | Image dimensions + thumbs |
 
 ## Architecture snapshot
@@ -139,20 +141,20 @@ npm run build            # before calling a slice “done”
 
 ## Current status (high level)
 
-**Daily-usable Helix Library (2026-08-04 handoff):**
+**Daily-usable Helix Library (2026-08-05 handoff):**
 
-- Config + SQLite catalog + **hybrid** FTS/LIKE search
-- Indexer + enrichment; media/lightbox/EXIF
-- Catalog + kind-tinted cards; collapsible tag facets (dense vision tags)
-- Collections (uniform shelf cards); locations; services
-- **`/graph`** 3D knowledge map (thinned tags; layer toggles)
-- Ask: Grok when keyed; **`catalog_read`**; server-side approve (no hallucinated writes)
-- Space dark/light UI; **generated H+helix** brand mark; primary/More nav
-- Tests: `npm test` (28) green as of handoff
+- Config + SQLite catalog + hybrid FTS/LIKE + snippets/highlights
+- Indexer + enrichment; media (unicode-safe serve); EXIF; optional `npm run watch`
+- Catalog + weeding (`?missing=1`); video **thumb editor**; tag hygiene
+- **`/acquire`** ILL desk: arXiv search/fetch, yt-dlp YT/podcast, Grok images + auto-tags
+- **`/graph`** 3D map (theme colors, physics controls, client-only load)
+- **`/ask`** viewport chat; Grok when keyed; server-side approve
+- Responsive shell; space UI; H+helix mark + favicon
+- Tests: `npm test` — **47 pass**
 
-**Working tree:** large uncommitted delta since `d3fd658` — see SESSION-HANDOFF.
+**Shipped (sliced after `ba23e55`):** shell/watch, weeding+snippets+tags, graph polish, Ask shell, Acquire+media/thumbs — see [docs/SESSION-HANDOFF.md](./docs/SESSION-HANDOFF.md).
 
-**Next work:** see [docs/SESSION-HANDOFF.md](./docs/SESSION-HANDOFF.md).
+**Next work:** SESSION-HANDOFF “Known gaps”.
 
 ## Safety for future agent features
 
