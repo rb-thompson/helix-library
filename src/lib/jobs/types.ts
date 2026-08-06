@@ -1,0 +1,48 @@
+export type HelixJobKind = "reindex" | "arxiv" | "youtube" | "image";
+
+export type HelixJobStatus =
+  | "pending"
+  | "running"
+  | "completed"
+  | "failed"
+  | "cancelled";
+
+export type HelixJobProgress = {
+  stage: string;
+  percent: number | null;
+  detail?: string;
+};
+
+export type HelixJob = {
+  /** SQLite PK — canonical external id */
+  id: number;
+  kind: HelixJobKind;
+  status: HelixJobStatus;
+  label: string;
+  createdAt: number;
+  startedAt: number | null;
+  finishedAt: number | null;
+  error: string | null;
+  progress: HelixJobProgress;
+  /**
+   * acquire → result_json; reindex → stats_json
+   */
+  result: Record<string, unknown> | null;
+  cancelRequested: boolean;
+};
+
+export const ACQUIRE_JOB_KINDS = ["arxiv", "youtube", "image"] as const;
+export type AcquireJobKind = (typeof ACQUIRE_JOB_KINDS)[number];
+
+export function isAcquireJobKind(k: string): k is AcquireJobKind {
+  return (ACQUIRE_JOB_KINDS as readonly string[]).includes(k);
+}
+
+export function isHelixJobKind(k: string): k is HelixJobKind {
+  return (
+    k === "reindex" ||
+    k === "arxiv" ||
+    k === "youtube" ||
+    k === "image"
+  );
+}

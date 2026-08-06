@@ -65,17 +65,32 @@ export const itemText = sqliteTable("item_text", {
   extractedAt: integer("extracted_at").notNull(),
 });
 
-export const jobs = sqliteTable("jobs", {
-  id: integer("id").primaryKey({ autoIncrement: true }),
-  status: text("status").notNull().default("pending"),
-  startedAt: integer("started_at"),
-  finishedAt: integer("finished_at"),
-  statsJson: text("stats_json"),
-  error: text("error"),
-  createdAt: integer("created_at")
-    .notNull()
-    .default(sql`(unixepoch() * 1000)`),
-});
+export const jobs = sqliteTable(
+  "jobs",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    status: text("status").notNull().default("pending"),
+    startedAt: integer("started_at"),
+    finishedAt: integer("finished_at"),
+    /** Reindex stats payload (kept for reindex only). */
+    statsJson: text("stats_json"),
+    error: text("error"),
+    createdAt: integer("created_at")
+      .notNull()
+      .default(sql`(unixepoch() * 1000)`),
+    /** reindex | arxiv | youtube | image */
+    kind: text("kind").notNull().default("reindex"),
+    label: text("label"),
+    progressJson: text("progress_json"),
+    /** Acquire result payload (itemId, path, …). */
+    resultJson: text("result_json"),
+    cancelRequested: integer("cancel_requested").notNull().default(0),
+  },
+  (t) => [
+    index("jobs_kind_status_idx").on(t.kind, t.status),
+    index("jobs_created_idx").on(t.createdAt),
+  ],
+);
 
 export const collections = sqliteTable(
   "collections",

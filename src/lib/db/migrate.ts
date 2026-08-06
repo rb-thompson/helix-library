@@ -78,7 +78,12 @@ export function migrate(sqlite: Database.Database): void {
       finished_at INTEGER,
       stats_json TEXT,
       error TEXT,
-      created_at INTEGER NOT NULL DEFAULT (CAST(unixepoch() * 1000 AS INTEGER))
+      created_at INTEGER NOT NULL DEFAULT (CAST(unixepoch() * 1000 AS INTEGER)),
+      kind TEXT NOT NULL DEFAULT 'reindex',
+      label TEXT,
+      progress_json TEXT,
+      result_json TEXT,
+      cancel_requested INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS collections (
@@ -198,4 +203,20 @@ export function migrate(sqlite: Database.Database): void {
 
   // Safe to re-run: only upgrades residual source='manual' rows.
   backfillItemTagSources(sqlite);
+
+  // Unified jobs columns (PR3) — after CREATE so legacy DBs get ALTERs first.
+  ensureColumn(sqlite, "jobs", "kind", "TEXT NOT NULL DEFAULT 'reindex'");
+  ensureColumn(sqlite, "jobs", "label", "TEXT");
+  ensureColumn(sqlite, "jobs", "progress_json", "TEXT");
+  ensureColumn(sqlite, "jobs", "result_json", "TEXT");
+  ensureColumn(
+    sqlite,
+    "jobs",
+    "cancel_requested",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  sqlite.exec(`
+    CREATE INDEX IF NOT EXISTS jobs_kind_status_idx ON jobs(kind, status);
+    CREATE INDEX IF NOT EXISTS jobs_created_idx ON jobs(created_at);
+  `);
 }

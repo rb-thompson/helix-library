@@ -45,7 +45,9 @@ export async function POST(req: Request) {
 
     // Fire-and-forget: do not await (prevents proxy/browser timeout → NetworkError)
     void runAcquireJob(job, async (report) => {
-      const result = await acquireYoutube(url, mode, report);
+      const result = await acquireYoutube(url, mode, report, {
+        jobId: job.id,
+      });
       return { ...result };
     });
 

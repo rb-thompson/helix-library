@@ -189,6 +189,14 @@ export function startReindexAsync(): {
     .values({
       status: "running",
       startedAt: Date.now(),
+      kind: "reindex",
+      label: "Reindex holdings",
+      progressJson: JSON.stringify({
+        stage: "running",
+        percent: null,
+        detail: "Walking locations…",
+      }),
+      cancelRequested: 0,
     })
     .run();
   const jobId = Number(insertJob.lastInsertRowid);
@@ -447,9 +455,14 @@ async function executeReindexJob(
   }
 }
 
+/** Latest reindex job (ignores acquire rows in unified jobs table). */
 export function getLatestJob() {
   const db = getDb();
-  const rows = db.select().from(jobs).all();
+  const rows = db
+    .select()
+    .from(jobs)
+    .where(eq(jobs.kind, "reindex"))
+    .all();
   return rows.at(-1) ?? null;
 }
 

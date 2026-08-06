@@ -1,12 +1,11 @@
 import { NextResponse } from "next/server";
-import { getAcquireJob, serializeAcquireJob } from "@/lib/acquire/jobs";
+import { getJob } from "@/lib/jobs/store";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-/** Proxy to unified jobs store (integer id). */
 export async function GET(_req: Request, ctx: Ctx) {
   const { id } = await ctx.params;
   const n = Number(id);
@@ -16,12 +15,12 @@ export async function GET(_req: Request, ctx: Ctx) {
       { status: 400 },
     );
   }
-  const job = getAcquireJob(n);
+  const job = getJob(n);
   if (!job) {
     return NextResponse.json(
       { ok: false, error: "Job not found" },
       { status: 404 },
     );
   }
-  return NextResponse.json({ ok: true, job: serializeAcquireJob(job) });
+  return NextResponse.json({ ok: true, job });
 }

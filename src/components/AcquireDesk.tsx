@@ -102,7 +102,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
   }
 
   async function pollJob(
-    jobId: string,
+    jobId: string | number,
     kind: "arxiv" | "youtube" | "image",
     setResult: (r: ResultBox | null) => void,
   ) {

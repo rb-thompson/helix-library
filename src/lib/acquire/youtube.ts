@@ -5,6 +5,11 @@ import { loadConfig } from "@/lib/config";
 import { ensureArchiveSubdir, assertUnderArchive } from "@/lib/acquire/paths";
 import { indexAfterAcquire } from "@/lib/acquire/index-after";
 import type { AcquireProgress } from "@/lib/acquire/jobs";
+import {
+  isCancelRequested,
+  registerJobProcess,
+  unregisterJobProcess,
+} from "@/lib/jobs/store";
 
 export function ytDlpAvailable(): boolean {
   try {
@@ -71,6 +76,11 @@ export type YoutubeAcquireResult = {
 };
 
 type ProgressCb = (p: Partial<AcquireProgress>) => void;
+
+export type YoutubeAcquireOpts = {
+  /** Unified jobs id — enables process kill on cancel */
+  jobId?: number;
+};
 
 /**
  * Parse yt-dlp stdout/stderr lines into UI progress.
@@ -190,11 +200,16 @@ export async function acquireYoutube(
   urlRaw: string,
   mode: YoutubeMode = "video",
   onProgress?: ProgressCb,
+  opts?: YoutubeAcquireOpts,
 ): Promise<YoutubeAcquireResult> {
   if (!ytDlpAvailable()) {
     throw new Error(
       "yt-dlp is not installed or not on PATH. Install it to acquire video/podcast holdings.",
     );
+  }
+  const jobId = opts?.jobId;
+  if (jobId != null && isCancelRequested(jobId)) {
+    throw new Error("Cancelled");
   }
   const url = normalizeYoutubeUrl(urlRaw);
   const subdir = mode === "audio" ? "audio" : "video";
@@ -282,6 +297,10 @@ export async function acquireYoutube(
       stdio: ["ignore", "pipe", "pipe"],
     });
 
+    if (jobId != null) {
+      registerJobProcess(jobId, child);
+    }
+
     let stdout = "";
     let stderr = "";
     let settled = false;
@@ -310,6 +329,19 @@ export async function acquireYoutube(
         detail: `${lastDetail} · ${sec}s elapsed`,
       });
     }, 1500);
+
+    const cancelWatch = setInterval(() => {
+      if (settled || jobId == null) return;
+      if (isCancelRequested(jobId)) {
+        child.kill("SIGTERM");
+        settled = true;
+        clearTimeout(timer);
+        clearInterval(cancelWatch);
+        clearInterval(heartbeat);
+        unregisterJobProcess(jobId);
+        reject(new Error("Cancelled"));
+      }
+    }, 500);
 
     const onLine = (line: string, from: "out" | "err") => {
       // Progress may use CR without LF; already split by caller
@@ -369,6 +401,8 @@ export async function acquireYoutube(
     child.on("error", (err) => {
       clearTimeout(timer);
       clearInterval(heartbeat);
+      clearInterval(cancelWatch);
+      if (jobId != null) unregisterJobProcess(jobId);
       if (!settled) {
         settled = true;
         reject(err);
@@ -378,6 +412,8 @@ export async function acquireYoutube(
     child.on("close", (code) => {
       clearTimeout(timer);
       clearInterval(heartbeat);
+      clearInterval(cancelWatch);
+      if (jobId != null) unregisterJobProcess(jobId);
       if (settled) return;
       settled = true;
       if (outBuf.trim()) onLine(outBuf, "out");

@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { JobsPanel } from "@/components/JobsPanel";
 import { ReindexButton } from "@/components/ReindexButton";
 import { formatBytes, formatDate } from "@/lib/format";
 import {
@@ -6,6 +7,7 @@ import {
   isReindexRunning,
   serializeJob,
 } from "@/lib/indexer/run";
+import { listJobs } from "@/lib/jobs/store";
 import { probeMachine } from "@/lib/machine/probe";
 import { ensureLocationsSynced } from "@/lib/locations/manage";
 import type { IndexJobStats } from "@/lib/types";
@@ -23,6 +25,7 @@ export default function ServicesPage() {
   const initialJob = latest ? serializeJob(latest) : null;
   const stats = (initialJob?.stats ?? null) as IndexJobStats | null;
   const running = isReindexRunning();
+  const recentJobs = listJobs({ limit: 20 });
 
   return (
     <div className="space-y-5 sm:space-y-8">
@@ -33,6 +36,8 @@ export default function ServicesPage() {
           Reindex holdings and inspect this machine as the library building.
         </p>
       </div>
+
+      <JobsPanel initialJobs={recentJobs} />
 
       <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
         <section className="surface p-4 sm:p-5">

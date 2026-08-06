@@ -1,188 +1,81 @@
 /**
- * Acquire job store for single-user localhost.
- *
- * Uses globalThis (survives Next HMR / route-module reloads) + JSON file under
- * data/ so POST and GET /api/acquire/jobs/[id] always see the same jobs.
+ * Acquire job API — thin wrapper over unified SQLite jobs store.
+ * Integer ids only (hard cutover from globalThis + acquire-jobs.json).
  */
 
 import {
-  existsSync,
-  mkdirSync,
-  readFileSync,
-  writeFileSync,
-} from "node:fs";
-import path from "node:path";
-import { projectRoot } from "@/lib/config";
+  completeJob,
+  createJob,
+  failJob,
+  getJob,
+  isCancelRequested,
+  isKindBusy,
+  listJobs,
+  markJobRunning,
+  requestCancel,
+  updateJobProgress as updateJobProgressStore,
+} from "@/lib/jobs/store";
+import type {
+  AcquireJobKind,
+  HelixJob,
+  HelixJobProgress,
+} from "@/lib/jobs/types";
 
-export type AcquireJobKind = "arxiv" | "youtube" | "image";
+export type { AcquireJobKind } from "@/lib/jobs/types";
+export type AcquireJobStatus = HelixJob["status"];
+export type AcquireProgress = HelixJobProgress;
 
-export type AcquireJobStatus = "pending" | "running" | "completed" | "failed";
-
-export type AcquireProgress = {
-  stage: string;
-  percent: number | null;
-  detail?: string;
-};
-
-export type AcquireJob = {
-  id: string;
-  kind: AcquireJobKind;
-  status: AcquireJobStatus;
-  createdAt: number;
-  startedAt: number | null;
-  finishedAt: number | null;
-  error: string | null;
-  result: Record<string, unknown> | null;
-  label: string;
-  progress: AcquireProgress;
-};
-
-type Store = {
-  seq: number;
-  jobs: Record<string, AcquireJob>;
-};
-
-declare global {
-  // eslint-disable-next-line no-var
-  var __helixAcquireJobs: Store | undefined;
-}
-
-function storePath(): string {
-  return path.join(projectRoot(), "data", "acquire-jobs.json");
-}
-
-function loadFromDisk(): Store | null {
-  try {
-    const p = storePath();
-    if (!existsSync(p)) return null;
-    const raw = JSON.parse(readFileSync(p, "utf8")) as Store;
-    if (!raw || typeof raw !== "object" || !raw.jobs) return null;
-    return { seq: Number(raw.seq) || 0, jobs: raw.jobs };
-  } catch {
-    return null;
-  }
-}
-
-function persist(store: Store): void {
-  try {
-    const p = storePath();
-    mkdirSync(path.dirname(p), { recursive: true });
-    // Cap finished jobs on disk
-    const entries = Object.values(store.jobs).sort(
-      (a, b) => b.createdAt - a.createdAt,
-    );
-    const keep = entries.slice(0, 40);
-    const jobs: Record<string, AcquireJob> = {};
-    for (const j of keep) jobs[j.id] = j;
-    store.jobs = jobs;
-    writeFileSync(p, JSON.stringify({ seq: store.seq, jobs }, null, 0), "utf8");
-  } catch {
-    // non-fatal
-  }
-}
-
-function getStore(): Store {
-  if (!globalThis.__helixAcquireJobs) {
-    globalThis.__helixAcquireJobs = loadFromDisk() ?? { seq: 0, jobs: {} };
-  }
-  return globalThis.__helixAcquireJobs;
-}
+/** @deprecated use HelixJob; kept name for call sites */
+export type AcquireJob = HelixJob;
 
 export function createAcquireJob(
   kind: AcquireJobKind,
   label: string,
 ): AcquireJob {
-  const store = getStore();
-  store.seq += 1;
-  const job: AcquireJob = {
-    id: `acq-${Date.now()}-${store.seq}`,
-    kind,
-    status: "pending",
-    createdAt: Date.now(),
-    startedAt: null,
-    finishedAt: null,
-    error: null,
-    result: null,
-    label,
-    progress: { stage: "queued", percent: 0, detail: "Waiting to start…" },
-  };
-  store.jobs[job.id] = job;
-  persist(store);
+  return createJob({ kind, label });
+}
+
+export function getAcquireJob(id: string | number): AcquireJob | null {
+  const n = typeof id === "number" ? id : Number(id);
+  if (!Number.isFinite(n) || n <= 0) return null;
+  const job = getJob(n);
+  if (!job) return null;
+  if (job.kind === "reindex") return null;
   return job;
 }
 
-export function getAcquireJob(id: string): AcquireJob | null {
-  const store = getStore();
-  if (store.jobs[id]) return store.jobs[id];
-  // Reload disk in case another request context wrote it
-  const disk = loadFromDisk();
-  if (disk?.jobs[id]) {
-    store.jobs[id] = disk.jobs[id];
-    store.seq = Math.max(store.seq, disk.seq);
-    return store.jobs[id];
-  }
-  return null;
-}
-
 export function listAcquireJobs(limit = 12): AcquireJob[] {
-  const store = getStore();
-  return Object.values(store.jobs)
-    .sort((a, b) => b.createdAt - a.createdAt)
-    .slice(0, limit);
+  return listJobs({
+    limit,
+    kinds: ["arxiv", "youtube", "image"],
+  });
 }
 
 export function isAcquireBusy(kind?: AcquireJobKind): boolean {
-  for (const j of Object.values(getStore().jobs)) {
-    if (j.status === "running" || j.status === "pending") {
-      if (!kind || j.kind === kind) return true;
-    }
-  }
-  return false;
+  if (kind) return isKindBusy(kind);
+  return (
+    isKindBusy("arxiv") || isKindBusy("youtube") || isKindBusy("image")
+  );
 }
 
-/** Last disk flush time per job (throttle I/O, keep memory always fresh). */
-const lastPersistAt = new Map<string, number>();
+export function cancelAcquireJob(id: number): AcquireJob | null {
+  const job = getJob(id);
+  if (!job || job.kind === "reindex") return null;
+  return requestCancel(id);
+}
 
+/** Compatibility: accept job object or id (legacy callers mutated in-memory jobs). */
 export function updateJobProgress(
-  job: AcquireJob,
+  jobOrId: AcquireJob | number,
   progress: Partial<AcquireProgress>,
 ): void {
-  job.progress = {
-    ...job.progress,
-    ...progress,
-    percent:
-      progress.percent === undefined
-        ? job.progress.percent
-        : progress.percent == null
-          ? null
-          : Math.max(0, Math.min(100, progress.percent)),
-  };
-  const store = getStore();
-  store.jobs[job.id] = job;
-
-  // Persist often enough that polls (and HMR reloads) see live %).
-  const now = Date.now();
-  const last = lastPersistAt.get(job.id) ?? 0;
-  const stage = job.progress.stage;
-  const force =
-    stage === "queued" ||
-    stage === "starting" ||
-    stage === "done" ||
-    stage === "failed" ||
-    stage === "reindexing" ||
-    stage === "merging" ||
-    stage === "extracting" ||
-    stage === "writing";
-  if (force || now - last >= 400) {
-    lastPersistAt.set(job.id, now);
-    persist(store);
+  const id = typeof jobOrId === "number" ? jobOrId : jobOrId.id;
+  const updated = updateJobProgressStore(id, progress);
+  if (updated && typeof jobOrId !== "number") {
+    jobOrId.progress = updated.progress;
+    jobOrId.status = updated.status;
+    jobOrId.error = updated.error;
   }
-}
-
-function touchJob(job: AcquireJob): void {
-  const store = getStore();
-  store.jobs[job.id] = job;
-  persist(store);
 }
 
 export async function runAcquireJob(
@@ -191,37 +84,28 @@ export async function runAcquireJob(
     report: (p: Partial<AcquireProgress>) => void,
   ) => Promise<Record<string, unknown>>,
 ): Promise<AcquireJob> {
+  markJobRunning(job.id);
   job.status = "running";
   job.startedAt = Date.now();
-  updateJobProgress(job, {
-    stage: "starting",
-    percent: 1,
-    detail: "Starting…",
-  });
-  touchJob(job);
 
-  const report = (p: Partial<AcquireProgress>) => updateJobProgress(job, p);
+  const report = (p: Partial<AcquireProgress>) => {
+    updateJobProgress(job, p);
+  };
+
   try {
-    job.result = await work(report);
-    job.status = "completed";
-    updateJobProgress(job, {
-      stage: "done",
-      percent: 100,
-      detail: "Complete",
-    });
+    if (isCancelRequested(job.id)) {
+      failJob(job.id, "Cancelled");
+      return getJob(job.id) ?? job;
+    }
+
+    const result = await work(report);
+    completeJob(job.id, result);
   } catch (err) {
-    job.status = "failed";
-    job.error = err instanceof Error ? err.message : String(err);
-    updateJobProgress(job, {
-      stage: "failed",
-      percent: job.progress.percent,
-      detail: job.error,
-    });
-  } finally {
-    job.finishedAt = Date.now();
-    touchJob(job);
+    const message = err instanceof Error ? err.message : String(err);
+    failJob(job.id, message || "Failed");
   }
-  return job;
+
+  return getJob(job.id) ?? job;
 }
 
 export function serializeAcquireJob(job: AcquireJob) {
@@ -236,5 +120,6 @@ export function serializeAcquireJob(job: AcquireJob) {
     result: job.result,
     label: job.label,
     progress: { ...job.progress },
+    cancelRequested: job.cancelRequested,
   };
 }
