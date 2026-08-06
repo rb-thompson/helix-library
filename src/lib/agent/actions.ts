@@ -20,6 +20,19 @@ import {
   removeTagFromItem,
   updateCollection,
 } from "@/lib/collections/manage";
+import { acquireArxivPdf, parseArxivId } from "@/lib/acquire/arxiv";
+import { acquireGrokImage } from "@/lib/acquire/grok-image";
+import {
+  createAcquireJob,
+  isAcquireBusy,
+  runAcquireJob,
+} from "@/lib/acquire/jobs";
+import {
+  acquireYoutube,
+  normalizeYoutubeUrl,
+  type YoutubeMode,
+} from "@/lib/acquire/youtube";
+import { hasXaiApiKey } from "@/lib/agent/mode";
 import { getItemById, listLocationsWithCounts } from "@/lib/catalog/query";
 import {
   addLocation,
@@ -48,7 +61,19 @@ export type LibrarianAction =
   | { type: "delete_collection"; collectionId: number }
   | { type: "set_location_enabled"; locationId: number; enabled: boolean }
   | { type: "add_location"; name: string; root: string }
-  | { type: "remove_location"; locationId: number };
+  | { type: "remove_location"; locationId: number }
+  /** Network I/O only after human approve — starts async job, does not await download. */
+  | { type: "acquire_arxiv"; idOrUrl: string }
+  | {
+      type: "acquire_youtube";
+      url: string;
+      mode?: YoutubeMode;
+    }
+  | {
+      type: "acquire_image";
+      prompt: string;
+      filenameHint?: string;
+    };
 
 export type ActionResult = {
   ok: boolean;
@@ -72,6 +97,9 @@ const ACTION_TYPES = new Set([
   "set_location_enabled",
   "add_location",
   "remove_location",
+  "acquire_arxiv",
+  "acquire_youtube",
+  "acquire_image",
 ]);
 
 /** Serialize one action for chat UI buttons. */
@@ -166,6 +194,12 @@ export function actionLabel(action: LibrarianAction): string {
       return `Add location`;
     case "remove_location":
       return `Remove location`;
+    case "acquire_arxiv":
+      return "Fetch arXiv";
+    case "acquire_youtube":
+      return "Download media";
+    case "acquire_image":
+      return "Generate image";
     default:
       return "Approve";
   }
@@ -230,6 +264,26 @@ export function describeAction(action: LibrarianAction): string {
         (l) => l.id === action.locationId,
       );
       return `Remove location **${loc?.name ?? action.locationId}** from catalog config (files untouched).`;
+    }
+    case "acquire_arxiv": {
+      const id = parseArxivId(action.idOrUrl);
+      return `Download arXiv PDF **${id ?? action.idOrUrl}** (\`${action.idOrUrl}\`) into Archive — network required; no shell. Progress on **Services** or [/acquire](/acquire).`;
+    }
+    case "acquire_youtube": {
+      let url = action.url;
+      try {
+        url = normalizeYoutubeUrl(action.url);
+      } catch {
+        // show raw if not yet valid
+      }
+      const mode = action.mode === "audio" ? "audio" : "video";
+      return `Download **${mode}** from \`${url}\` into Archive via yt-dlp — network required; no shell. Progress on **Services** or [/acquire](/acquire).`;
+    }
+    case "acquire_image": {
+      const p = action.prompt.trim();
+      const preview =
+        p.length > 120 ? `${p.slice(0, 120)}…` : p;
+      return `Generate Grok image for prompt “${preview}” into Archive (needs \`XAI_API_KEY\`). Progress on **Services** or [/acquire](/acquire).`;
     }
     default:
       return "Perform an in-app action.";
@@ -418,6 +472,98 @@ export function executeLibrarianAction(action: LibrarianAction): ActionResult {
           ok: true,
           action,
           message: `Removed location #${action.locationId} from config/catalog (disk untouched).`,
+        };
+      }
+      case "acquire_arxiv": {
+        const idOrUrl = action.idOrUrl.trim();
+        const arxivId = parseArxivId(idOrUrl);
+        if (!arxivId) {
+          throw new Error(
+            "Could not parse arXiv id. Try 1706.03762 or an arxiv.org abs/pdf URL.",
+          );
+        }
+        const job = createAcquireJob("arxiv", idOrUrl.slice(0, 80));
+        // Never await — approve path must return immediately
+        void runAcquireJob(job, async (report) => {
+          const result = await acquireArxivPdf(idOrUrl, report);
+          return { ...result };
+        });
+        return {
+          ok: true,
+          action,
+          message: `Started acquire job #${job.id} (arXiv ${arxivId}). Progress on [Services](/services) or [Acquire](/acquire).`,
+          data: { jobId: job.id, kind: "arxiv", arxivId },
+        };
+      }
+      case "acquire_youtube": {
+        const raw = action.url.trim();
+        if (!raw) throw new Error("URL is required");
+        let url: string;
+        try {
+          url = normalizeYoutubeUrl(raw);
+        } catch (e) {
+          throw new Error(
+            e instanceof Error ? e.message : "Invalid YouTube/media URL",
+          );
+        }
+        if (!/^https?:\/\//i.test(url)) {
+          throw new Error("Only http(s) URLs are allowed");
+        }
+        if (isAcquireBusy("youtube")) {
+          return {
+            ok: false,
+            action,
+            message:
+              "A YouTube/podcast download is already running. Wait for it to finish.",
+          };
+        }
+        const mode: YoutubeMode =
+          action.mode === "audio" ? "audio" : "video";
+        const job = createAcquireJob("youtube", url.slice(0, 100));
+        void runAcquireJob(job, async (report) => {
+          const result = await acquireYoutube(url, mode, report, {
+            jobId: job.id,
+          });
+          return { ...result };
+        });
+        return {
+          ok: true,
+          action,
+          message: `Started acquire job #${job.id} (${mode}). Progress on [Services](/services) or [Acquire](/acquire).`,
+          data: { jobId: job.id, kind: "youtube", mode, url },
+        };
+      }
+      case "acquire_image": {
+        const prompt = action.prompt.trim();
+        if (!prompt) throw new Error("Image prompt is required");
+        if (!hasXaiApiKey()) {
+          return {
+            ok: false,
+            action,
+            message:
+              "Grok image needs XAI_API_KEY (developer key from console.x.ai). SuperGrok alone is not enough.",
+          };
+        }
+        const job = createAcquireJob("image", prompt.slice(0, 80));
+        void runAcquireJob(job, async (report) => {
+          report({
+            stage: "generating",
+            percent: 15,
+            detail: "Calling xAI image API…",
+          });
+          const result = await acquireGrokImage(prompt);
+          report({
+            stage: "reindexing",
+            percent: 92,
+            detail: "Indexing into catalog…",
+          });
+          return { ...result };
+        });
+        return {
+          ok: true,
+          action,
+          message: `Started acquire job #${job.id} (Grok image). Progress on [Services](/services) or [Acquire](/acquire).`,
+          data: { jobId: job.id, kind: "image" },
         };
       }
       default:

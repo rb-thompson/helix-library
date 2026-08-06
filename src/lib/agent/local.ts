@@ -118,6 +118,74 @@ export function localLibrarianReply(
     );
   }
 
+  // acquire arxiv: "fetch arxiv 1706.03762" / "acquire paper 2604.01262"
+  {
+    const arxivIntent =
+      /\b(fetch|get|download|acquire|pull)\b/.test(lower) &&
+      /\b(arxiv|paper)\b/.test(lower);
+    if (arxivIntent) {
+      const idMatch =
+        q.match(
+          /\b(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+\/\d{7}(?:v\d+)?)\b/i,
+        ) ||
+        q.match(
+          /arxiv\.org\/(?:abs|pdf|html)\/(\d{4}\.\d{4,5}(?:v\d+)?|[a-z-]+\/\d{7}(?:v\d+)?)/i,
+        ) ||
+        q.match(/arxiv:\s*(\S+)/i);
+      const idOrUrl = idMatch?.[1] ?? idMatch?.[0];
+      if (idOrUrl) {
+        return formatProposalMessage(
+          "Acquire arXiv",
+          "Downloads the PDF into Archive and reindexes. Network required; approve to start a background job.",
+          [{ type: "acquire_arxiv", idOrUrl: idOrUrl.trim() }],
+        );
+      }
+      return "Give an arXiv id or abs URL, e.g. **fetch arxiv 1706.03762**.";
+    }
+  }
+
+  // acquire youtube: "download youtube https://..."
+  {
+    const ytIntent =
+      /\b(download|fetch|acquire|pull|get)\b/.test(lower) &&
+      /\b(youtube|youtu\.be|podcast|video)\b/.test(lower);
+    const urlMatch = q.match(/https?:\/\/[^\s<>"']+/i);
+    if (ytIntent && urlMatch) {
+      const mode = /\b(audio|mp3|podcast)\b/.test(lower) ? "audio" : "video";
+      return formatProposalMessage(
+        "Acquire media",
+        `yt-dlp ${mode} into Archive. Network required; approve to start a background job.`,
+        [
+          {
+            type: "acquire_youtube",
+            url: urlMatch[0].replace(/[),.;]+$/, ""),
+            mode,
+          },
+        ],
+      );
+    }
+    if (ytIntent && !urlMatch) {
+      return "Paste a full **https** YouTube/podcast URL, e.g. **download youtube https://…**.";
+    }
+  }
+
+  // generate image
+  {
+    const imgMatch = q.match(
+      /\b(?:generate|make|create)\s+(?:an?\s+)?(?:grok\s+)?image\s+(?:of\s+|for\s+|prompt\s+)?(.+)$/i,
+    );
+    if (imgMatch) {
+      const prompt = imgMatch[1].replace(/^["']|["']$/g, "").trim();
+      if (prompt.length >= 3) {
+        return formatProposalMessage(
+          "Acquire Grok image",
+          "Needs XAI_API_KEY. Saves under archive/images and reindexes after approve.",
+          [{ type: "acquire_image", prompt }],
+        );
+      }
+    }
+  }
+
   // Multi-step first: create collection X and put/place/add Y (one approve batch)
   const createAndShelve = q.match(
     /\b(?:create|make|new)\s+(?:a\s+)?(?:collection|shelf)\s+(?:titled\s+|called\s+|named\s+)?(.+?)\s+and\s+(?:add|put|place|shelve)\s+(.+)$/i,

@@ -274,7 +274,7 @@ export const librarianTools = {
    */
   propose_actions: tool({
     description:
-      "Stage one or more in-app mutations for the user to approve. Does not change the catalog until the user confirms in the UI or replies approve/yes. Use for reindex, tags, collections, locations.",
+      "Stage one or more in-app mutations for the user to approve. Does not change the catalog until the user confirms. Use for reindex, tags, collections, locations, and acquire (arXiv / YouTube / Grok image).",
     inputSchema: z.object({
       title: z
         .string()
@@ -302,6 +302,9 @@ export const librarianTools = {
               "set_location_enabled",
               "add_location",
               "remove_location",
+              "acquire_arxiv",
+              "acquire_youtube",
+              "acquire_image",
             ]),
             itemId: z.number().int().positive().optional(),
             tagId: z.number().int().positive().optional(),
@@ -315,6 +318,14 @@ export const librarianTools = {
             locationId: z.number().int().positive().optional(),
             enabled: z.boolean().optional(),
             root: z.string().optional(),
+            /** acquire_arxiv — bare id or arxiv.org URL from user text only */
+            idOrUrl: z.string().optional(),
+            /** acquire_youtube — full https URL from user text only */
+            url: z.string().optional(),
+            mode: z.enum(["video", "audio"]).optional(),
+            /** acquire_image — generation prompt from user */
+            prompt: z.string().optional(),
+            filenameHint: z.string().optional(),
           }),
         )
         .min(1)
@@ -440,6 +451,32 @@ export const librarianTools = {
               actions.push({
                 type: "remove_location",
                 locationId: a.locationId,
+              });
+            }
+            break;
+          case "acquire_arxiv":
+            if (a.idOrUrl?.trim()) {
+              actions.push({
+                type: "acquire_arxiv",
+                idOrUrl: a.idOrUrl.trim(),
+              });
+            }
+            break;
+          case "acquire_youtube":
+            if (a.url?.trim()) {
+              actions.push({
+                type: "acquire_youtube",
+                url: a.url.trim(),
+                mode: a.mode === "audio" ? "audio" : "video",
+              });
+            }
+            break;
+          case "acquire_image":
+            if (a.prompt?.trim()) {
+              actions.push({
+                type: "acquire_image",
+                prompt: a.prompt.trim(),
+                filenameHint: a.filenameHint?.trim() || undefined,
               });
             }
             break;

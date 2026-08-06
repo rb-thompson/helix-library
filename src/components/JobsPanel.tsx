@@ -1,8 +1,8 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { RefreshCw, Square } from "lucide-react";
+import { ChevronDown, ChevronRight, RefreshCw, Square } from "lucide-react";
 
 type JobProgress = {
   stage: string;
@@ -74,6 +74,15 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
   const [jobs, setJobs] = useState(initialJobs);
   const [busyId, setBusyId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Collapsed by default so Services stays compact; expand for detail. */
+  const [open, setOpen] = useState(false);
+
+  const activeCount = useMemo(
+    () =>
+      jobs.filter((j) => j.status === "running" || j.status === "pending")
+        .length,
+    [jobs],
+  );
 
   const refresh = useCallback(async () => {
     try {
@@ -92,17 +101,14 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
     setJobs(initialJobs);
   }, [initialJobs]);
 
-  // Poll while any job is active
+  // Poll while panel open and any job is active (or always when active so badge updates)
   useEffect(() => {
-    const active = jobs.some(
-      (j) => j.status === "running" || j.status === "pending",
-    );
-    if (!active) return;
+    if (activeCount === 0 && !open) return;
     const t = setInterval(() => {
       void refresh();
     }, 1200);
     return () => clearInterval(t);
-  }, [jobs, refresh]);
+  }, [activeCount, open, refresh]);
 
   async function cancel(id: number) {
     setBusyId(id);
@@ -122,134 +128,174 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
     }
   }
 
+  const summaryLine =
+    jobs.length === 0
+      ? "No jobs yet"
+      : activeCount > 0
+        ? `${activeCount} active · ${jobs.length} recent`
+        : `${jobs.length} recent`;
+
   return (
     <section className="surface p-4 sm:p-5" aria-label="Jobs">
-      <div className="flex flex-wrap items-start justify-between gap-2">
-        <div>
-          <h2 className="text-base font-semibold tracking-tight text-[var(--ink)]">
-            Jobs
-          </h2>
-          <p className="mt-1 max-w-xl text-sm text-[var(--muted)]">
-            Reindex and acquire activity in one place. Progress updates while
-            work is running.
-          </p>
-        </div>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <button
+          type="button"
+          className="flex min-w-0 flex-1 items-start gap-2 text-left"
+          onClick={() => setOpen((v) => !v)}
+          aria-expanded={open}
+        >
+          <span className="mt-0.5 shrink-0 text-[var(--muted)]" aria-hidden>
+            {open ? (
+              <ChevronDown className="h-4 w-4" />
+            ) : (
+              <ChevronRight className="h-4 w-4" />
+            )}
+          </span>
+          <span className="min-w-0">
+            <span className="flex flex-wrap items-center gap-2">
+              <span className="text-base font-semibold tracking-tight text-[var(--ink)]">
+                Jobs
+              </span>
+              {activeCount > 0 ? (
+                <span className="chip !py-0.5 text-[0.65rem] text-[var(--accent)]">
+                  {activeCount} running
+                </span>
+              ) : null}
+            </span>
+            <span className="mt-0.5 block text-xs text-[var(--muted)]">
+              {open
+                ? "Reindex and acquire activity. Progress updates while work runs."
+                : summaryLine}
+            </span>
+          </span>
+        </button>
         <button
           type="button"
           className="btn btn-ghost btn-sm"
-          onClick={() => void refresh()}
+          onClick={(e) => {
+            e.stopPropagation();
+            void refresh();
+          }}
         >
           <RefreshCw className="h-3.5 w-3.5" aria-hidden />
           Refresh
         </button>
       </div>
 
-      {error ? (
-        <p className="feedback-err mt-3" role="alert">
-          {error}
-        </p>
-      ) : null}
+      {open ? (
+        <>
+          {error ? (
+            <p className="feedback-err mt-3" role="alert">
+              {error}
+            </p>
+          ) : null}
 
-      {jobs.length === 0 ? (
-        <p className="mt-4 text-sm text-[var(--muted)]">
-          No jobs yet. Run reindex or acquire something.
-        </p>
-      ) : (
-        <ul className="mt-4 space-y-3">
-          {jobs.map((job) => {
-            const pct = job.progress?.percent;
-            const summary = resultSummary(job);
-            const itemId =
-              job.result && typeof job.result.itemId === "number"
-                ? job.result.itemId
-                : null;
-            const active =
-              job.status === "running" || job.status === "pending";
-            return (
-              <li
-                key={job.id}
-                className="surface-inset rounded-[var(--radius-md)] p-3"
-              >
-                <div className="flex flex-wrap items-start justify-between gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="chip !py-0.5 text-[0.65rem]">
-                        {kindLabel(job.kind)}
-                      </span>
-                      <span
-                        className={`text-xs font-semibold uppercase tracking-wide ${statusClass(job.status)}`}
-                      >
-                        {job.status}
-                        {job.cancelRequested && active ? " · cancel…" : ""}
-                      </span>
-                      <span className="text-xs text-[var(--muted-faint)]">
-                        #{job.id}
-                      </span>
-                    </div>
-                    <p className="mt-1 truncate text-sm font-medium text-[var(--ink)]">
-                      {job.label}
-                    </p>
-                    <p className="mt-0.5 text-xs text-[var(--muted)]">
-                      {formatWhen(job.startedAt ?? job.createdAt)}
-                      {job.finishedAt
-                        ? ` → ${formatWhen(job.finishedAt)}`
-                        : ""}
-                      {summary ? ` · ${summary}` : ""}
-                    </p>
-                    {job.progress?.detail ? (
-                      <p className="mt-1 text-xs text-[var(--ink-soft)]">
-                        {job.progress.stage}
-                        {pct != null ? ` · ${Math.round(pct)}%` : ""} —{" "}
-                        {job.progress.detail}
-                      </p>
-                    ) : null}
-                    {job.error ? (
-                      <p className="mt-1 text-xs text-[var(--danger)]">
-                        {job.error}
-                      </p>
-                    ) : null}
-                  </div>
-                  <div className="flex shrink-0 flex-wrap items-center gap-2">
-                    {itemId != null ? (
-                      <Link
-                        href={`/catalog/${itemId}`}
-                        className="btn btn-ghost btn-sm"
-                      >
-                        Open
-                      </Link>
-                    ) : null}
-                    {active ? (
-                      <button
-                        type="button"
-                        className="btn btn-secondary btn-sm text-[var(--danger)]"
-                        disabled={busyId === job.id || job.cancelRequested}
-                        onClick={() => void cancel(job.id)}
-                      >
-                        <Square className="h-3 w-3" aria-hidden />
-                        Cancel
-                      </button>
-                    ) : null}
-                  </div>
-                </div>
-                {active && pct != null ? (
-                  <div
-                    className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--paper-deep)]"
-                    role="progressbar"
-                    aria-valuenow={Math.round(pct)}
-                    aria-valuemin={0}
-                    aria-valuemax={100}
+          {jobs.length === 0 ? (
+            <p className="mt-4 text-sm text-[var(--muted)]">
+              No jobs yet. Run reindex or acquire something.
+            </p>
+          ) : (
+            <ul className="mt-4 space-y-3">
+              {jobs.map((job) => {
+                const pct = job.progress?.percent;
+                const summary = resultSummary(job);
+                const itemId =
+                  job.result && typeof job.result.itemId === "number"
+                    ? job.result.itemId
+                    : null;
+                const active =
+                  job.status === "running" || job.status === "pending";
+                return (
+                  <li
+                    key={job.id}
+                    className="surface-inset rounded-[var(--radius-md)] p-3"
                   >
-                    <div
-                      className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-300"
-                      style={{ width: `${Math.max(2, Math.min(100, pct))}%` }}
-                    />
-                  </div>
-                ) : null}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                    <div className="flex flex-wrap items-start justify-between gap-2">
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="chip !py-0.5 text-[0.65rem]">
+                            {kindLabel(job.kind)}
+                          </span>
+                          <span
+                            className={`text-xs font-semibold uppercase tracking-wide ${statusClass(job.status)}`}
+                          >
+                            {job.status}
+                            {job.cancelRequested && active ? " · cancel…" : ""}
+                          </span>
+                          <span className="text-xs text-[var(--muted-faint)]">
+                            #{job.id}
+                          </span>
+                        </div>
+                        <p className="mt-1 truncate text-sm font-medium text-[var(--ink)]">
+                          {job.label}
+                        </p>
+                        <p className="mt-0.5 text-xs text-[var(--muted)]">
+                          {formatWhen(job.startedAt ?? job.createdAt)}
+                          {job.finishedAt
+                            ? ` → ${formatWhen(job.finishedAt)}`
+                            : ""}
+                          {summary ? ` · ${summary}` : ""}
+                        </p>
+                        {job.progress?.detail ? (
+                          <p className="mt-1 text-xs text-[var(--ink-soft)]">
+                            {job.progress.stage}
+                            {pct != null ? ` · ${Math.round(pct)}%` : ""} —{" "}
+                            {job.progress.detail}
+                          </p>
+                        ) : null}
+                        {job.error ? (
+                          <p className="mt-1 text-xs text-[var(--danger)]">
+                            {job.error}
+                          </p>
+                        ) : null}
+                      </div>
+                      <div className="flex shrink-0 flex-wrap items-center gap-2">
+                        {itemId != null ? (
+                          <Link
+                            href={`/catalog/${itemId}`}
+                            className="btn btn-ghost btn-sm"
+                          >
+                            Open
+                          </Link>
+                        ) : null}
+                        {active ? (
+                          <button
+                            type="button"
+                            className="btn btn-secondary btn-sm text-[var(--danger)]"
+                            disabled={
+                              busyId === job.id || job.cancelRequested
+                            }
+                            onClick={() => void cancel(job.id)}
+                          >
+                            <Square className="h-3 w-3" aria-hidden />
+                            Cancel
+                          </button>
+                        ) : null}
+                      </div>
+                    </div>
+                    {active && pct != null ? (
+                      <div
+                        className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--paper-deep)]"
+                        role="progressbar"
+                        aria-valuenow={Math.round(pct)}
+                        aria-valuemin={0}
+                        aria-valuemax={100}
+                      >
+                        <div
+                          className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-300"
+                          style={{
+                            width: `${Math.max(2, Math.min(100, pct))}%`,
+                          }}
+                        />
+                      </div>
+                    ) : null}
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
+      ) : null}
     </section>
   );
 }

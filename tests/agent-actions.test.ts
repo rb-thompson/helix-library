@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { after, before, describe, it } from "node:test";
 import {
+  describeAction,
   extractActionsFromText,
   formatActionToken,
   isConfirmUtterance,
@@ -11,6 +12,7 @@ import {
 } from "@/lib/agent/actions";
 import { localLibrarianReply } from "@/lib/agent/local";
 import { searchCatalog } from "@/lib/catalog/query";
+import { getJob } from "@/lib/jobs/store";
 import { runReindex } from "@/lib/indexer/run";
 import { listCollections } from "@/lib/collections/manage";
 import { createTestEnv, ensureThumbsParent } from "./helpers/harness";
@@ -144,5 +146,101 @@ describe("agent actions", () => {
     const col = listCollections().find((c) => c.name === "Outer Space Batch");
     assert.ok(col);
     assert.ok((col.itemCount ?? 0) >= 1);
+  });
+
+  it("describeAction surfaces full acquire targets", () => {
+    assert.match(
+      describeAction({
+        type: "acquire_arxiv",
+        idOrUrl: "https://arxiv.org/abs/1706.03762",
+      }),
+      /1706\.03762/,
+    );
+    assert.match(
+      describeAction({
+        type: "acquire_youtube",
+        url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+        mode: "video",
+      }),
+      /youtube\.com\/watch\?v=dQw4w9WgXcQ/,
+    );
+    const long = "x".repeat(200);
+    const img = describeAction({ type: "acquire_image", prompt: long });
+    assert.match(img, /…/);
+    assert.ok(img.length < 250);
+  });
+
+  it("local proposes arxiv acquire without downloading", () => {
+    const reply = localLibrarianReply("fetch arxiv 1706.03762");
+    assert.match(reply, /acquire_arxiv/);
+    assert.match(reply, /1706\.03762/);
+    assert.match(reply, /\[\[action:/);
+  });
+
+  it("acquire actions parse from tokens and reject bad ids sync", () => {
+    const token = formatActionToken({
+      type: "acquire_arxiv",
+      idOrUrl: "1706.03762",
+    });
+    const actions = extractActionsFromText(`Please ${token}`);
+    assert.equal(actions.length, 1);
+    assert.equal(actions[0].type, "acquire_arxiv");
+
+    const t0 = Date.now();
+    const bad = executeLibrarianAction({
+      type: "acquire_arxiv",
+      idOrUrl: "not-an-id",
+    });
+    assert.ok(Date.now() - t0 < 100);
+    assert.equal(bad.ok, false);
+    assert.match(bad.message, /parse|arxiv/i);
+  });
+
+  it("acquire_youtube respects busy lock without starting a second job", async () => {
+    const { createAcquireJob, runAcquireJob, isAcquireBusy } = await import(
+      "@/lib/acquire/jobs"
+    );
+    const blocker = createAcquireJob("youtube", "blocker");
+    // Keep youtube busy without network: hang work until we finish assert
+    let release!: () => void;
+    const gate = new Promise<void>((r) => {
+      release = r;
+    });
+    void runAcquireJob(blocker, async () => {
+      await gate;
+      return { ok: true };
+    });
+    // brief spin until running/pending
+    assert.equal(isAcquireBusy("youtube"), true);
+
+    const t0 = Date.now();
+    const result = executeLibrarianAction({
+      type: "acquire_youtube",
+      url: "https://www.youtube.com/watch?v=dQw4w9WgXcQ",
+    });
+    assert.ok(Date.now() - t0 < 100);
+    assert.equal(result.ok, false);
+    assert.match(result.message, /already running/i);
+    release();
+    await new Promise((r) => setTimeout(r, 20));
+  });
+
+  it("void runAcquireJob pattern returns before delayed work (PR4 timing)", async () => {
+    const { createAcquireJob, runAcquireJob } = await import(
+      "@/lib/acquire/jobs"
+    );
+    const job = createAcquireJob("arxiv", "timing-test");
+    const t0 = Date.now();
+    // Same pattern as executeLibrarianAction — never await runAcquireJob
+    void runAcquireJob(job, async () => {
+      await new Promise((r) => setTimeout(r, 2000));
+      return { itemId: 1 };
+    });
+    const elapsed = Date.now() - t0;
+    assert.ok(
+      elapsed < 100,
+      `void start took ${elapsed}ms — must not await work`,
+    );
+    assert.ok(getJob(job.id));
   });
 });
