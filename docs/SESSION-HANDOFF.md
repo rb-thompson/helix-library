@@ -137,8 +137,8 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 Covered by next-season design (do not invent parallel tracks without reading it):
 
-1. **[docs/designs/2026-08-discovery-reading.md](./designs/2026-08-discovery-reading.md)** — **Discovery depth & reading room** (draft pending approval)  
-   - Reading room (text/PDF.js), select→tag/ask, related holdings, smart shelves, graph 2D + totalItems, optional open events, light brand  
+1. **[docs/designs/2026-08-discovery-reading.md](./designs/2026-08-discovery-reading.md)** — **Discovery depth & reading room** (**approved**)  
+   - Start **PR1a** (text/code reading room); then 1b PDF.js, related, smart shelves, graph 2D, …  
 
 Still parked (not in that design as required):
 
@@ -171,6 +171,6 @@ npm run dev    # http://127.0.0.1:4747
 
 **Closed:** Curation & intake season (PR1–PR7) — titles, tag source/merge/hide, unified jobs, Ask→Acquire, rescue/recent, graph filters, polish. Private repo synced. **83 tests pass** (tip before next-season design: `7fcfdd3`; design commit on top).
 
-**This wrap:** Growth review → new design **Discovery depth & reading room** ([designs/2026-08-discovery-reading.md](./designs/2026-08-discovery-reading.md)), design-loop rev 3, **0 open review issues**. Status: **Draft pending owner approval** — do not implement until signed off.
+**This wrap:** Growth review → design **Discovery depth & reading room** (rev 3, 0 open issues) → **owner approved**. Next implement **PR1a**.
 
 **Earlier stretch (to `ba23e55` + post-ship):** shell, weeding, snippets, graph polish, Ask shell, Acquire, media/thumbs, then intentional commit slices.

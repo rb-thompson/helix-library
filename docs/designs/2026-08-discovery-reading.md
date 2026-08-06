@@ -1058,4 +1058,4 @@ Mergeable slices. Owner may reorder PR3/PR4/PR5. Stretch and polish may slip wit
 
 ---
 
-*End of draft rev 3 — Discovery depth & reading room. Addresses rev-2 Issues 1–16 plus smart expansion vs pageSize≤100. Await owner approval before implementation.*
+*End of design rev 3 — Discovery depth & reading room. Owner approved 2026-08-06. Implementation may proceed (PR1a first).*
