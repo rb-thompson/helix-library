@@ -396,7 +396,7 @@ export function buildKnowledgeGraph(opts?: GraphBuildOpts): KnowledgeGraph {
       const tagFreqRaw = sqlite
         .prepare(
           `
-        SELECT t.id, t.name, count(*) AS c
+        SELECT t.id, t.name, coalesce(t.hidden, 0) AS hidden, count(*) AS c
         FROM tags t
         JOIN item_tags it ON it.tag_id = t.id
         WHERE it.item_id IN (${idList.map(() => "?").join(",")})
@@ -409,10 +409,11 @@ export function buildKnowledgeGraph(opts?: GraphBuildOpts): KnowledgeGraph {
         .all(...idList, minTagCount, maxTags * 2) as {
         id: number;
         name: string;
+        hidden: number;
         c: number;
       }[];
       const tagFreq = tagFreqRaw
-        .filter((t) => !isHiddenFacetTag(t.name))
+        .filter((t) => !isHiddenFacetTag(t.name, { hidden: t.hidden }))
         .slice(0, maxTags);
 
       const totalEligible = (

@@ -5,8 +5,8 @@
 | **Document** | Season design — Curation & intake integrity |
 | **Author** | Helix owner + design loop |
 | **Date** | 2026-08-06 |
-| **Status** | **Approved** (owner 2026-08-06) — rev 2 |
-| **Approval** | Owner approved design + PR plan; implementation may proceed PR1 ∥ PR2 → PR3 → … |
+| **Status** | **Implemented** (PR1–PR7 on main, 2026-08-06) — rev 2 |
+| **Approval** | Owner approved design + PR plan; all planned PRs landed |
 | **Workspace** | `/home/brandon/Projects/non-os` |
 | **Audience** | Senior engineers implementing on `main` |
 

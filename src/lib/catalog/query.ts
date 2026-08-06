@@ -471,7 +471,7 @@ export function catalogFacets(params: CatalogSearchParams = {}): CatalogFacets {
   const tagRows = sqlite
     .prepare(
       `
-      SELECT t.id as id, t.name as name, count(*) as c
+      SELECT t.id as id, t.name as name, coalesce(t.hidden, 0) as hidden, count(*) as c
       FROM items i
       JOIN locations l ON l.id = i.location_id
       JOIN item_tags it ON it.item_id = i.id
@@ -484,6 +484,7 @@ export function catalogFacets(params: CatalogSearchParams = {}): CatalogFacets {
     .all(...matchArgs, ...args) as Array<{
     id: number;
     name: string;
+    hidden: number;
     c: number;
   }>;
 
@@ -498,7 +499,7 @@ export function catalogFacets(params: CatalogSearchParams = {}): CatalogFacets {
       c: Number(r.c),
     })),
     tags: tagRows
-      .filter((r) => !isHiddenFacetTag(r.name))
+      .filter((r) => !isHiddenFacetTag(r.name, { hidden: r.hidden }))
       .map((r) => ({
         id: r.id,
         name: r.name,
@@ -540,17 +541,19 @@ export function getItemById(id: number): CatalogItemRow | null {
   return row ? mapRow(row) : null;
 }
 
+export type TitleSource = "filename" | "arxiv" | "manual" | "yt-dlp" | "pdf";
+
 /** Set catalog display title without renaming on-disk basename. */
 export function setItemCatalogTitle(
   itemId: number,
   title: string,
-  titleSource: "arxiv" | "manual",
+  titleSource: TitleSource,
 ): void {
   const t = title.trim();
   if (!t) return;
   const db = getDb();
   db.update(items)
-    .set({ title: t, titleSource })
+    .set({ title: t.slice(0, 500), titleSource })
     .where(eq(items.id, itemId))
     .run();
 }

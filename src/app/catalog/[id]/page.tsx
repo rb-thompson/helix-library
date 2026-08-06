@@ -15,6 +15,7 @@ import {
   listCollectionItems,
   listCollections,
 } from "@/lib/collections/manage";
+import { ItemTitleEditor } from "@/components/ItemTitleEditor";
 import { OpenHistoryRecorder } from "@/components/OpenHistoryRecorder";
 import { displayTitle } from "@/lib/catalog/display";
 import { formatBytes, formatDate } from "@/lib/format";
@@ -173,7 +174,14 @@ export default async function ItemPage({
             <span className="break-all">{item.path}</span>
           </p>
         </div>
-        <CopyPathButton path={item.path} />
+        <div className="flex flex-col items-stretch gap-2 sm:items-end">
+          <CopyPathButton path={item.path} />
+          <ItemTitleEditor
+            itemId={item.id}
+            displayTitle={displayTitle(item)}
+            filename={item.name}
+          />
+        </div>
       </div>
 
       <ItemMediaViewer

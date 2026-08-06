@@ -105,7 +105,8 @@ export function migrate(sqlite: Database.Database): void {
     CREATE TABLE IF NOT EXISTS tags (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
-      created_at INTEGER NOT NULL DEFAULT (CAST(unixepoch() * 1000 AS INTEGER))
+      created_at INTEGER NOT NULL DEFAULT (CAST(unixepoch() * 1000 AS INTEGER)),
+      hidden INTEGER NOT NULL DEFAULT 0
     );
 
     CREATE TABLE IF NOT EXISTS item_tags (
@@ -219,4 +220,13 @@ export function migrate(sqlite: Database.Database): void {
     CREATE INDEX IF NOT EXISTS jobs_kind_status_idx ON jobs(kind, status);
     CREATE INDEX IF NOT EXISTS jobs_created_idx ON jobs(created_at);
   `);
+
+  // PR7: user-hide tags from facets/graph
+  ensureColumn(sqlite, "tags", "hidden", "INTEGER NOT NULL DEFAULT 0");
+  // Seed known meta noise as hidden (idempotent)
+  sqlite
+    .prepare(
+      `UPDATE tags SET hidden = 1 WHERE name = 'vision-tagged' AND (hidden IS NULL OR hidden = 0)`,
+    )
+    .run();
 }

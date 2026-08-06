@@ -8,6 +8,7 @@ import { itemText, items, jobs, locations } from "@/lib/db/schema";
 import { classifyKind, extensionOf } from "@/lib/indexer/classify";
 import { enrichFile, hasThumb } from "@/lib/indexer/enrich";
 import { contentHash } from "@/lib/indexer/hash";
+import { extractPdfTitle } from "@/lib/indexer/pdf";
 import { walkFiles } from "@/lib/indexer/walk";
 import type { IndexJobStats, ItemKind } from "@/lib/types";
 
@@ -315,7 +316,7 @@ async function executeReindexJob(
             continue;
           }
 
-          const { title, titleSource } = nextTitle(
+          let { title, titleSource } = nextTitle(
             existing
               ? {
                   title: existing.title,
@@ -325,6 +326,18 @@ async function executeReindexJob(
               : undefined,
             basename,
           );
+
+          // First-time / filename titles: try PDF Info Title (PR7)
+          if (
+            titleSource === "filename" &&
+            (kind === "document" || mimeType === "application/pdf")
+          ) {
+            const pdfTitle = extractPdfTitle(file.absPath);
+            if (pdfTitle && pdfTitle !== basename) {
+              title = pdfTitle;
+              titleSource = "pdf";
+            }
+          }
 
           // Insert/update base row first so we have an id for thumbs/body
           const baseRow = {

@@ -152,7 +152,7 @@ npm run build            # before calling a slice “done”
 - Responsive shell; space UI; H+helix mark + favicon
 - Tests: `npm test` — **47 pass**
 
-**Shipped (sliced after `ba23e55`):** shell/watch, weeding+snippets+tags, graph polish, Ask shell, Acquire+media/thumbs — see [docs/SESSION-HANDOFF.md](./docs/SESSION-HANDOFF.md).
+**Shipped:** daily OPAC + **Curation & intake season** (titles, tag source/merge/hide, unified jobs, Ask→Acquire, rescue/recent, graph filters, polish). See [docs/designs/2026-08-curation-intake.md](./docs/designs/2026-08-curation-intake.md).
 
 **Next work:** SESSION-HANDOFF “Known gaps”.
 

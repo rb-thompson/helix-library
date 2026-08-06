@@ -9,6 +9,7 @@ import {
   listTags,
   mergeTags,
   renameTag,
+  setTagHidden,
 } from "@/lib/collections/manage";
 import { getDb, getSqlite } from "@/lib/db/client";
 import { itemTags, items, tags } from "@/lib/db/schema";
@@ -206,6 +207,21 @@ describe("tag hygiene", () => {
       assert.equal(typeof arxiv.hasAcquire, "boolean");
     }
     assert.ok(listed.every((t) => Array.isArray(t.sources)));
+  });
+
+  it("setTagHidden hides from filterVisibleTags", () => {
+    const db = getDb();
+    const item = db.select().from(items).get();
+    assert.ok(item);
+    addTagToItem(item!.id, "user-hide-me");
+    const t = listTags().find((x) => x.name === "user-hide-me");
+    assert.ok(t);
+    assert.equal(t!.hidden, false);
+    setTagHidden(t!.id, true);
+    const again = listTags().find((x) => x.name === "user-hide-me");
+    assert.equal(again?.hidden, true);
+    const visible = filterVisibleTags(listTags());
+    assert.ok(!visible.some((x) => x.name === "user-hide-me"));
   });
 });
 

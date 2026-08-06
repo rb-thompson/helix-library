@@ -129,6 +129,8 @@ export const tags = sqliteTable(
     createdAt: integer("created_at")
       .notNull()
       .default(sql`(unixepoch() * 1000)`),
+    /** Hide from facets/graph when 1 (user or meta). */
+    hidden: integer("hidden").notNull().default(0),
   },
   (t) => [uniqueIndex("tags_name_uq").on(t.name)],
 );

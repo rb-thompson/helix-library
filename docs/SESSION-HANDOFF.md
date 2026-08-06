@@ -135,11 +135,13 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 ## Known gaps / natural next work
 
-1. Acquire: optional Ask tool “fetch arxiv:…” after approve  
-2. Graph perf at 1k+ items  
-3. Tag merge UI (delete + hide done)  
-4. Dedicated light-field brand PNG  
-5. yt-dlp JS runtime warning (optional deno) for more formats  
+1. Graph perf at multi-thousand holdings (caps help; force layout still heavy)  
+2. Dedicated light-field brand PNG  
+3. yt-dlp JS runtime warning (optional deno) for more formats  
+4. Saved views / smart shelves  
+5. Document reading room  
+
+**Season “Curation & intake” (2026-08):** PR1–PR7 landed (titles, tags, jobs, Ask acquire, rescue, graph filters, polish).  
 
 ---
 

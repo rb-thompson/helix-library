@@ -3,6 +3,7 @@ import {
   deleteTags,
   listTags,
   renameTag,
+  setTagHidden,
 } from "@/lib/collections/manage";
 
 export const runtime = "nodejs";
@@ -15,8 +16,9 @@ export async function GET() {
 }
 
 /**
- * PATCH body: { id: number, name: string, mergeIfExists?: boolean }
- * Rename a tag (optional merge when name already exists).
+ * PATCH body:
+ * - rename: { id, name, mergeIfExists? }
+ * - hide: { id, hidden: boolean }
  */
 export async function PATCH(req: Request) {
   try {
@@ -24,10 +26,21 @@ export async function PATCH(req: Request) {
       id?: number;
       name?: string;
       mergeIfExists?: boolean;
+      hidden?: boolean;
     };
-    if (!body?.id || !body?.name?.trim()) {
+    if (!body?.id) {
       return NextResponse.json(
-        { ok: false, error: "id and name are required" },
+        { ok: false, error: "id is required" },
+        { status: 400 },
+      );
+    }
+    if (typeof body.hidden === "boolean") {
+      const result = setTagHidden(Number(body.id), body.hidden);
+      return NextResponse.json({ ok: true, ...result });
+    }
+    if (!body?.name?.trim()) {
+      return NextResponse.json(
+        { ok: false, error: "name or hidden is required" },
         { status: 400 },
       );
     }

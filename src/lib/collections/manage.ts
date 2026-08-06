@@ -305,6 +305,8 @@ export type ListedTag = {
   sources: TagSource[];
   hasVision: boolean;
   hasAcquire: boolean;
+  /** Facet/graph hide flag (tags.hidden) */
+  hidden: boolean;
 };
 
 export function listTags(opts?: {
@@ -319,20 +321,29 @@ export function listTags(opts?: {
   const minCount = opts?.minCount ?? 0;
   const limit = opts?.limit;
 
-  let rows = db
-    .select({
-      id: tags.id,
-      name: tags.name,
-      createdAt: tags.createdAt,
-      itemCount: sql<number>`(
-        SELECT count(*) FROM item_tags WHERE item_tags.tag_id = ${tags.id}
-      )`.as("itemCount"),
-    })
-    .from(tags)
-    .orderBy(asc(tags.name))
-    .all();
-
   const sqlite = getSqlite();
+  // Use raw SQL so we tolerate missing hidden column only during mid-migrate races
+  const rows = sqlite
+    .prepare(
+      `
+    SELECT
+      t.id AS id,
+      t.name AS name,
+      t.created_at AS createdAt,
+      coalesce(t.hidden, 0) AS hidden,
+      (SELECT count(*) FROM item_tags it WHERE it.tag_id = t.id) AS itemCount
+    FROM tags t
+    ORDER BY t.name COLLATE NOCASE ASC
+  `,
+    )
+    .all() as Array<{
+    id: number;
+    name: string;
+    createdAt: number;
+    hidden: number;
+    itemCount: number;
+  }>;
+
   const sourceRows = sqlite
     .prepare(
       `
@@ -366,6 +377,7 @@ export function listTags(opts?: {
       sources,
       hasVision: sources.includes("vision"),
       hasAcquire: sources.includes("acquire"),
+      hidden: Boolean(r.hidden),
     };
   });
 
@@ -489,6 +501,21 @@ export function mergeTags(opts: {
 /**
  * Rename a tag. If the name exists and mergeIfExists, merge into existing.
  */
+/** Hide/show a tag on facets and the knowledge graph (does not delete). */
+export function setTagHidden(
+  tagId: number,
+  hidden: boolean,
+): { id: number; hidden: boolean } {
+  const db = getDb();
+  const row = db.select().from(tags).where(eq(tags.id, tagId)).get();
+  if (!row) throw new Error("Tag not found");
+  db.update(tags)
+    .set({ hidden: hidden ? 1 : 0 })
+    .where(eq(tags.id, tagId))
+    .run();
+  return { id: tagId, hidden };
+}
+
 export function renameTag(
   tagId: number,
   newName: string,

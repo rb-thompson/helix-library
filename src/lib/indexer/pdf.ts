@@ -25,6 +25,29 @@ function normalizePdfText(raw: string): string {
 }
 
 /**
+ * Best-effort PDF document title via system `pdfinfo` (poppler).
+ * Returns null when unavailable or empty.
+ */
+export function extractPdfTitle(filePath: string): string | null {
+  if (!hasCommand("pdfinfo")) return null;
+  try {
+    const out = execFileSync("pdfinfo", ["-enc", "UTF-8", filePath], {
+      encoding: "utf8",
+      timeout: 15_000,
+      maxBuffer: 256 * 1024,
+    });
+    const m = out.match(/^Title:\s*(.+)$/m);
+    if (!m) return null;
+    let t = m[1].trim();
+    if (!t || t === "-" || /^untitled$/i.test(t)) return null;
+    if (t.length > 500) t = t.slice(0, 500);
+    return t;
+  } catch {
+    return null;
+  }
+}
+
+/**
  * Prefer system `pdftotext` (poppler) when present — fast, no large buffer in Node.
  * Fall back to `pdf-parse` (npm). Returns empty string when extraction yields no text,
  * or null when the file could not be processed (caller may skip upsert).

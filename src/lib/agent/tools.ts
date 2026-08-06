@@ -305,6 +305,8 @@ export const librarianTools = {
               "acquire_arxiv",
               "acquire_youtube",
               "acquire_image",
+              "merge_tags",
+              "rename_tag",
             ]),
             itemId: z.number().int().positive().optional(),
             tagId: z.number().int().positive().optional(),
@@ -326,6 +328,10 @@ export const librarianTools = {
             /** acquire_image — generation prompt from user */
             prompt: z.string().optional(),
             filenameHint: z.string().optional(),
+            sourceTagIds: z.array(z.number().int().positive()).optional(),
+            targetTagId: z.number().int().positive().optional(),
+            targetName: z.string().optional(),
+            mergeIfExists: z.boolean().optional(),
           }),
         )
         .min(1)
@@ -477,6 +483,26 @@ export const librarianTools = {
                 type: "acquire_image",
                 prompt: a.prompt.trim(),
                 filenameHint: a.filenameHint?.trim() || undefined,
+              });
+            }
+            break;
+          case "merge_tags":
+            if (a.sourceTagIds?.length) {
+              actions.push({
+                type: "merge_tags",
+                sourceTagIds: a.sourceTagIds,
+                targetTagId: a.targetTagId,
+                targetName: a.targetName?.trim() || undefined,
+              });
+            }
+            break;
+          case "rename_tag":
+            if (a.tagId && a.name?.trim()) {
+              actions.push({
+                type: "rename_tag",
+                tagId: a.tagId,
+                name: a.name.trim(),
+                mergeIfExists: a.mergeIfExists,
               });
             }
             break;

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
-import { GitMerge, Pencil, Trash2 } from "lucide-react";
+import { Eye, EyeOff, GitMerge, Pencil, Trash2 } from "lucide-react";
 import { isHiddenFacetTag } from "@/lib/tags/hidden";
 
 type TagRow = {
@@ -11,9 +11,10 @@ type TagRow = {
   itemCount?: number | null;
   hasVision?: boolean;
   hasAcquire?: boolean;
+  hidden?: boolean;
 };
 
-type FilterKey = "low" | "meta" | "vision" | "acquire" | "all";
+type FilterKey = "low" | "meta" | "vision" | "acquire" | "hidden" | "all";
 
 export function TagHygienePanel({ tags }: { tags: TagRow[] }) {
   const router = useRouter();
@@ -30,7 +31,14 @@ export function TagHygienePanel({ tags }: { tags: TagRow[] }) {
       (a, b) => Number(a.itemCount ?? 0) - Number(b.itemCount ?? 0),
     );
     if (filter === "meta") {
-      return sorted.filter((t) => isHiddenFacetTag(t.name));
+      return sorted.filter((t) =>
+        isHiddenFacetTag(t.name, { hidden: t.hidden }),
+      );
+    }
+    if (filter === "hidden") {
+      return sorted.filter((t) =>
+        isHiddenFacetTag(t.name, { hidden: t.hidden }),
+      );
     }
     if (filter === "vision") {
       return sorted.filter((t) => t.hasVision);
@@ -176,6 +184,35 @@ export function TagHygienePanel({ tags }: { tags: TagRow[] }) {
     }
   }
 
+  async function setHiddenSelected(hidden: boolean) {
+    if (selected.size === 0) return;
+    setBusy(true);
+    setError(null);
+    setMessage(null);
+    try {
+      let n = 0;
+      for (const id of selected) {
+        const res = await fetch("/api/tags", {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ id, hidden }),
+        });
+        if (res.ok) n += 1;
+      }
+      setMessage(
+        hidden
+          ? `Hidden ${n} tag${n === 1 ? "" : "s"} from facets/graph`
+          : `Unhid ${n} tag${n === 1 ? "" : "s"}`,
+      );
+      setSelected(new Set());
+      router.refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Hide failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
   if (tags.length === 0) return null;
 
   return (
@@ -186,12 +223,11 @@ export function TagHygienePanel({ tags }: { tags: TagRow[] }) {
             Tag hygiene
           </h2>
           <p className="mt-1 max-w-xl text-xs text-[var(--muted)]">
-            Delete, merge, or rename labels. Meta tag{" "}
+            Delete, merge, rename, or hide labels from facets/graph. Meta tag{" "}
             <code className="rounded bg-[var(--paper-deep)] px-1">
               vision-tagged
             </code>{" "}
-            stays hidden from facets and the knowledge graph. Vision / Acquire
-            filters use application provenance after backfill.
+            is hidden by default. Vision / Acquire filters use provenance.
           </p>
         </div>
         <div className="segment" role="group" aria-label="Tag filter">
@@ -200,6 +236,7 @@ export function TagHygienePanel({ tags }: { tags: TagRow[] }) {
               ["low", "Low use"],
               ["vision", "Vision"],
               ["acquire", "Acquire"],
+              ["hidden", "Hidden"],
               ["meta", "Meta"],
               ["all", "All"],
             ] as const
@@ -241,6 +278,26 @@ export function TagHygienePanel({ tags }: { tags: TagRow[] }) {
         >
           <Trash2 className="h-3.5 w-3.5" aria-hidden />
           Delete {selected.size || ""}
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={() => void setHiddenSelected(true)}
+          disabled={busy || selected.size === 0}
+          title="Hide from catalog facets and knowledge graph"
+        >
+          <EyeOff className="h-3.5 w-3.5" aria-hidden />
+          Hide
+        </button>
+        <button
+          type="button"
+          className="btn btn-ghost btn-sm"
+          onClick={() => void setHiddenSelected(false)}
+          disabled={busy || selected.size === 0}
+          title="Show again on facets and graph"
+        >
+          <Eye className="h-3.5 w-3.5" aria-hidden />
+          Unhide
         </button>
       </div>
 
@@ -305,9 +362,9 @@ export function TagHygienePanel({ tags }: { tags: TagRow[] }) {
                 />
                 <span className="min-w-0 flex-1 truncate font-medium text-[var(--ink)]">
                   {t.name}
-                  {isHiddenFacetTag(t.name) ? (
+                  {isHiddenFacetTag(t.name, { hidden: t.hidden }) ? (
                     <span className="ml-1 text-[0.65rem] font-normal text-[var(--muted-faint)]">
-                      (hidden from facets)
+                      (hidden)
                     </span>
                   ) : null}
                   {t.hasVision ? (

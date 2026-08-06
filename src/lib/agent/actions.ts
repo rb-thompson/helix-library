@@ -16,8 +16,10 @@ import {
   deleteCollection,
   getCollection,
   listCollections,
+  mergeTags,
   removeItemFromCollection,
   removeTagFromItem,
+  renameTag,
   updateCollection,
 } from "@/lib/collections/manage";
 import { acquireArxivPdf, parseArxivId } from "@/lib/acquire/arxiv";
@@ -73,6 +75,18 @@ export type LibrarianAction =
       type: "acquire_image";
       prompt: string;
       filenameHint?: string;
+    }
+  | {
+      type: "merge_tags";
+      sourceTagIds: number[];
+      targetTagId?: number;
+      targetName?: string;
+    }
+  | {
+      type: "rename_tag";
+      tagId: number;
+      name: string;
+      mergeIfExists?: boolean;
     };
 
 export type ActionResult = {
@@ -100,6 +114,8 @@ const ACTION_TYPES = new Set([
   "acquire_arxiv",
   "acquire_youtube",
   "acquire_image",
+  "merge_tags",
+  "rename_tag",
 ]);
 
 /** Serialize one action for chat UI buttons. */
@@ -200,6 +216,10 @@ export function actionLabel(action: LibrarianAction): string {
       return "Download media";
     case "acquire_image":
       return "Generate image";
+    case "merge_tags":
+      return "Merge tags";
+    case "rename_tag":
+      return "Rename tag";
     default:
       return "Approve";
   }
@@ -285,6 +305,15 @@ export function describeAction(action: LibrarianAction): string {
         p.length > 120 ? `${p.slice(0, 120)}…` : p;
       return `Generate Grok image for prompt “${preview}” into Archive (needs \`XAI_API_KEY\`). Progress on **Services** or [/acquire](/acquire).`;
     }
+    case "merge_tags": {
+      const n = action.sourceTagIds.length;
+      const target =
+        action.targetName?.trim() ||
+        (action.targetTagId != null ? `tag #${action.targetTagId}` : "target");
+      return `Merge **${n}** tag${n === 1 ? "" : "s"} into **${target}** (labels re-linked; files untouched).`;
+    }
+    case "rename_tag":
+      return `Rename tag #${action.tagId} to **${action.name.trim()}**.`;
     default:
       return "Perform an in-app action.";
   }
@@ -564,6 +593,32 @@ export function executeLibrarianAction(action: LibrarianAction): ActionResult {
           action,
           message: `Started acquire job #${job.id} (Grok image). Progress on [Services](/services) or [Acquire](/acquire).`,
           data: { jobId: job.id, kind: "image" },
+        };
+      }
+      case "merge_tags": {
+        const result = mergeTags({
+          sourceTagIds: action.sourceTagIds,
+          targetTagId: action.targetTagId,
+          targetName: action.targetName,
+        });
+        return {
+          ok: true,
+          action,
+          message: `Merged ${result.deletedSources} tag(s) into #${result.targetId} (${result.moved} links).`,
+          data: result,
+        };
+      }
+      case "rename_tag": {
+        const result = renameTag(action.tagId, action.name, {
+          mergeIfExists: action.mergeIfExists,
+        });
+        return {
+          ok: true,
+          action,
+          message: result.merged
+            ? `Merged tag into existing name (id #${result.id}).`
+            : `Renamed tag #${result.id}.`,
+          data: result,
         };
       }
       default:

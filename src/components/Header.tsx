@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, Menu, X } from "lucide-react";
+import { HeaderJobsStrip } from "@/components/HeaderJobsStrip";
 import { HelixMark } from "@/components/HelixMark";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
@@ -165,6 +166,7 @@ export function Header() {
         </nav>
 
         <div className="flex shrink-0 items-center gap-1 sm:gap-1.5">
+          <HeaderJobsStrip />
           <ThemeToggle />
           <button
             type="button"

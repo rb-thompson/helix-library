@@ -5,11 +5,13 @@ import { loadConfig } from "@/lib/config";
 import { ensureArchiveSubdir, assertUnderArchive } from "@/lib/acquire/paths";
 import { indexAfterAcquire } from "@/lib/acquire/index-after";
 import type { AcquireProgress } from "@/lib/acquire/jobs";
+import { setItemCatalogTitle } from "@/lib/catalog/query";
 import {
   isCancelRequested,
   registerJobProcess,
   unregisterJobProcess,
 } from "@/lib/jobs/store";
+import { readExifRaw } from "@/lib/media/exif";
 
 export function ytDlpAvailable(): boolean {
   try {
@@ -488,6 +490,24 @@ export async function acquireYoutube(
     detail: "Indexing & applying metadata tags…",
   });
   const indexed = await indexAfterAcquire(resolved, { source: "youtube" });
+
+  // Prefer embedded media title over on-disk basename when available
+  if (indexed.itemId != null) {
+    try {
+      const row = readExifRaw(resolved);
+      const rawTitle =
+        row &&
+        (row.Title ?? row.title ?? row["Track"] ?? row["Album"]);
+      if (typeof rawTitle === "string") {
+        const t = rawTitle.trim();
+        if (t.length >= 2 && t.length <= 200 && !/^https?:\/\//i.test(t)) {
+          setItemCatalogTitle(indexed.itemId, t, "yt-dlp");
+        }
+      }
+    } catch {
+      // non-fatal
+    }
+  }
 
   onProgress?.({
     stage: "done",
