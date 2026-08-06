@@ -15,6 +15,7 @@ import {
   Minimize2,
   RotateCcw,
   Search,
+  Settings2,
   X,
 } from "lucide-react";
 import type {
@@ -22,8 +23,41 @@ import type {
   GraphNode,
   KnowledgeGraph,
 } from "@/lib/graph/build";
+import {
+  graphBackground,
+  graphDimNode,
+  graphFocusColor,
+  graphLabelBg,
+  graphLabelFg,
+  graphLinkColor,
+  graphParticleColor,
+  legendSamples,
+  nodeColorForTheme,
+  type GraphTheme,
+} from "@/lib/graph/colors";
 import { formatBytes, kindLabel } from "@/lib/format";
 import { cn } from "@/lib/cn";
+
+type LabelMode = "focus" | "concepts" | "off";
+
+type ViewControls = {
+  /** Charge magnitude (higher = more spread). */
+  spread: number;
+  /** Ideal link distance. */
+  linkDist: number;
+  /** Multiplier on node radius. */
+  nodeScale: number;
+  labels: LabelMode;
+  particles: boolean;
+};
+
+const DEFAULT_CONTROLS: ViewControls = {
+  spread: 110,
+  linkDist: 42,
+  nodeScale: 1,
+  labels: "concepts",
+  particles: true,
+};
 
 type FGNode = GraphNode & {
   x?: number;
@@ -77,6 +111,11 @@ type ForceGraphInstance = {
   width: (n: number) => ForceGraphInstance;
   height: (n: number) => ForceGraphInstance;
   refresh: () => ForceGraphInstance;
+  d3Force: (name: string, force?: unknown) => unknown;
+  d3ReheatSimulation?: () => ForceGraphInstance;
+  pauseAnimation?: () => ForceGraphInstance;
+  resumeAnimation?: () => ForceGraphInstance;
+  scene?: () => import("three").Scene;
   _destructor?: () => void;
 };
 
@@ -118,12 +157,17 @@ export function KnowledgeGraphView({ data }: { data: KnowledgeGraph }) {
   }>({ nodes: new Set(), links: new Set(), focus: null });
 
   const [ready, setReady] = useState(false);
+  const readyRef = useRef(false);
+  const [loadError, setLoadError] = useState<string | null>(null);
   const [hoverId, setHoverId] = useState<string | null>(null);
   const [selected, setSelected] = useState<GraphNode | null>(null);
   const [query, setQuery] = useState("");
   const [fullscreen, setFullscreen] = useState(false);
   const [themeDark, setThemeDark] = useState(true);
   const [isMobile, setIsMobile] = useState(false);
+  const [controlsOpen, setControlsOpen] = useState(false);
+  const [controls, setControls] = useState<ViewControls>(DEFAULT_CONTROLS);
+  const controlsRef = useRef<ViewControls>(DEFAULT_CONTROLS);
   /** Default: tags on (already thinned server-side), formats on, locations off on mobile. */
   const [layers, setLayers] = useState<Record<LayerKey, boolean>>({
     tag: true,
@@ -131,6 +175,49 @@ export function KnowledgeGraphView({ data }: { data: KnowledgeGraph }) {
     kind: true,
     location: true,
   });
+
+  const theme: GraphTheme = themeDark ? "dark" : "light";
+
+  function patchControls(patch: Partial<ViewControls>) {
+    setControls((prev) => {
+      const next = { ...prev, ...patch };
+      controlsRef.current = next;
+      return next;
+    });
+  }
+
+  /**
+   * Tune d3 forces. Never call before graphData — three-forcegraph sets
+   * engineRunning=true on any prop update, and tickFrame crashes if
+   * state.layout is still undefined ("can't access property tick").
+   */
+  function applyPhysics(
+    g: ForceGraphInstance,
+    c: ViewControls,
+    mobile: boolean,
+    opts?: { reheat?: boolean },
+  ) {
+    try {
+      const charge = g.d3Force("charge") as {
+        strength?: (n: number) => unknown;
+      } | null;
+      if (charge && typeof charge.strength === "function") {
+        charge.strength(-c.spread);
+      }
+      const link = g.d3Force("link") as {
+        distance?: (n: number) => unknown;
+      } | null;
+      if (link && typeof link.distance === "function") {
+        link.distance(c.linkDist);
+      }
+      g.nodeRelSize((mobile ? 5.0 : 4.0) * c.nodeScale);
+      if (opts?.reheat) {
+        g.d3ReheatSimulation?.();
+      }
+    } catch {
+      // force access optional across versions
+    }
+  }
 
   useEffect(() => {
     const mq = window.matchMedia("(max-width: 639px)");
@@ -221,7 +308,14 @@ export function KnowledgeGraphView({ data }: { data: KnowledgeGraph }) {
       }
 
       highlightRef.current = { nodes, links, focus: focusId };
-      graphRef.current?.refresh();
+      // Only refresh after graphData has created state.layout
+      if (readyRef.current) {
+        try {
+          graphRef.current?.refresh();
+        } catch {
+          // ignore mid-teardown
+        }
+      }
     },
     [adjacency, viewData.links],
   );
@@ -245,45 +339,82 @@ export function KnowledgeGraphView({ data }: { data: KnowledgeGraph }) {
     let disposed = false;
     let ro: ResizeObserver | null = null;
     let graph: ForceGraphInstance | null = null;
+    const el = containerRef.current;
 
     async function mount() {
-      const el = containerRef.current;
       if (!el) return;
+      setLoadError(null);
 
-      const ForceGraph3D = (await import("3d-force-graph")).default;
+      try {
+      const fgMod = await import("3d-force-graph");
+      const ForceGraph3D = resolveDefaultExport(fgMod) as new (
+        el: HTMLElement,
+      ) => ForceGraphInstance;
       const THREE = await import("three");
-      const SpriteText = (await import("three-spritetext")).default;
+      type SpriteTextInstance = import("three").Object3D & {
+        color: string;
+        textHeight: number;
+        backgroundColor: string;
+        padding: number;
+        borderRadius: number;
+      };
+      const stMod = await import("three-spritetext");
+      const SpriteText = resolveDefaultExport(stMod) as new (
+        text?: string,
+      ) => SpriteTextInstance;
 
-      if (disposed || !containerRef.current) return;
+      if (disposed || !el.isConnected) return;
 
-      const bg = themeDark ? "#08090c" : "#eef0f4";
+      const graphTheme: GraphTheme = themeDark ? "dark" : "light";
+      const bg = graphBackground(graphTheme);
       const w = el.clientWidth || 800;
       const h = el.clientHeight || 560;
+      const ctrl = controlsRef.current;
 
-      graph = new ForceGraph3D(el) as unknown as ForceGraphInstance;
+      if (typeof ForceGraph3D !== "function") {
+        throw new Error(
+          "3d-force-graph did not export a constructor (Next ESM interop).",
+        );
+      }
+
+      graph = new ForceGraph3D(el);
       graphRef.current = graph;
 
       const g = graph;
-      g.backgroundColor(bg);
+      // Pause until graphData binds a layout — any pre-data prop update sets
+      // engineRunning=true and the next frame crashes: layout.tick on undefined.
+      g.pauseAnimation?.();
       g.showNavInfo(false);
+      g.backgroundColor(bg);
       g.width(w);
       g.height(h);
       const mobile = window.matchMedia("(max-width: 639px)").matches;
-      g.nodeRelSize(mobile ? 5.2 : 4.2);
+
+      // Bind data FIRST so state.layout exists before other updates resume the engine.
+      const nodes = viewData.nodes.map((n) => ({
+        ...n,
+        color: nodeColorForTheme(graphTheme, n.type, n.kind),
+      }));
+      const links = viewData.links.map((l) => ({ ...l }));
+      g.graphData({ nodes, links });
+      applyPhysics(g, ctrl, mobile, { reheat: false });
+
       g.nodeVal("val");
-      g.nodeOpacity(0.94);
+      g.nodeOpacity(0.96);
       g.nodeResolution(mobile ? 12 : 16);
+      g.nodeRelSize((mobile ? 5.0 : 4.0) * ctrl.nodeScale);
       g.nodeColor((n: FGNode) => {
         const hl = highlightRef.current;
         const active = hl.nodes.size > 0;
-        if (!active) return n.color;
-        if (hl.focus === n.id) return "#ffffff";
-        if (hl.nodes.has(n.id)) return n.color;
-        return themeDark ? "rgba(80,88,100,0.18)" : "rgba(160,165,175,0.25)";
+        const col = nodeColorForTheme(graphTheme, n.type, n.kind);
+        if (!active) return col;
+        if (hl.focus === n.id) return graphFocusColor(graphTheme);
+        if (hl.nodes.has(n.id)) return col;
+        return graphDimNode(graphTheme);
       });
       g.nodeLabel((n: FGNode) => {
         const bits = [
-          `<div style="font-family:system-ui,sans-serif;padding:2px 0">`,
+          `<div style="font-family:ui-monospace,SFMono-Regular,Menlo,monospace;padding:2px 0">`,
           `<strong>${escapeHtml(n.label)}</strong>`,
           `<div style="opacity:.75;font-size:11px">${typeLabel(n.type)}`,
           n.kind && n.type === "item"
@@ -300,39 +431,64 @@ export function KnowledgeGraphView({ data }: { data: KnowledgeGraph }) {
           const hl = highlightRef.current;
           const isFocus = hl.focus === n.id;
           const inHl = hl.nodes.size === 0 || hl.nodes.has(n.id);
-          const r = Math.cbrt(n.val) * 3.2;
+          const scale = controlsRef.current.nodeScale;
+          const r = Math.cbrt(n.val) * 3.0 * scale;
+          const col = nodeColorForTheme(graphTheme, n.type, n.kind);
 
           const geo = new THREE.SphereGeometry(r, 16, 16);
+          // Light: matte phosphor ink. Dark: mild CRT emissive.
+          const emit = graphTheme === "dark"
+            ? isFocus
+              ? 0.7
+              : inHl
+                ? 0.28
+                : 0.04
+            : isFocus
+              ? 0.12
+              : inHl
+                ? 0.05
+                : 0.02;
           const mat = new THREE.MeshLambertMaterial({
-            color: n.color,
+            color: col,
             transparent: true,
-            opacity: inHl ? (isFocus ? 1 : 0.92) : 0.12,
-            emissive: new THREE.Color(n.color),
-            emissiveIntensity: isFocus ? 0.85 : inHl ? 0.35 : 0.05,
+            opacity: inHl ? (isFocus ? 1 : 0.94) : 0.14,
+            emissive: new THREE.Color(col),
+            emissiveIntensity: emit,
           });
           group.add(new THREE.Mesh(geo, mat));
 
-          if (isFocus || n.type !== "item") {
-            const glowGeo = new THREE.SphereGeometry(r * 1.55, 12, 12);
+          if (isFocus || (n.type !== "item" && graphTheme === "dark")) {
+            const glowGeo = new THREE.SphereGeometry(r * 1.5, 12, 12);
             const glowMat = new THREE.MeshBasicMaterial({
-              color: n.color,
+              color: col,
               transparent: true,
-              opacity: isFocus ? 0.22 : 0.1,
+              opacity: isFocus
+                ? graphTheme === "dark"
+                  ? 0.2
+                  : 0.1
+                : 0.08,
               depthWrite: false,
             });
             group.add(new THREE.Mesh(glowGeo, glowMat));
           }
 
-          if (isFocus || (hl.nodes.has(n.id) && n.type !== "item")) {
+          const labelMode = controlsRef.current.labels;
+          const showLabel =
+            labelMode !== "off" &&
+            (isFocus ||
+              (labelMode === "concepts" && n.type !== "item") ||
+              (labelMode === "focus" &&
+                hl.nodes.has(n.id) &&
+                n.type !== "item"));
+
+          if (showLabel) {
             const sprite = new SpriteText(n.label);
-            sprite.color = themeDark ? "#eef0f4" : "#0c0e12";
-            sprite.textHeight = isFocus ? 3.2 : 2.4;
-            sprite.backgroundColor = themeDark
-              ? "rgba(8,9,12,0.72)"
-              : "rgba(255,255,255,0.82)";
+            sprite.color = graphLabelFg(graphTheme);
+            sprite.textHeight = isFocus ? 3.0 : 2.2;
+            sprite.backgroundColor = graphLabelBg(graphTheme);
             sprite.padding = 1.2;
-            sprite.borderRadius = 2;
-            sprite.position.y = r * 2.1;
+            sprite.borderRadius = 1;
+            sprite.position.y = r * 2.05;
             group.add(sprite);
           }
 
@@ -347,55 +503,39 @@ export function KnowledgeGraphView({ data }: { data: KnowledgeGraph }) {
         const hl = highlightRef.current;
         const active = hl.nodes.size > 0;
         const lit = hl.links.has(key) || hl.links.has(key2);
-        if (active && !lit) {
-          return themeDark
-            ? "rgba(100,110,130,0.06)"
-            : "rgba(120,130,150,0.08)";
-        }
-        if (l.relation === "tagged") return "rgba(240,215,140,0.55)";
-        if (l.relation === "shelved") return "rgba(165,180,252,0.55)";
-        if (l.relation === "located_in") return "rgba(125,211,192,0.35)";
-        return themeDark
-          ? "rgba(200,208,224,0.28)"
-          : "rgba(80,90,110,0.28)";
+        return graphLinkColor(graphTheme, l.relation, lit, active && !lit);
       });
       g.linkWidth((l: FGLink) => {
         const { s, t } = linkEnds(l);
         const key = `${s}|${t}`;
         const hl = highlightRef.current;
-        if (hl.links.has(key) || hl.links.has(`${t}|${s}`)) return 1.6;
-        return 0.45;
+        if (hl.links.has(key) || hl.links.has(`${t}|${s}`)) return 1.55;
+        return graphTheme === "dark" ? 0.5 : 0.55;
       });
-      g.linkOpacity(0.85);
+      g.linkOpacity(graphTheme === "dark" ? 0.88 : 0.9);
       g.linkDirectionalParticles((l: FGLink) => {
-        const mobile = window.matchMedia("(max-width: 639px)").matches;
-        if (mobile) {
-          // Fewer particles on phones — keeps FPS and reduce visual noise
-          const { s, t } = linkEnds(l);
-          const key = `${s}|${t}`;
-          const hl = highlightRef.current;
-          if (hl.links.has(key) || hl.links.has(`${t}|${s}`)) return 2;
-          return 0;
-        }
+        if (!controlsRef.current.particles) return 0;
         const { s, t } = linkEnds(l);
         const key = `${s}|${t}`;
         const hl = highlightRef.current;
+        if (mobile) {
+          if (hl.links.has(key) || hl.links.has(`${t}|${s}`)) return 2;
+          return 0;
+        }
         if (hl.links.has(key) || hl.links.has(`${t}|${s}`)) return 4;
         if (hl.nodes.size > 0) return 0;
         if (l.relation === "tagged" || l.relation === "shelved") return 1;
         return 0;
       });
-      g.linkDirectionalParticleWidth(1.4);
-      g.linkDirectionalParticleSpeed(0.006);
-      g.linkDirectionalParticleColor((l: FGLink) => {
-        if (l.relation === "tagged") return "#f0d78c";
-        if (l.relation === "shelved") return "#a5b4fc";
-        return "#c8d0e0";
-      });
+      g.linkDirectionalParticleWidth(1.3);
+      g.linkDirectionalParticleSpeed(0.0055);
+      g.linkDirectionalParticleColor((l: FGLink) =>
+        graphParticleColor(graphTheme, l.relation),
+      );
       g.cooldownTicks(120);
       g.d3AlphaDecay(0.028);
       g.d3VelocityDecay(0.32);
-      g.warmupTicks(40);
+      g.warmupTicks(20);
       g.onNodeHover((n: FGNode | null) => {
         setHoverId(n?.id ?? null);
         if (el) el.style.cursor = n ? "pointer" : "grab";
@@ -407,46 +547,61 @@ export function KnowledgeGraphView({ data }: { data: KnowledgeGraph }) {
         setSelected(null);
       });
 
-      // Soft ambient light for lambert materials
+      // Lighting: cool terminal fill on dark; flat paper light on light theme
       try {
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const scene = (g as any).scene?.() as import("three").Scene | undefined;
+        const scene = g.scene?.();
         if (scene) {
-          scene.add(new THREE.AmbientLight(0xffffff, 0.55));
-          const dir = new THREE.DirectionalLight(0xc8d0e0, 0.65);
-          dir.position.set(40, 80, 30);
-          scene.add(dir);
-          const fill = new THREE.DirectionalLight(0x7dd3fc, 0.2);
-          fill.position.set(-50, -20, -40);
-          scene.add(fill);
+          if (graphTheme === "dark") {
+            scene.add(new THREE.AmbientLight(0xb8c0d0, 0.48));
+            const dir = new THREE.DirectionalLight(0xd0d8e8, 0.55);
+            dir.position.set(40, 80, 30);
+            scene.add(dir);
+            const fill = new THREE.DirectionalLight(0x3cb87a, 0.12);
+            fill.position.set(-50, -20, -40);
+            scene.add(fill);
+          } else {
+            scene.add(new THREE.AmbientLight(0xffffff, 0.78));
+            const dir = new THREE.DirectionalLight(0xffffff, 0.45);
+            dir.position.set(30, 90, 40);
+            scene.add(dir);
+          }
         }
       } catch {
         // scene access optional
       }
 
-      g.graphData({
-        nodes: viewData.nodes.map((n) => ({ ...n })),
-        links: viewData.links.map((l) => ({ ...l })),
-      });
+      g.resumeAnimation?.();
 
       setTimeout(() => {
         if (!disposed) graphRef.current?.zoomToFit(600, mobile ? 40 : 80);
       }, 500);
 
+      const mountEl = el;
       ro = new ResizeObserver(() => {
-        if (!containerRef.current || !graphRef.current) return;
+        if (!mountEl || !graphRef.current) return;
         graphRef.current
-          .width(containerRef.current.clientWidth)
-          .height(containerRef.current.clientHeight);
+          .width(mountEl.clientWidth)
+          .height(mountEl.clientHeight);
       });
-      ro.observe(el);
+      ro.observe(mountEl);
+      readyRef.current = true;
       setReady(true);
+      } catch (err) {
+        if (disposed) return;
+        const message =
+          err instanceof Error ? err.message : String(err);
+        console.error("[KnowledgeGraph] mount failed:", err);
+        setLoadError(message);
+        readyRef.current = false;
+        setReady(false);
+      }
     }
 
     void mount();
 
     return () => {
       disposed = true;
+      readyRef.current = false;
       ro?.disconnect();
       graphRef.current = null;
       try {
@@ -454,11 +609,10 @@ export function KnowledgeGraphView({ data }: { data: KnowledgeGraph }) {
       } catch {
         // ignore
       }
-      if (containerRef.current) containerRef.current.innerHTML = "";
+      if (el) el.innerHTML = "";
       setReady(false);
     };
-    // Remount when theme or visible layers change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // Remount when theme or visible layers change (viewData identity)
   }, [viewData, themeDark]);
 
   function focusSelected() {
@@ -468,7 +622,6 @@ export function KnowledgeGraphView({ data }: { data: KnowledgeGraph }) {
       | FGNode
       | undefined;
     // Find live node with coords from graph data
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const gd = g.graphData() as { nodes: FGNode[] };
     const live = gd.nodes.find((n) => n.id === selected.id);
     if (!live || live.x == null) return;
@@ -490,6 +643,21 @@ export function KnowledgeGraphView({ data }: { data: KnowledgeGraph }) {
     setQuery("");
     graphRef.current?.zoomToFit(700, 70);
   }
+
+  // Live physics / label / particle knobs without remounting WebGL
+  useEffect(() => {
+    controlsRef.current = controls;
+    const g = graphRef.current;
+    if (!g || !ready) return;
+    // Physics only — reheat is safe after graphData has set layout.
+    applyPhysics(g, controls, isMobile, { reheat: true });
+    // Rebuild meshes when labels / node scale change (nodeThreeObject reads controlsRef).
+    try {
+      g.refresh();
+    } catch {
+      // ignore refresh races during teardown
+    }
+  }, [controls, isMobile, ready]);
 
   function resizeGraphCanvas() {
     const el = containerRef.current;
@@ -592,6 +760,18 @@ export function KnowledgeGraphView({ data }: { data: KnowledgeGraph }) {
           <div className="ml-auto flex items-center gap-1">
             <button
               type="button"
+              className={cn(
+                "btn btn-ghost btn-icon",
+                controlsOpen && "text-[var(--accent)]",
+              )}
+              title="View controls"
+              aria-pressed={controlsOpen}
+              onClick={() => setControlsOpen((v) => !v)}
+            >
+              <Settings2 className="h-4 w-4" aria-hidden />
+            </button>
+            <button
+              type="button"
               className="btn btn-ghost btn-icon"
               title="Fit view"
               onClick={resetView}
@@ -633,6 +813,124 @@ export function KnowledgeGraphView({ data }: { data: KnowledgeGraph }) {
             </button>
           ))}
         </div>
+        {controlsOpen ? (
+          <div
+            className="graph-controls grid gap-2.5 border-t border-[var(--line)] pt-2 sm:grid-cols-2 lg:grid-cols-4"
+            role="group"
+            aria-label="Physics and display"
+          >
+            <label className="graph-control">
+              <span className="graph-control__label">
+                Spread
+                <span className="tabular-nums text-[var(--muted-faint)]">
+                  {controls.spread}
+                </span>
+              </span>
+              <input
+                type="range"
+                min={40}
+                max={220}
+                step={5}
+                value={controls.spread}
+                onChange={(e) =>
+                  patchControls({ spread: Number(e.target.value) })
+                }
+                className="graph-slider"
+                title="Node repulsion — higher unclumps dense maps"
+              />
+            </label>
+            <label className="graph-control">
+              <span className="graph-control__label">
+                Link length
+                <span className="tabular-nums text-[var(--muted-faint)]">
+                  {controls.linkDist}
+                </span>
+              </span>
+              <input
+                type="range"
+                min={15}
+                max={100}
+                step={1}
+                value={controls.linkDist}
+                onChange={(e) =>
+                  patchControls({ linkDist: Number(e.target.value) })
+                }
+                className="graph-slider"
+                title="Ideal distance between connected nodes"
+              />
+            </label>
+            <label className="graph-control">
+              <span className="graph-control__label">
+                Node size
+                <span className="tabular-nums text-[var(--muted-faint)]">
+                  {controls.nodeScale.toFixed(1)}×
+                </span>
+              </span>
+              <input
+                type="range"
+                min={0.5}
+                max={1.8}
+                step={0.1}
+                value={controls.nodeScale}
+                onChange={(e) =>
+                  patchControls({ nodeScale: Number(e.target.value) })
+                }
+                className="graph-slider"
+                title="Sphere scale"
+              />
+            </label>
+            <div className="graph-control gap-1.5">
+              <span className="graph-control__label">Labels</span>
+              <div className="segment !w-full" role="group" aria-label="Label mode">
+                {(
+                  [
+                    ["focus", "Focus"],
+                    ["concepts", "Concepts"],
+                    ["off", "Off"],
+                  ] as const
+                ).map(([key, label]) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className={cn(
+                      "flex-1",
+                      controls.labels === key && "is-active",
+                    )}
+                    onClick={() => patchControls({ labels: key })}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="flex flex-wrap items-center gap-2 sm:col-span-2 lg:col-span-4">
+              <label className="inline-flex cursor-pointer items-center gap-2 text-xs text-[var(--muted)]">
+                <input
+                  type="checkbox"
+                  checked={controls.particles}
+                  onChange={(e) =>
+                    patchControls({ particles: e.target.checked })
+                  }
+                  className="rounded border-[var(--line-strong)]"
+                />
+                Link particles
+                <span className="text-[var(--muted-faint)]">
+                  (off if FPS dips)
+                </span>
+              </label>
+              <button
+                type="button"
+                className="btn btn-ghost btn-sm ml-auto"
+                onClick={() => {
+                  controlsRef.current = DEFAULT_CONTROLS;
+                  setControls(DEFAULT_CONTROLS);
+                }}
+              >
+                Reset controls
+              </button>
+            </div>
+          </div>
+        ) : null}
       </div>
 
       {/* Canvas — flex-1 + absolute fill so fullscreen gets real height */}
@@ -647,24 +945,32 @@ export function KnowledgeGraphView({ data }: { data: KnowledgeGraph }) {
             <strong>Nothing to map with these layers</strong>
             Turn on Tags / Shelves / Formats, or index more holdings.
           </div>
+        ) : loadError ? (
+          <div className="empty-state m-6">
+            <strong>Graph failed to start</strong>
+            <p className="mt-2 text-xs text-[var(--muted)]">{loadError}</p>
+            <p className="mt-2 text-xs text-[var(--muted-faint)]">
+              WebGL / three.js load error. Try a hard refresh, or run{" "}
+              <code className="code-inline">rm -rf .next && npm run dev</code>.
+            </p>
+          </div>
         ) : (
           <div
             ref={containerRef}
             className="absolute inset-0 h-full w-full touch-none"
           />
         )}
-        {!ready && !empty ? (
+        {!ready && !empty && !loadError ? (
           <div className="pointer-events-none absolute inset-0 flex items-center justify-center text-sm text-[var(--muted)]">
             Igniting graph…
           </div>
         ) : null}
 
-        {/* Legend — desktop only */}
+        {/* Legend — desktop only, theme-aware */}
         <div className="pointer-events-none absolute bottom-3 left-3 z-10 hidden flex-wrap gap-1.5 lg:flex">
-          <LegendDot color="#c4b5fd" label="Image" />
-          <LegendDot color="#93c5fd" label="Doc" />
-          <LegendDot color="#f0d78c" label="Tag" />
-          <LegendDot color="#a5b4fc" label="Shelf" />
+          {legendSamples(theme).map((s) => (
+            <LegendDot key={s.label} color={s.color} label={s.label} />
+          ))}
         </div>
 
         {/* Detail panel */}
@@ -762,5 +1068,17 @@ function escapeHtml(s: string) {
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
     .replace(/"/g, "&quot;");
+}
+
+/** Unwrap Webpack/ESM default export (sometimes double-nested). */
+function resolveDefaultExport(mod: unknown): unknown {
+  if (mod == null || typeof mod !== "object") return mod;
+  const m = mod as { default?: unknown };
+  if (m.default != null && typeof m.default === "object") {
+    const inner = m.default as { default?: unknown };
+    if (typeof inner.default === "function") return inner.default;
+  }
+  if (typeof m.default === "function") return m.default;
+  return mod;
 }
 

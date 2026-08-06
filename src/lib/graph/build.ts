@@ -6,7 +6,9 @@
  * graph stays navigable — especially on mobile.
  */
 
+import { CONCEPT_COLORS, KIND_COLORS } from "@/lib/graph/colors";
 import { getSqlite } from "@/lib/db/client";
+import { isHiddenFacetTag } from "@/lib/tags/hidden";
 import type { ItemKind } from "@/lib/types";
 
 export type GraphNodeType =
@@ -54,24 +56,12 @@ export type KnowledgeGraph = {
   };
 };
 
-/** Dark-theme kind colors matching Helix CSS tokens */
+/** Default (dark) kind colors — client recolors for light theme. */
 export const KIND_NODE_COLORS: Record<string, string> = {
-  text: "#7dd3fc",
-  image: "#c4b5fd",
-  video: "#f9a8d4",
-  audio: "#fcd34d",
-  archive: "#a8a29e",
-  code: "#6ee7b7",
-  document: "#93c5fd",
-  other: "#9ca3af",
+  ...KIND_COLORS.dark,
 };
 
-const CONCEPT_COLORS = {
-  tag: "#f0d78c",
-  collection: "#a5b4fc",
-  kind: "#c8d0e0",
-  location: "#7dd3c0",
-} as const;
+const CONCEPT_NODE_COLORS = CONCEPT_COLORS.dark;
 
 const MAX_ITEMS = 600;
 /** Only tags used on this many holdings (cuts singleton vision labels). */
@@ -235,7 +225,7 @@ export function buildKnowledgeGraph(opts?: {
         kind,
         val: 3,
         degree: 0,
-        color: CONCEPT_COLORS.kind,
+        color: CONCEPT_NODE_COLORS.kind,
       });
     }
     for (const row of items) {
@@ -255,7 +245,7 @@ export function buildKnowledgeGraph(opts?: {
           label: row.location_name,
           val: 2.5,
           degree: 0,
-          color: CONCEPT_COLORS.location,
+          color: CONCEPT_NODE_COLORS.location,
           href: "/locations",
         });
       }
@@ -268,7 +258,7 @@ export function buildKnowledgeGraph(opts?: {
 
   if (includeTags) {
     // Global frequency for all tags, then filter + cap
-    const tagFreq = sqlite
+    const tagFreqRaw = sqlite
       .prepare(
         `
       SELECT t.id, t.name, count(*) AS c
@@ -280,7 +270,11 @@ export function buildKnowledgeGraph(opts?: {
       LIMIT ?
     `,
       )
-      .all(minTagCount, maxTags) as { id: number; name: string; c: number }[];
+      .all(minTagCount, maxTags * 2) as { id: number; name: string; c: number }[];
+    // Drop meta noise tags (e.g. vision-tagged), then re-cap.
+    const tagFreq = tagFreqRaw
+      .filter((t) => !isHiddenFacetTag(t.name))
+      .slice(0, maxTags);
 
     const totalEligible = (
       sqlite
@@ -339,7 +333,7 @@ export function buildKnowledgeGraph(opts?: {
           label: row.name,
           val: 2,
           degree: 0,
-          color: CONCEPT_COLORS.tag,
+          color: CONCEPT_NODE_COLORS.tag,
           href: `/catalog?tag=${row.id}`,
         });
         tagsShown += 1;
@@ -374,7 +368,7 @@ export function buildKnowledgeGraph(opts?: {
           label: row.name,
           val: 2.5,
           degree: 0,
-          color: CONCEPT_COLORS.collection,
+          color: CONCEPT_NODE_COLORS.collection,
           href: `/collections/${row.id}`,
         });
       }

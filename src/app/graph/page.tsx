@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
-import { KnowledgeGraphView } from "@/components/KnowledgeGraph";
+import Link from "next/link";
+import { KnowledgeGraphLoader } from "@/components/KnowledgeGraphLoader";
 import { buildKnowledgeGraph } from "@/lib/graph/build";
 import { ensureLocationsSynced } from "@/lib/locations/manage";
 
@@ -11,9 +12,21 @@ export const metadata: Metadata = {
     "3D force-directed map of Helix Library holdings, tags, shelves, and formats.",
 };
 
-export default function GraphPage() {
+type SearchParams = Promise<{ singletons?: string }>;
+
+export default async function GraphPage({
+  searchParams,
+}: {
+  searchParams: SearchParams;
+}) {
   ensureLocationsSynced();
-  const graph = buildKnowledgeGraph();
+  const sp = await searchParams;
+  const showSingletons =
+    sp.singletons === "1" || sp.singletons === "true" || sp.singletons === "yes";
+  const graph = buildKnowledgeGraph({
+    minTagCount: showSingletons ? 1 : undefined,
+    maxTags: showSingletons ? 80 : undefined,
+  });
 
   return (
     <div className="space-y-4 sm:space-y-5">
@@ -24,21 +37,39 @@ export default function GraphPage() {
           <p className="page-sub max-w-2xl">
             Holdings and concepts in one constellation — drag to orbit, pinch or
             scroll to zoom, tap a node to inspect. Singleton vision tags are
-            hidden so shared themes stay readable; toggle layers as needed.
+            hidden by default so shared themes stay readable; toggle layers as
+            needed.
           </p>
+        </div>
+        <div className="segment shrink-0" role="group" aria-label="Tag density">
+          <Link
+            href="/graph"
+            className={!showSingletons ? "is-active" : undefined}
+            title="Tags used on at least two holdings"
+          >
+            Shared tags
+          </Link>
+          <Link
+            href="/graph?singletons=1"
+            className={showSingletons ? "is-active" : undefined}
+            title="Include single-use tags (noisier)"
+          >
+            Singletons
+          </Link>
         </div>
       </div>
 
-      <KnowledgeGraphView data={graph} />
+      <KnowledgeGraphLoader data={graph} />
 
       <p className="text-xs text-[var(--muted-faint)]">
-        Default graph shows tags used on ≥{graph.meta.minTagCount} holdings
-        (top {graph.meta.tagsShown}
+        Showing tags used on ≥{graph.meta.minTagCount} holdings (top{" "}
+        {graph.meta.tagsShown}
         {graph.meta.tagsOmitted > 0
           ? `; ${graph.meta.tagsOmitted} low-use tags omitted`
           : ""}
-        ). Desktop: left-drag orbit · right-drag pan · scroll zoom. Mobile: one
-        finger orbit · pinch zoom.
+        ). Meta tag <code className="text-[var(--muted)]">vision-tagged</code> is
+        always omitted. Desktop: left-drag orbit · right-drag pan · scroll zoom.
+        Mobile: one finger orbit · pinch zoom.
       </p>
     </div>
   );
