@@ -135,13 +135,19 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 ## Known gaps / natural next work
 
-1. Graph perf at multi-thousand holdings (caps help; force layout still heavy)  
-2. Dedicated light-field brand PNG  
-3. yt-dlp JS runtime warning (optional deno) for more formats  
-4. Saved views / smart shelves  
-5. Document reading room  
+Covered by next-season design (do not invent parallel tracks without reading it):
 
-**Season “Curation & intake” (2026-08):** PR1–PR7 landed (titles, tags, jobs, Ask acquire, rescue, graph filters, polish).  
+1. **[docs/designs/2026-08-discovery-reading.md](./designs/2026-08-discovery-reading.md)** — **Discovery depth & reading room** (draft pending approval)  
+   - Reading room (text/PDF.js), select→tag/ask, related holdings, smart shelves, graph 2D + totalItems, optional open events, light brand  
+
+Still parked (not in that design as required):
+
+2. yt-dlp JS runtime (optional deno) for more formats  
+3. Export/backup story  
+4. Acquire multi-source search-then-save (OpenAlex etc.)  
+5. Embeddings / semantic search (explicit non-goal for next season)
+
+**Season “Curation & intake” (2026-08):** PR1–PR7 landed — see [designs/2026-08-curation-intake.md](./designs/2026-08-curation-intake.md).  
 
 ---
 
@@ -161,13 +167,10 @@ npm run dev    # http://127.0.0.1:4747
 
 ---
 
-## Session wrap (2026-08-04 → 2026-08-06)
+## Session wrap (2026-08-06)
 
-Delivered in this multi-day stretch (on top of `ba23e55`), then committed as five slices:
+**Closed:** Curation & intake season (PR1–PR7) — titles, tag source/merge/hide, unified jobs, Ask→Acquire, rescue/recent, graph filters, polish. Private repo synced. **83 tests pass** (tip before next-season design: `7fcfdd3`; design commit on top).
 
-- Project hygiene; weeding desk; search snippets; tag hygiene; FS watch script  
-- Graph: terminal palette, light mode, useful controls; Next load/layout.tick fixes  
-- Responsive shell; Ask as viewport chat  
-- **Acquire** ILL desk (arXiv search/fetch, YT with progress, Grok images, auto-tags)  
-- Media unicode fix; video playable H.264 preference; **catalog video thumb editor**  
-- Green acquire progress bars
+**This wrap:** Growth review → new design **Discovery depth & reading room** ([designs/2026-08-discovery-reading.md](./designs/2026-08-discovery-reading.md)), design-loop rev 3, **0 open review issues**. Status: **Draft pending owner approval** — do not implement until signed off.
+
+**Earlier stretch (to `ba23e55` + post-ship):** shell, weeding, snippets, graph polish, Ask shell, Acquire, media/thumbs, then intentional commit slices.
