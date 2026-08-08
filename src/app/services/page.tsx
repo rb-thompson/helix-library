@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { BackupPanel } from "@/components/BackupPanel";
 import { JobsPanel } from "@/components/JobsPanel";
 import { ReindexButton } from "@/components/ReindexButton";
 import { formatBytes, formatDate } from "@/lib/format";
@@ -33,11 +34,14 @@ export default function ServicesPage() {
         <p className="eyebrow">Operations</p>
         <h1 className="page-title mt-1">Services</h1>
         <p className="page-sub">
-          Reindex holdings and inspect this machine as the library building.
+          Reindex holdings, export backups, and inspect this machine as the
+          library building.
         </p>
       </div>
 
       <JobsPanel initialJobs={recentJobs} />
+
+      <BackupPanel />
 
       <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
         <section className="surface p-4 sm:p-5">

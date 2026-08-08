@@ -28,6 +28,8 @@ function kindLabel(kind: string): string {
   switch (kind) {
     case "reindex":
       return "Reindex";
+    case "backup":
+      return "Backup";
     case "arxiv":
       return "arXiv";
     case "youtube":

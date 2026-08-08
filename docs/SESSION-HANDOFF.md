@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-08-07  
 **Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`)  
-**Status:** Daily-usable OPAC. **Curation & intake shipped.** **Discovery season shipped.** **Acquire depth Tier 1 + Tier 2 (Grokipedia, image URL) + Ask acquire parity shipped** — [designs/2026-08-acquire-depth.md](./designs/2026-08-acquire-depth.md). Optional Discovery **PR6** open events, export/backup, Gutenberg remain stretch.
+**Status:** Daily-usable OPAC. **Curation & intake shipped.** **Discovery season shipped.** **Acquire depth shipped.** **Export/backup shipped** (catalog + full tar.gz on Services / `npm run backup`). Optional Discovery **PR6** open events, Gutenberg remain stretch.
 
 Read [AGENTS.md](../AGENTS.md) first, then this file.
 
@@ -49,7 +49,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | **Acquire `/acquire`** | arXiv; OpenAlex OA PDF; web clip; **Grokipedia**; **image URL**; YT/podcast; Grok image; Ask propose+approve for all acquire kinds; SSRF outbound; jobs + auto-tags |
 | Theme / nav | Dark/light; **light helix mark** swap; Primary + More (Locations, **Acquire**, Services, Docs) |
 | Shell | `.shell-x`, `--shell-max` wider at 2xl |
-| Tests | `npm test` — **148 pass** |
+| Tests | `npm test` — **155 pass** |
 | Docs | In-app `/docs` includes Acquire, reading room, smart shelves, graph |
 | **Reading room (PR1a+1b)** | Text/code continuous + PDF.js page mode (canvas + text layer); `helix-read-position` scroll/page; `?room=1`; public unbundled pdf.min.mjs |
 | **Read → act (PR2)** | Selection toolbar Tag/Ask/Copy; `/ask?item=`; transport `holdingItemId` + quote; system appendix; local summarize → indexed body |
@@ -161,8 +161,8 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 1. **Optional Discovery PR6** — server `item_events` open tracking (stretch). See discovery design.  
 2. yt-dlp JS runtime (optional deno) for more formats  
-3. Export/backup story  
-4. **Gutenberg / Standard Ebooks** stretch book intake  
+3. **Gutenberg / Standard Ebooks** stretch book intake  
+4. Automated **restore** UI (export is manual-restore via RESTORE.md for now)  
 5. Embeddings / semantic search (explicit non-goal)
 
 **Season “Curation & intake” (2026-08):** PR1–PR7 landed — see [designs/2026-08-curation-intake.md](./designs/2026-08-curation-intake.md).  
@@ -193,4 +193,8 @@ npm run dev    # http://127.0.0.1:4747
 
 **Closed Acquire depth Tier 1:** shared `outbound.ts` SSRF helper; Grok image default `grok-imagine-image-quality` + b64/url + cloud gate; OpenAlex search/DOI → OA PDF (accuracy badges); web clip URL → `notes/*.md`; job kinds `openalex`/`clip`; desk cards; PRODUCT / SESSION-HANDOFF / AGENTS / `/docs` updated. Design: [2026-08-acquire-depth.md](./designs/2026-08-acquire-depth.md).
 
-**Still optional:** Discovery PR6 open events; Acquire Tier 2 Grokipedia; export/backup.
+**Still optional:** Discovery PR6 open events; Gutenberg; one-click restore UI.
+
+## Session wrap (2026-08-08) — Export / backup
+
+**Shipped:** catalog + full backups to `data/exports/*.tar.gz` (SQLite snapshot, config, thumbs, optional holdings); Services **Export / backup** panel; `npm run backup`; download/delete APIs; job kind `backup`.

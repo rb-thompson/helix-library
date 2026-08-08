@@ -15,7 +15,7 @@ Public library OPAC/services mapped onto personal files and host machine limits.
 | Reading room | Continuous text/code + PDF.js page mode on item detail; position memory |
 | Related holdings | Same folder / shared tags / co-shelved neighbors |
 | Knowledge map | `/graph` — 2D (default mobile) + 3D force graph |
-| Services | Reindex, machine status |
+| Services | Reindex, **export/backup**, machine status |
 | Acquisitions / ILL | `/acquire` — arXiv, OpenAlex OA PDFs, web clips, Grokipedia, YT/podcast, Grok + remote images into Archive |
 | Ask a librarian | `/ask` (local or optional xAI); holding-context from reading room |
 | Building | Host CPU/RAM/disk/tools |

@@ -336,6 +336,49 @@ export function failJob(id: number, error: string): void {
   unregisterJobProcess(id);
 }
 
+/**
+ * Run async work for any job kind (backup, etc.). Fire-and-forget friendly.
+ */
+export async function runHelixJob(
+  jobId: number,
+  work: (
+    report: (p: Partial<HelixJobProgress>) => void,
+  ) => Promise<Record<string, unknown>>,
+): Promise<HelixJob | null> {
+  markJobRunning(jobId);
+  const report = (p: Partial<HelixJobProgress>) => {
+    updateJobProgress(jobId, p);
+  };
+  try {
+    if (isCancelRequested(jobId)) {
+      failJob(jobId, "Cancelled");
+      return getJob(jobId);
+    }
+    const result = await work(report);
+    completeJob(jobId, result);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    failJob(jobId, message || "Failed");
+  }
+  return getJob(jobId);
+}
+
+export function serializeHelixJob(job: HelixJob) {
+  return {
+    id: job.id,
+    kind: job.kind,
+    status: job.status,
+    createdAt: job.createdAt,
+    startedAt: job.startedAt,
+    finishedAt: job.finishedAt,
+    error: job.error,
+    result: job.result,
+    label: job.label,
+    progress: { ...job.progress },
+    cancelRequested: job.cancelRequested,
+  };
+}
+
 export function requestCancel(id: number): HelixJob | null {
   const db = getDb();
   const row = db.select().from(jobs).where(eq(jobs.id, id)).get();

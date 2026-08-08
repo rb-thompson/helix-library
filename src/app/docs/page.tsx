@@ -316,6 +316,16 @@ export default function DocsPage() {
               move files.
             </li>
             <li>
+              <strong>Export / backup</strong> — catalog snapshot (config +
+              SQLite + optional thumbs) or full backup (adds enabled location
+              trees) as{" "}
+              <code className="code-inline">.tar.gz</code> under{" "}
+              <code className="code-inline">data/exports/</code>. Does not include
+              API keys. CLI:{" "}
+              <code className="code-inline">npm run backup</code> (or{" "}
+              <code className="code-inline">-- --full</code>).
+            </li>
+            <li>
               <strong>Building</strong> shows host facts: CPU, memory, disk,
               bind address, and optional tools (ffprobe, ffmpeg, exiftool).
             </li>

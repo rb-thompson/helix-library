@@ -1,5 +1,6 @@
 export type HelixJobKind =
   | "reindex"
+  | "backup"
   | "arxiv"
   | "youtube"
   | "image"
@@ -55,5 +56,5 @@ export function isAcquireJobKind(k: string): k is AcquireJobKind {
 }
 
 export function isHelixJobKind(k: string): k is HelixJobKind {
-  return k === "reindex" || isAcquireJobKind(k);
+  return k === "reindex" || k === "backup" || isAcquireJobKind(k);
 }

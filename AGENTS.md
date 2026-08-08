@@ -43,6 +43,7 @@ cd /home/brandon/Projects/non-os
 npm install
 # library.config.json should exist (gitignored); example is committed
 npm run reindex          # index archive/ + other locations
+npm run backup           # catalog → data/exports/ (add -- --full for holdings)
 npm run dev              # http://127.0.0.1:4747
 npm run typecheck
 npm run test
@@ -149,17 +150,18 @@ npm run build            # before calling a slice “done”
 - Indexer + enrichment; media (unicode-safe serve); EXIF; optional `npm run watch`
 - Catalog + weeding (`?missing=1`); video **thumb editor**; tag hygiene
 - **`/acquire`** ILL desk: arXiv; OpenAlex OA PDFs; web clip; **Grokipedia**; image URL; yt-dlp; Grok Imagine; Ask propose+approve for acquires
+- **Export/backup** — Services panel + `npm run backup` → `data/exports/*.tar.gz` (catalog or full holdings)
 - **Reading room** — text/code continuous + PDF.js page mode (text layer); `helix-read-position`
 - **Smart shelves** — query-backed collections; catalog/graph resolve; live counts
 - **Related holdings** on item detail (folder / tags / co-shelved)
 - **`/graph`** 2D + 3D map (`force-graph` / `3d-force-graph`); `totalItems` cap UX; mobile defaults 2D
 - **`/ask`** viewport chat; holding-context bridge; Grok when keyed; server-side approve
 - Responsive shell; space UI; H+helix mark (dark + light) + favicon
-- Tests: `npm test` — **148 pass**
+- Tests: `npm test` — **155 pass**
 
-**Shipped:** daily OPAC + **Curation & intake** + **Discovery depth & reading room** + **Acquire depth Tier 1** (OpenAlex + web clip + Grok image fix). Designs: [discovery](./docs/designs/2026-08-discovery-reading.md), [acquire depth](./docs/designs/2026-08-acquire-depth.md).
+**Shipped:** daily OPAC + Curation + Discovery + Acquire depth + **export/backup**. Designs: [discovery](./docs/designs/2026-08-discovery-reading.md), [acquire depth](./docs/designs/2026-08-acquire-depth.md).
 
-**Next work:** SESSION-HANDOFF “Known gaps” (Grokipedia optional, export/backup, PR6 open events).
+**Next work:** SESSION-HANDOFF “Known gaps” (PR6 open events, Gutenberg, restore UI).
 
 ## Safety for future agent features
 
