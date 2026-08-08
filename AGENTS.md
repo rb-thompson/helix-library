@@ -155,7 +155,7 @@ npm run build            # before calling a slice “done”
 - **`/graph`** 2D + 3D map (`force-graph` / `3d-force-graph`); `totalItems` cap UX; mobile defaults 2D
 - **`/ask`** viewport chat; holding-context bridge; Grok when keyed; server-side approve
 - Responsive shell; space UI; H+helix mark (dark + light) + favicon
-- Tests: `npm test` — **143 pass**
+- Tests: `npm test` — **148 pass**
 
 **Shipped:** daily OPAC + **Curation & intake** + **Discovery depth & reading room** + **Acquire depth Tier 1** (OpenAlex + web clip + Grok image fix). Designs: [discovery](./docs/designs/2026-08-discovery-reading.md), [acquire depth](./docs/designs/2026-08-acquire-depth.md).
 
