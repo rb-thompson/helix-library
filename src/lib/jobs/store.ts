@@ -129,6 +129,9 @@ export function toHelixJob(row: JobRow): HelixJob {
     progress,
     result,
     cancelRequested: Boolean(row.cancelRequested),
+    dismissed: Boolean(
+      (row as { dismissed?: number | null }).dismissed ?? 0,
+    ),
   };
 }
 
@@ -376,7 +379,41 @@ export function serializeHelixJob(job: HelixJob) {
     label: job.label,
     progress: { ...job.progress },
     cancelRequested: job.cancelRequested,
+    dismissed: job.dismissed,
   };
+}
+
+/**
+ * Mark a failed (or cancelled) job as seen so it no longer appears on the
+ * home rescue desk. Idempotent.
+ */
+export function dismissJob(id: number): HelixJob | null {
+  const job = getJob(id);
+  if (!job) return null;
+  if (job.status !== "failed" && job.status !== "cancelled") {
+    throw new Error("Only failed or cancelled jobs can be dismissed");
+  }
+  const sqlite = getSqlite();
+  sqlite
+    .prepare(`UPDATE jobs SET dismissed = 1 WHERE id = ?`)
+    .run(id);
+  return getJob(id);
+}
+
+/** Dismiss all failed (and cancelled) jobs that are not already dismissed. */
+export function dismissAllFailedJobs(): { count: number } {
+  const sqlite = getSqlite();
+  const result = sqlite
+    .prepare(
+      `
+      UPDATE jobs
+      SET dismissed = 1
+      WHERE status IN ('failed', 'cancelled')
+        AND (dismissed IS NULL OR dismissed = 0)
+    `,
+    )
+    .run();
+  return { count: result.changes };
 }
 
 export function requestCancel(id: number): HelixJob | null {

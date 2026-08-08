@@ -85,6 +85,8 @@ export const jobs = sqliteTable(
     /** Acquire result payload (itemId, path, …). */
     resultJson: text("result_json"),
     cancelRequested: integer("cancel_requested").notNull().default(0),
+    /** 1 = user dismissed failed job from rescue/dashboard warnings */
+    dismissed: integer("dismissed").notNull().default(0),
   },
   (t) => [
     index("jobs_kind_status_idx").on(t.kind, t.status),

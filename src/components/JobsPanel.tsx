@@ -2,7 +2,13 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { ChevronDown, ChevronRight, RefreshCw, Square } from "lucide-react";
+import {
+  Check,
+  ChevronDown,
+  ChevronRight,
+  RefreshCw,
+  Square,
+} from "lucide-react";
 
 type JobProgress = {
   stage: string;
@@ -22,6 +28,7 @@ type HelixJobRow = {
   progress: JobProgress;
   result: Record<string, unknown> | null;
   cancelRequested: boolean;
+  dismissed?: boolean;
 };
 
 function kindLabel(kind: string): string {
@@ -138,6 +145,59 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
     }
   }
 
+  async function dismiss(id: number) {
+    setBusyId(id);
+    setError(null);
+    try {
+      const res = await fetch("/api/jobs/dismiss", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Dismiss failed");
+        return;
+      }
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Dismiss failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  async function dismissAllFailed() {
+    setBusyId(-1);
+    setError(null);
+    try {
+      const res = await fetch("/api/jobs/dismiss", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ allFailed: true }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        setError(data.error ?? "Dismiss failed");
+        return;
+      }
+      await refresh();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Dismiss failed");
+    } finally {
+      setBusyId(null);
+    }
+  }
+
+  const undismissedFailed = useMemo(
+    () =>
+      jobs.filter(
+        (j) =>
+          (j.status === "failed" || j.status === "cancelled") && !j.dismissed,
+      ),
+    [jobs],
+  );
+
   const summaryLine =
     jobs.length === 0
       ? "No jobs yet"
@@ -179,17 +239,34 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
             </span>
           </span>
         </button>
-        <button
-          type="button"
-          className="btn btn-ghost btn-sm"
-          onClick={(e) => {
-            e.stopPropagation();
-            void refresh();
-          }}
-        >
-          <RefreshCw className="h-3.5 w-3.5" aria-hidden />
-          Refresh
-        </button>
+        <div className="flex shrink-0 flex-wrap gap-1.5">
+          {undismissedFailed.length > 0 ? (
+            <button
+              type="button"
+              className="btn btn-ghost btn-sm"
+              title="Clear failed jobs from home Rescue desk"
+              disabled={busyId !== null}
+              onClick={(e) => {
+                e.stopPropagation();
+                void dismissAllFailed();
+              }}
+            >
+              <Check className="h-3.5 w-3.5" aria-hidden />
+              Mark failed seen
+            </button>
+          ) : null}
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={(e) => {
+              e.stopPropagation();
+              void refresh();
+            }}
+          >
+            <RefreshCw className="h-3.5 w-3.5" aria-hidden />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {open ? (
@@ -231,6 +308,11 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
                           >
                             {job.status}
                             {job.cancelRequested && active ? " · cancel…" : ""}
+                            {job.dismissed &&
+                            (job.status === "failed" ||
+                              job.status === "cancelled")
+                              ? " · seen"
+                              : ""}
                           </span>
                           <span className="text-xs text-[var(--muted-faint)]">
                             #{job.id}
@@ -279,6 +361,20 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
                           >
                             <Square className="h-3 w-3" aria-hidden />
                             Cancel
+                          </button>
+                        ) : null}
+                        {(job.status === "failed" ||
+                          job.status === "cancelled") &&
+                        !job.dismissed ? (
+                          <button
+                            type="button"
+                            className="btn btn-ghost btn-sm"
+                            disabled={busyId === job.id}
+                            title="Clear from home Rescue desk"
+                            onClick={() => void dismiss(job.id)}
+                          >
+                            <Check className="h-3 w-3" aria-hidden />
+                            Seen
                           </button>
                         ) : null}
                       </div>

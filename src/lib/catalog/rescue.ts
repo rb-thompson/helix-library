@@ -73,10 +73,11 @@ export function getRescueSnapshot(): RescueSnapshot {
           .items
       : [];
 
-  const recentJobs = listJobs({ limit: 20 });
+  const recentJobs = listJobs({ limit: 30 });
+  // Dismissed failures stay in Services history but leave the rescue desk
   const failedJobs = recentJobs
-    .filter((j) => j.status === "failed")
-    .slice(0, 5);
+    .filter((j) => j.status === "failed" && !j.dismissed)
+    .slice(0, 8);
   const runningJobs = recentJobs
     .filter((j) => j.status === "running" || j.status === "pending")
     .slice(0, 5);

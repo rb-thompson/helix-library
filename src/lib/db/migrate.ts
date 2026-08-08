@@ -78,6 +78,7 @@ export function migrate(sqlite: Database.Database): void {
       finished_at INTEGER,
       stats_json TEXT,
       error TEXT,
+      dismissed INTEGER NOT NULL DEFAULT 0,
       created_at INTEGER NOT NULL DEFAULT (CAST(unixepoch() * 1000 AS INTEGER)),
       kind TEXT NOT NULL DEFAULT 'reindex',
       label TEXT,
@@ -216,6 +217,12 @@ export function migrate(sqlite: Database.Database): void {
     sqlite,
     "jobs",
     "cancel_requested",
+    "INTEGER NOT NULL DEFAULT 0",
+  );
+  ensureColumn(
+    sqlite,
+    "jobs",
+    "dismissed",
     "INTEGER NOT NULL DEFAULT 0",
   );
   sqlite.exec(`

@@ -120,5 +120,6 @@ export function serializeAcquireJob(job: AcquireJob) {
     label: job.label,
     progress: { ...job.progress },
     cancelRequested: job.cancelRequested,
+    dismissed: job.dismissed,
   };
 }

@@ -38,6 +38,8 @@ export type HelixJob = {
    */
   result: Record<string, unknown> | null;
   cancelRequested: boolean;
+  /** User marked failed job as seen (clears rescue warnings). */
+  dismissed: boolean;
 };
 
 export const ACQUIRE_JOB_KINDS = [

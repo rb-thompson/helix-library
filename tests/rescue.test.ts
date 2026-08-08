@@ -52,4 +52,35 @@ describe("untagged filter + rescue snapshot", () => {
       assert.ok(snap.hasWork);
     }
   });
+
+  it("dismissed failed jobs drop out of rescue snapshot", () => {
+    const {
+      createJob,
+      failJob,
+      dismissJob,
+      listJobs,
+    } = require("@/lib/jobs/store") as typeof import("@/lib/jobs/store");
+
+    const job = createJob({ kind: "clip", label: "rescue-dismiss-test" });
+    failJob(job.id, "intentional fail for rescue test");
+
+    let snap = getRescueSnapshot();
+    assert.ok(
+      snap.failedJobs.some((j) => j.id === job.id),
+      "failed job should appear on rescue desk",
+    );
+
+    dismissJob(job.id);
+    snap = getRescueSnapshot();
+    assert.ok(
+      !snap.failedJobs.some((j) => j.id === job.id),
+      "dismissed job must leave rescue desk",
+    );
+
+    // Still listed in jobs history
+    const listed = listJobs({ limit: 30 });
+    const row = listed.find((j) => j.id === job.id);
+    assert.ok(row);
+    assert.equal(row!.dismissed, true);
+  });
 });
