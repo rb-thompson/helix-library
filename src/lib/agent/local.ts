@@ -11,6 +11,10 @@ import {
   tryHandleConfirmOrCancel,
   type LibrarianAction,
 } from "@/lib/agent/actions";
+import {
+  isGenericHoldingQuery,
+  localHoldingReadReply,
+} from "@/lib/agent/holding-context";
 import { SYSTEM_HELP_TOPICS } from "@/lib/agent/prompt";
 import { listMessages } from "@/lib/agent/threads";
 import { formatBytes } from "@/lib/format";
@@ -88,15 +92,28 @@ function resolveSearchHits(q: string, limit = 8) {
 
 export function localLibrarianReply(
   userText: string,
-  opts?: { threadId?: number },
+  opts?: { threadId?: number; holdingItemId?: number | null },
 ): string {
   const q = userText.trim();
+  const threadId = opts?.threadId;
+  const holdingItemId =
+    opts?.holdingItemId != null &&
+    Number.isFinite(opts.holdingItemId) &&
+    opts.holdingItemId > 0
+      ? Math.floor(opts.holdingItemId)
+      : null;
+
+  // --- Active holding short-circuit (PR2): catalog_read path first ---
+  if (holdingItemId != null && isGenericHoldingQuery(q)) {
+    const reply = localHoldingReadReply(holdingItemId, q);
+    if (reply) return reply;
+  }
+
   if (!q) {
     return "Ask me to find a file, curate shelves/tags, reindex, or manage locations. Mutations need your **approve**.";
   }
 
   const lower = q.toLowerCase();
-  const threadId = opts?.threadId;
 
   // --- Confirm / cancel pending proposals (no LLM — real DB writes) ---
   {

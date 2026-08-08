@@ -49,9 +49,9 @@ Personal files are gitignored (except `archive/README.md`). Drop files in, then 
 | `/` | Home, search, stats |
 | `/docs` | Getting started + user guide |
 | `/catalog` | Browse / search (grid or list) |
-| `/catalog/[id]` | Preview, metadata, EXIF, curation |
-| `/graph` | 3D knowledge graph (holdings + concepts) |
-| `/collections` | Curated shelves |
+| `/catalog/[id]` | Preview, reading room, related holdings, curation |
+| `/graph` | 2D/3D knowledge graph (holdings + concepts) |
+| `/collections` | Manual + smart shelves |
 | `/locations` | Scan roots + reindex |
 | `/services` | Reindex + machine facts |
 | `/ask` | Librarian (Grok when API key set; else local) |

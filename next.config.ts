@@ -8,6 +8,7 @@ const nextConfig: NextConfig = {
   transpilePackages: [
     "three",
     "3d-force-graph",
+    "force-graph",
     "three-forcegraph",
     "three-render-objects",
     "three-spritetext",

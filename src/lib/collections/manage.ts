@@ -1,4 +1,9 @@
 import { and, asc, count, desc, eq, sql } from "drizzle-orm";
+import {
+  SMART_ID_HARD_CAP,
+  searchCatalog,
+  searchCatalogItemIds,
+} from "@/lib/catalog/query";
 import { getDb, getSqlite } from "@/lib/db/client";
 import {
   collectionItems,
@@ -12,7 +17,42 @@ import {
   type TagSource,
   upsertItemTag,
 } from "@/lib/tags/source";
-import type { CatalogItemRow, ItemKind } from "@/lib/types";
+import type {
+  CatalogItemRow,
+  CatalogSearchParams,
+  CatalogSort,
+  CatalogSortDir,
+  ItemKind,
+} from "@/lib/types";
+
+export { SMART_ID_HARD_CAP };
+
+export type CollectionKind = "manual" | "smart";
+
+/** Allowed smart query fields — no nested collectionId (recursion). */
+export type SmartShelfQuery = {
+  q?: string;
+  kind?: ItemKind | "";
+  locationId?: number;
+  tagId?: number;
+  under?: string;
+  untaggedOnly?: boolean;
+  missingOnly?: boolean;
+  sort?: CatalogSort;
+  sortDir?: CatalogSortDir;
+};
+
+export type CollectionRow = {
+  id: number;
+  name: string;
+  description: string | null;
+  createdAt: number;
+  kind: CollectionKind;
+  queryJson: string | null;
+};
+
+const SMART_WRITE_ERROR =
+  "Smart shelves are query-backed; edit the query instead of adding or removing items.";
 
 function mapItem(row: {
   id: number;
@@ -60,27 +100,279 @@ const itemSelect = {
   isMissing: items.isMissing,
 };
 
+function mapCollectionKind(raw: string | null | undefined): CollectionKind {
+  return raw === "smart" ? "smart" : "manual";
+}
+
+function parseSmartQuery(json: string | null | undefined): SmartShelfQuery | null {
+  if (!json?.trim()) return null;
+  try {
+    const o = JSON.parse(json) as SmartShelfQuery;
+    if (!o || typeof o !== "object") return null;
+    return sanitizeSmartQuery(o);
+  } catch {
+    return null;
+  }
+}
+
+/** Public parse for RSC/UI. */
+export function parseSmartQueryPublic(
+  json: string | null | undefined,
+): SmartShelfQuery | null {
+  return parseSmartQuery(json);
+}
+
+/** Catalog deep link for a smart query (no collectionId). */
+export function smartQueryToCatalogHref(q: SmartShelfQuery): string {
+  const params = new URLSearchParams();
+  if (q.q) params.set("q", q.q);
+  if (q.kind) params.set("kind", q.kind);
+  if (q.locationId) params.set("location", String(q.locationId));
+  if (q.tagId) params.set("tag", String(q.tagId));
+  if (q.under) params.set("under", q.under);
+  if (q.untaggedOnly) params.set("untagged", "1");
+  if (q.missingOnly) params.set("missing", "1");
+  if (q.sort && q.sort !== "mtime") params.set("sort", q.sort);
+  if (q.sortDir) params.set("dir", q.sortDir);
+  const s = params.toString();
+  return s ? `/catalog?${s}` : "/catalog";
+}
+
+/** Strip disallowed / empty fields; never allow nested collectionId. */
+export function sanitizeSmartQuery(input: SmartShelfQuery): SmartShelfQuery {
+  const out: SmartShelfQuery = {};
+  if (typeof input.q === "string" && input.q.trim()) {
+    out.q = input.q.trim().slice(0, 500);
+  }
+  if (input.kind) out.kind = input.kind;
+  if (
+    input.locationId != null &&
+    Number.isFinite(Number(input.locationId)) &&
+    Number(input.locationId) > 0
+  ) {
+    out.locationId = Math.floor(Number(input.locationId));
+  }
+  if (
+    input.tagId != null &&
+    Number.isFinite(Number(input.tagId)) &&
+    Number(input.tagId) > 0
+  ) {
+    out.tagId = Math.floor(Number(input.tagId));
+  }
+  if (typeof input.under === "string" && input.under.trim()) {
+    out.under = input.under.trim().slice(0, 500);
+  }
+  if (input.untaggedOnly) out.untaggedOnly = true;
+  if (input.missingOnly) out.missingOnly = true;
+  if (input.sort) out.sort = input.sort;
+  if (input.sortDir) out.sortDir = input.sortDir;
+  return out;
+}
+
+export function smartQueryIsEmpty(q: SmartShelfQuery): boolean {
+  return !(
+    q.q ||
+    q.kind ||
+    q.locationId ||
+    q.tagId ||
+    q.under ||
+    q.untaggedOnly ||
+    q.missingOnly
+  );
+}
+
+export function smartQueryToCatalogParams(
+  q: SmartShelfQuery,
+): CatalogSearchParams {
+  return {
+    q: q.q,
+    kind: q.kind ?? "",
+    locationId: q.locationId ?? "",
+    tagId: q.tagId ?? "",
+    // Never nest collectionId
+    collectionId: "",
+    under: q.under,
+    untaggedOnly: q.untaggedOnly,
+    missingOnly: q.missingOnly,
+    sort: q.sort,
+    sortDir: q.sortDir,
+  };
+}
+
+export function assertCollectionWritable(collectionId: number): void {
+  const col = getCollection(collectionId);
+  if (!col) throw new Error("Collection not found");
+  if (mapCollectionKind(col.kind) === "smart") {
+    throw new Error(SMART_WRITE_ERROR);
+  }
+}
+
+export function resolveCollectionItemIds(
+  collectionId: number,
+  opts?: { hardCap?: number },
+): { ids: number[]; total: number; truncated: boolean } {
+  const col = getCollection(collectionId);
+  if (!col) return { ids: [], total: 0, truncated: false };
+
+  const hardCap = Math.min(
+    SMART_ID_HARD_CAP,
+    Math.max(1, opts?.hardCap ?? SMART_ID_HARD_CAP),
+  );
+
+  if (mapCollectionKind(col.kind) === "smart") {
+    const query = parseSmartQuery(col.queryJson);
+    if (!query || smartQueryIsEmpty(query)) {
+      return { ids: [], total: 0, truncated: false };
+    }
+    return searchCatalogItemIds(smartQueryToCatalogParams(query), {
+      hardCap,
+    });
+  }
+
+  const db = getDb();
+  const rows = db
+    .select({ itemId: collectionItems.itemId })
+    .from(collectionItems)
+    .where(eq(collectionItems.collectionId, collectionId))
+    .all();
+  let ids = rows.map((r) => r.itemId);
+  const total = ids.length;
+  let truncated = false;
+  if (ids.length > hardCap) {
+    ids = ids.slice(0, hardCap);
+    truncated = true;
+  }
+  return { ids, total, truncated };
+}
+
+export function collectionItemCount(collectionId: number): number {
+  const col = getCollection(collectionId);
+  if (!col) return 0;
+  if (mapCollectionKind(col.kind) === "smart") {
+    const query = parseSmartQuery(col.queryJson);
+    if (!query || smartQueryIsEmpty(query)) return 0;
+    const r = searchCatalog({
+      ...smartQueryToCatalogParams(query),
+      page: 1,
+      pageSize: 1,
+    });
+    return r.total;
+  }
+  const db = getDb();
+  const row = db
+    .select({ c: count() })
+    .from(collectionItems)
+    .where(eq(collectionItems.collectionId, collectionId))
+    .get();
+  return Number(row?.c ?? 0);
+}
+
+export function resolveCollectionItems(
+  collectionId: number,
+  opts: { page?: number; pageSize?: number } = {},
+): {
+  items: CatalogItemRow[];
+  total: number;
+  page: number;
+  pageSize: number;
+  kind: CollectionKind;
+} {
+  const page = Math.max(1, opts.page ?? 1);
+  const pageSize = Math.min(100, Math.max(1, opts.pageSize ?? 24));
+  const col = getCollection(collectionId);
+  if (!col) {
+    return { items: [], total: 0, page, pageSize, kind: "manual" };
+  }
+  const kind = mapCollectionKind(col.kind);
+
+  if (kind === "smart") {
+    const query = parseSmartQuery(col.queryJson);
+    if (!query || smartQueryIsEmpty(query)) {
+      return { items: [], total: 0, page, pageSize, kind: "smart" };
+    }
+    const r = searchCatalog({
+      ...smartQueryToCatalogParams(query),
+      page,
+      pageSize,
+    });
+    return {
+      items: r.items,
+      total: r.total,
+      page: r.page,
+      pageSize: r.pageSize,
+      kind: "smart",
+    };
+  }
+
+  // Manual: paginate collection_items by added_at
+  const db = getDb();
+  const totalRow = db
+    .select({ c: count() })
+    .from(collectionItems)
+    .where(eq(collectionItems.collectionId, collectionId))
+    .get();
+  const total = Number(totalRow?.c ?? 0);
+  const offset = (page - 1) * pageSize;
+  const rows = db
+    .select(itemSelect)
+    .from(collectionItems)
+    .innerJoin(items, eq(collectionItems.itemId, items.id))
+    .innerJoin(locations, eq(items.locationId, locations.id))
+    .where(eq(collectionItems.collectionId, collectionId))
+    .orderBy(desc(collectionItems.addedAt))
+    .limit(pageSize)
+    .offset(offset)
+    .all();
+  return {
+    items: rows.map(mapItem),
+    total,
+    page,
+    pageSize,
+    kind: "manual",
+  };
+}
+
 export function listCollections() {
   const db = getDb();
-  return db
+  const rows = db
     .select({
       id: collections.id,
       name: collections.name,
       description: collections.description,
       createdAt: collections.createdAt,
-      itemCount: sql<number>`(
-        SELECT count(*) FROM collection_items
-        WHERE collection_items.collection_id = ${collections.id}
-      )`.as("itemCount"),
+      kind: collections.kind,
+      queryJson: collections.queryJson,
     })
     .from(collections)
     .orderBy(asc(collections.name))
     .all();
+
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    description: r.description,
+    createdAt: r.createdAt,
+    kind: mapCollectionKind(r.kind),
+    queryJson: r.queryJson ?? null,
+    itemCount: collectionItemCount(r.id),
+  }));
+}
+
+/** Manual shelves only (curation / bulk add). */
+export function listManualCollections() {
+  return listCollections().filter((c) => c.kind === "manual");
 }
 
 export function getCollection(id: number) {
   const db = getDb();
-  return db.select().from(collections).where(eq(collections.id, id)).get() ?? null;
+  const row =
+    db.select().from(collections).where(eq(collections.id, id)).get() ?? null;
+  if (!row) return null;
+  return {
+    ...row,
+    kind: mapCollectionKind(row.kind),
+    queryJson: row.queryJson ?? null,
+  };
 }
 
 /**
@@ -102,9 +394,23 @@ export function formatCollectionName(name: string): string {
     .join(" ");
 }
 
-export function createCollection(name: string, description?: string): number {
+export function createCollection(
+  name: string,
+  description?: string,
+  opts?: { kind?: CollectionKind; query?: SmartShelfQuery },
+): number {
   const n = formatCollectionName(name);
   if (!n) throw new Error("Collection name is required");
+  const kind: CollectionKind = opts?.kind === "smart" ? "smart" : "manual";
+  let queryJson: string | null = null;
+  if (kind === "smart") {
+    const q = sanitizeSmartQuery(opts?.query ?? {});
+    if (smartQueryIsEmpty(q)) {
+      throw new Error("Smart shelf requires at least one filter");
+    }
+    queryJson = JSON.stringify(q);
+  }
+
   const db = getDb();
   const existing = db
     .select()
@@ -118,6 +424,8 @@ export function createCollection(name: string, description?: string): number {
     .values({
       name: n,
       description: description?.trim() || null,
+      kind,
+      queryJson,
     })
     .run();
   return Number(result.lastInsertRowid);
@@ -125,13 +433,21 @@ export function createCollection(name: string, description?: string): number {
 
 export function updateCollection(
   id: number,
-  input: { name?: string; description?: string | null },
+  input: {
+    name?: string;
+    description?: string | null;
+    query?: SmartShelfQuery | null;
+  },
 ): void {
   const db = getDb();
   const row = db.select().from(collections).where(eq(collections.id, id)).get();
   if (!row) throw new Error("Collection not found");
 
-  const patch: { name?: string; description?: string | null } = {};
+  const patch: {
+    name?: string;
+    description?: string | null;
+    queryJson?: string | null;
+  } = {};
   if (input.name !== undefined) {
     const n = formatCollectionName(input.name);
     if (!n) throw new Error("Collection name is required");
@@ -147,6 +463,19 @@ export function updateCollection(
   }
   if (input.description !== undefined) {
     patch.description = input.description?.trim() || null;
+  }
+  if (input.query !== undefined) {
+    if (mapCollectionKind(row.kind) !== "smart") {
+      throw new Error("Only smart shelves have a saved query");
+    }
+    if (input.query === null) {
+      throw new Error("Smart shelf requires at least one filter");
+    }
+    const q = sanitizeSmartQuery(input.query);
+    if (smartQueryIsEmpty(q)) {
+      throw new Error("Smart shelf requires at least one filter");
+    }
+    patch.queryJson = JSON.stringify(q);
   }
   if (Object.keys(patch).length === 0) return;
   db.update(collections).set(patch).where(eq(collections.id, id)).run();
@@ -171,13 +500,8 @@ export function listCollectionItems(collectionId: number): CatalogItemRow[] {
 }
 
 export function addItemToCollection(collectionId: number, itemId: number): void {
+  assertCollectionWritable(collectionId);
   const db = getDb();
-  const col = db
-    .select()
-    .from(collections)
-    .where(eq(collections.id, collectionId))
-    .get();
-  if (!col) throw new Error("Collection not found");
   const item = db.select().from(items).where(eq(items.id, itemId)).get();
   if (!item) throw new Error("Item not found");
 
@@ -192,13 +516,8 @@ export function addItemsToCollection(
   collectionId: number,
   itemIds: number[],
 ): { added: number; skipped: number } {
+  assertCollectionWritable(collectionId);
   const db = getDb();
-  const col = db
-    .select()
-    .from(collections)
-    .where(eq(collections.id, collectionId))
-    .get();
-  if (!col) throw new Error("Collection not found");
 
   let added = 0;
   let skipped = 0;
@@ -269,6 +588,7 @@ export function removeItemFromCollection(
   collectionId: number,
   itemId: number,
 ): void {
+  assertCollectionWritable(collectionId);
   const db = getDb();
   db.delete(collectionItems)
     .where(
@@ -397,10 +717,36 @@ export function listTags(opts?: {
   return out;
 }
 
+/** Max display/storage length for tag names (PR2 selection normalize). */
+export const TAG_NAME_MAX = 64;
+
+/**
+ * Normalize a user/selection tag string for storage.
+ * Trim, collapse whitespace, lowercase (matches tags table), cap length.
+ * Returns null when empty after normalize.
+ */
+export function normalizeTagName(raw: string): string | null {
+  const n = raw
+    .replace(/[\u0000-\u001f\u007f]/g, " ")
+    .trim()
+    .replace(/\s+/g, " ")
+    .toLowerCase();
+  if (!n) return null;
+  return n.length > TAG_NAME_MAX ? n.slice(0, TAG_NAME_MAX) : n;
+}
+
+/** True if a tag row already exists for this name (after normalize). */
+export function tagExistsByName(raw: string): boolean {
+  const n = normalizeTagName(raw);
+  if (!n) return false;
+  const db = getDb();
+  const existing = db.select().from(tags).where(eq(tags.name, n)).get();
+  return Boolean(existing);
+}
+
 export function getOrCreateTag(name: string): number {
-  const n = name.trim().toLowerCase();
+  const n = normalizeTagName(name);
   if (!n) throw new Error("Tag name is required");
-  if (n.length > 48) throw new Error("Tag name too long");
 
   const db = getDb();
   const existing = db.select().from(tags).where(eq(tags.name, n)).get();

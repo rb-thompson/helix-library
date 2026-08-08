@@ -60,7 +60,9 @@ Port is **4747** (not 3000). Scripts pin hostname to `127.0.0.1`.
 | `NON_OS_USE_XAI` | allow | Set `0`/`false` to force local even if `XAI_API_KEY` is set |
 | `XAI_API_KEY` | unset | xAI **developer** key from console.x.ai (not SuperGrok) |
 | `NON_OS_MODEL` | `grok-4.3` | Model id when using Grok API (override if your team has others) |
-| `NON_OS_IMAGE_MODEL` | `grok-imagine-image` | xAI image model for Acquire desk |
+| `NON_OS_IMAGE_MODEL` | `grok-imagine-image-quality` | xAI Imagine model for Acquire desk |
+| `NON_OS_OPENALEX_API_KEY` | unset | Free OpenAlex key (or `OPENALEX_API_KEY`) for Papers desk reliability |
+| `NON_OS_OPENALEX_MAILTO` | unset | Optional mailto in OpenAlex User-Agent (courtesy) |
 
 ### Optional host tools
 
@@ -141,20 +143,23 @@ npm run build            # before calling a slice “done”
 
 ## Current status (high level)
 
-**Daily-usable Helix Library (2026-08-05 handoff):**
+**Daily-usable Helix Library (2026-08-07 handoff):**
 
 - Config + SQLite catalog + hybrid FTS/LIKE + snippets/highlights
 - Indexer + enrichment; media (unicode-safe serve); EXIF; optional `npm run watch`
 - Catalog + weeding (`?missing=1`); video **thumb editor**; tag hygiene
-- **`/acquire`** ILL desk: arXiv search/fetch, yt-dlp YT/podcast, Grok images + auto-tags
-- **`/graph`** 3D map (theme colors, physics controls, client-only load)
-- **`/ask`** viewport chat; Grok when keyed; server-side approve
-- Responsive shell; space UI; H+helix mark + favicon
-- Tests: `npm test` — **47 pass**
+- **`/acquire`** ILL desk: arXiv; **OpenAlex** OA PDFs (accuracy-gated); **web clip** → notes; yt-dlp YT/podcast; Grok Imagine (default `grok-imagine-image-quality`) + auto-tags
+- **Reading room** — text/code continuous + PDF.js page mode (text layer); `helix-read-position`
+- **Smart shelves** — query-backed collections; catalog/graph resolve; live counts
+- **Related holdings** on item detail (folder / tags / co-shelved)
+- **`/graph`** 2D + 3D map (`force-graph` / `3d-force-graph`); `totalItems` cap UX; mobile defaults 2D
+- **`/ask`** viewport chat; holding-context bridge; Grok when keyed; server-side approve
+- Responsive shell; space UI; H+helix mark (dark + light) + favicon
+- Tests: `npm test` — **143 pass**
 
-**Shipped:** daily OPAC + **Curation & intake season** (titles, tag source/merge/hide, unified jobs, Ask→Acquire, rescue/recent, graph filters, polish). See [docs/designs/2026-08-curation-intake.md](./docs/designs/2026-08-curation-intake.md).
+**Shipped:** daily OPAC + **Curation & intake** + **Discovery depth & reading room** + **Acquire depth Tier 1** (OpenAlex + web clip + Grok image fix). Designs: [discovery](./docs/designs/2026-08-discovery-reading.md), [acquire depth](./docs/designs/2026-08-acquire-depth.md).
 
-**Next work:** SESSION-HANDOFF “Known gaps”.
+**Next work:** SESSION-HANDOFF “Known gaps” (Grokipedia optional, export/backup, PR6 open events).
 
 ## Safety for future agent features
 

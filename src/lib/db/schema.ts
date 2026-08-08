@@ -78,7 +78,7 @@ export const jobs = sqliteTable(
     createdAt: integer("created_at")
       .notNull()
       .default(sql`(unixepoch() * 1000)`),
-    /** reindex | arxiv | youtube | image */
+    /** reindex | arxiv | youtube | image | openalex | clip */
     kind: text("kind").notNull().default("reindex"),
     label: text("label"),
     progressJson: text("progress_json"),
@@ -101,6 +101,10 @@ export const collections = sqliteTable(
     createdAt: integer("created_at")
       .notNull()
       .default(sql`(unixepoch() * 1000)`),
+    /** manual | smart */
+    kind: text("kind").notNull().default("manual"),
+    /** Smart shelf CatalogSearchParams subset JSON; null for manual */
+    queryJson: text("query_json"),
   },
   (t) => [uniqueIndex("collections_name_uq").on(t.name)],
 );

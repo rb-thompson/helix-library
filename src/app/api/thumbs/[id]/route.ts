@@ -1,6 +1,6 @@
 import { readFile, stat } from "node:fs/promises";
 import { NextResponse } from "next/server";
-import { hasThumb, thumbPathForItem } from "@/lib/indexer/enrich";
+import { hasThumb, thumbPathForItem } from "@/lib/media/thumbs";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";

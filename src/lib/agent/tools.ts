@@ -200,7 +200,8 @@ export const librarianTools = {
   }),
 
   list_collections: tool({
-    description: "List curated collections (shelves) and their item counts.",
+    description:
+      "List curated collections (manual shelves and smart query shelves) with live item counts. Collect only works for kind=manual.",
     inputSchema: z.object({}),
     execute: async () => {
       const collections = listCollections();
@@ -210,6 +211,11 @@ export const librarianTools = {
           name: c.name,
           description: c.description,
           itemCount: c.itemCount,
+          kind: c.kind,
+          querySummary:
+            c.kind === "smart" && c.queryJson
+              ? c.queryJson.slice(0, 200)
+              : null,
           url: `/collections/${c.id}`,
         })),
       };

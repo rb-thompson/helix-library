@@ -740,12 +740,18 @@ export function KnowledgeGraphView({ data }: { data: KnowledgeGraph }) {
             />
           </div>
           <div className="flex items-center gap-1.5 text-xs text-[var(--muted)]">
+            <span className="chip !py-0.5 text-[0.65rem]">3D</span>
             <span className="tabular-nums">
-              {viewData.nodes.filter((n) => n.type === "item").length} files
+              {data.meta.truncated
+                ? `${data.meta.itemCount} of ${data.meta.totalItems}`
+                : data.meta.itemCount}{" "}
+              holdings
               <span className="hidden sm:inline">
                 {" "}
-                · {viewData.nodes.length - viewData.nodes.filter((n) => n.type === "item").length} concepts ·{" "}
-                {viewData.links.length} links
+                ·{" "}
+                {viewData.nodes.length -
+                  viewData.nodes.filter((n) => n.type === "item").length}{" "}
+                concepts · {viewData.links.length} links
               </span>
             </span>
             {data.meta.tagsOmitted > 0 ? (

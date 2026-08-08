@@ -11,7 +11,11 @@ export const ACQUIRE_TAG_NAMES = [
   "youtube",
   "arxiv",
   "grok-image",
+  "openalex",
+  "clip",
 ] as const;
+
+const ACQUIRE_TAG_IN_LIST = ACQUIRE_TAG_NAMES.map((n) => `'${n}'`).join(", ");
 
 export function backfillItemTagSources(sqlite: Database.Database): {
   vision: number;
@@ -26,7 +30,7 @@ export function backfillItemTagSources(sqlite: Database.Database): {
     SET source = 'acquire'
     WHERE source = 'manual'
       AND tag_id IN (
-        SELECT id FROM tags WHERE name IN ('acquired', 'youtube', 'arxiv', 'grok-image')
+        SELECT id FROM tags WHERE name IN (${ACQUIRE_TAG_IN_LIST})
       )
   `,
     )

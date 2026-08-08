@@ -90,7 +90,9 @@ export function migrate(sqlite: Database.Database): void {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT NOT NULL UNIQUE,
       description TEXT,
-      created_at INTEGER NOT NULL DEFAULT (CAST(unixepoch() * 1000 AS INTEGER))
+      created_at INTEGER NOT NULL DEFAULT (CAST(unixepoch() * 1000 AS INTEGER)),
+      kind TEXT NOT NULL DEFAULT 'manual',
+      query_json TEXT
     );
 
     CREATE TABLE IF NOT EXISTS collection_items (
@@ -229,4 +231,13 @@ export function migrate(sqlite: Database.Database): void {
       `UPDATE tags SET hidden = 1 WHERE name = 'vision-tagged' AND (hidden IS NULL OR hidden = 0)`,
     )
     .run();
+
+  // Discovery PR4: smart shelves
+  ensureColumn(
+    sqlite,
+    "collections",
+    "kind",
+    "TEXT NOT NULL DEFAULT 'manual'",
+  );
+  ensureColumn(sqlite, "collections", "query_json", "TEXT");
 }

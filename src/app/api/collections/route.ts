@@ -1,5 +1,10 @@
 import { NextResponse } from "next/server";
-import { createCollection, listCollections } from "@/lib/collections/manage";
+import {
+  createCollection,
+  listCollections,
+  type CollectionKind,
+  type SmartShelfQuery,
+} from "@/lib/collections/manage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,6 +18,8 @@ export async function POST(req: Request) {
     const body = (await req.json()) as {
       name?: string;
       description?: string;
+      kind?: CollectionKind;
+      query?: SmartShelfQuery;
     };
     if (!body.name) {
       return NextResponse.json(
@@ -20,7 +27,10 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
-    const id = createCollection(body.name, body.description);
+    const id = createCollection(body.name, body.description, {
+      kind: body.kind === "smart" ? "smart" : "manual",
+      query: body.query,
+    });
     return NextResponse.json({ ok: true, id });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

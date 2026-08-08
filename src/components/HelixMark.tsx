@@ -1,8 +1,9 @@
 import { cn } from "@/lib/cn";
 
 /**
- * Helix Library brand mark — generated H + double-helix monogram.
- * Static image (no SVG wriggle). Parent link provides accessible name.
+ * Helix Library brand mark — H + double-helix monogram.
+ * Dark + light assets; CSS swaps on `html[data-theme]` (no client JS).
+ * Parent link provides accessible name.
  */
 export function HelixMark({
   className,
@@ -23,7 +24,16 @@ export function HelixMark({
         alt=""
         width={40}
         height={40}
-        className="helix-mark-img"
+        className="helix-mark-img helix-mark-img--dark"
+        draggable={false}
+      />
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src="/helix-mark-light.png"
+        alt=""
+        width={40}
+        height={40}
+        className="helix-mark-img helix-mark-img--light"
         draggable={false}
       />
     </span>

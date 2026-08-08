@@ -10,7 +10,11 @@ import { enrichFile, hasThumb } from "@/lib/indexer/enrich";
 import { contentHash } from "@/lib/indexer/hash";
 import { extractPdfTitle } from "@/lib/indexer/pdf";
 import { walkFiles } from "@/lib/indexer/walk";
+import { syncLocationsFromConfig } from "@/lib/locations/sync";
 import type { IndexJobStats, ItemKind } from "@/lib/types";
+
+/** Re-export for callers that historically imported from indexer/run */
+export { syncLocationsFromConfig };
 
 /** Preserve non-filename catalog titles across reindex (KD6). */
 export function nextTitle(
@@ -46,48 +50,6 @@ function emptyStats(): IndexJobStats {
 /**
  * Sync config locations into DB (upsert by root_path).
  */
-export function syncLocationsFromConfig(): void {
-  const config = loadConfig(true);
-  const db = getDb();
-  const nowRoots = new Set(config.locations.map((l) => l.root));
-
-  for (const loc of config.locations) {
-    const existing = db
-      .select()
-      .from(locations)
-      .where(eq(locations.rootPath, loc.root))
-      .get();
-
-    if (existing) {
-      db.update(locations)
-        .set({
-          name: loc.name,
-          enabled: loc.enabled === false ? 0 : 1,
-        })
-        .where(eq(locations.id, existing.id))
-        .run();
-    } else {
-      db.insert(locations)
-        .values({
-          name: loc.name,
-          rootPath: loc.root,
-          enabled: loc.enabled === false ? 0 : 1,
-        })
-        .run();
-    }
-  }
-
-  const all = db.select().from(locations).all();
-  for (const row of all) {
-    if (!nowRoots.has(row.rootPath) && row.enabled === 1) {
-      db.update(locations)
-        .set({ enabled: 0 })
-        .where(eq(locations.id, row.id))
-        .run();
-    }
-  }
-}
-
 function needsEnrichment(row: {
   id: number;
   kind: string;

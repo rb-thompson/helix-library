@@ -8,7 +8,7 @@ import {
 } from "@/lib/config";
 import { getDb } from "@/lib/db/client";
 import { locations } from "@/lib/db/schema";
-import { syncLocationsFromConfig } from "@/lib/indexer/run";
+import { syncLocationsFromConfig } from "@/lib/locations/sync";
 
 function persistAllLocations(): void {
   const db = getDb();

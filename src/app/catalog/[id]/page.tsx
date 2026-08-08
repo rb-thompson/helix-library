@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MapPin } from "lucide-react";
+import { ArrowLeft, MapPin, MessageSquareText } from "lucide-react";
 import { CopyPathButton } from "@/components/CopyPathButton";
 import { ExifPanel } from "@/components/ExifPanel";
 import { ExtractedTextPanel } from "@/components/ExtractedTextPanel";
@@ -9,6 +9,7 @@ import { ItemMediaViewer } from "@/components/ItemMediaViewer";
 import { KindBadge } from "@/components/KindBadge";
 import { VideoThumbEditor } from "@/components/VideoThumbEditor";
 import { getItemById, getItemText, searchCatalog } from "@/lib/catalog/query";
+import { getRelatedHoldings } from "@/lib/catalog/related";
 import {
   getItemCollections,
   getItemTags,
@@ -17,9 +18,10 @@ import {
 } from "@/lib/collections/manage";
 import { ItemTitleEditor } from "@/components/ItemTitleEditor";
 import { OpenHistoryRecorder } from "@/components/OpenHistoryRecorder";
+import { RelatedHoldingsPanel } from "@/components/RelatedHoldingsPanel";
 import { displayTitle } from "@/lib/catalog/display";
 import { formatBytes, formatDate } from "@/lib/format";
-import { hasThumb } from "@/lib/indexer/enrich";
+import { hasThumb } from "@/lib/media/thumbs";
 import { readExif } from "@/lib/media/exif";
 import { loadMediaPreview } from "@/lib/media/preview";
 import { resolveMediaItem } from "@/lib/media/serve";
@@ -41,22 +43,29 @@ export default async function ItemPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ collection?: string }>;
+  searchParams: Promise<{ collection?: string; room?: string }>;
 }) {
   const { id } = await params;
   const sp = await searchParams;
   const item = getItemById(Number(id));
   if (!item) notFound();
 
-  const collections = listCollections().map((c) => ({
-    id: c.id,
-    name: c.name,
-  }));
+  const focusRoom = sp.room === "1";
+
+  // Manual shelves only for “add to collection” (smart is query-backed)
+  const collections = listCollections()
+    .filter((c) => c.kind === "manual")
+    .map((c) => ({
+      id: c.id,
+      name: c.name,
+    }));
   const itemCollections = getItemCollections(item.id);
   const itemTags = getItemTags(item.id);
   const extracted = getItemText(item.id);
+  const relatedGroups = focusRoom ? [] : getRelatedHoldings(item.id);
   const preview = await loadMediaPreview(item);
   const showExtractedPanel =
+    !focusRoom &&
     extracted != null &&
     (item.kind === "text" ||
       item.kind === "code" ||
@@ -176,6 +185,14 @@ export default async function ItemPage({
         </div>
         <div className="flex flex-col items-stretch gap-2 sm:items-end">
           <CopyPathButton path={item.path} />
+          <Link
+            href={`/ask?item=${item.id}`}
+            className="btn btn-secondary btn-sm inline-flex items-center justify-center gap-1.5"
+            title="Ask the Librarian about this holding"
+          >
+            <MessageSquareText className="h-3.5 w-3.5" aria-hidden />
+            Ask about this holding
+          </Link>
           <ItemTitleEditor
             itemId={item.id}
             displayTitle={displayTitle(item)}
@@ -188,9 +205,11 @@ export default async function ItemPage({
         item={item}
         preview={preview}
         neighbors={neighbors}
+        focusRoom={focusRoom}
+        indexedBody={extracted?.body ?? null}
       />
 
-      {item.kind === "video" && !item.isMissing ? (
+      {item.kind === "video" && !item.isMissing && !focusRoom ? (
         <VideoThumbEditor
           itemId={item.id}
           durationMs={item.durationMs}
@@ -198,7 +217,12 @@ export default async function ItemPage({
         />
       ) : null}
 
-      <div className="grid gap-4 sm:gap-5 lg:grid-cols-3">
+      {/* Focus room: hide secondary chrome (metadata / curation) for reading. */}
+      <div
+        className={`grid gap-4 sm:gap-5 lg:grid-cols-3 ${
+          focusRoom ? "hidden" : ""
+        }`}
+      >
         <div className="min-w-0 space-y-4 sm:space-y-5 lg:col-span-2">
           <div className="surface p-4 sm:p-5">
             <h2 className="label-quiet !mb-0">Metadata</h2>
@@ -214,7 +238,8 @@ export default async function ItemPage({
             </dl>
             <p className="mt-4 text-xs text-[var(--muted)]">
               Media streams via catalog id (localhost). Fullscreen: ← → among
-              similar holdings.
+              similar holdings. Text/code holdings open in the reading room
+              with scroll memory; use Focus room for a taller view.
             </p>
           </div>
 
@@ -232,6 +257,8 @@ export default async function ItemPage({
               }
             />
           ) : null}
+
+          <RelatedHoldingsPanel groups={relatedGroups} />
         </div>
 
         <ItemCuration

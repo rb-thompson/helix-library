@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import {
   deleteCollection,
   updateCollection,
+  type SmartShelfQuery,
 } from "@/lib/collections/manage";
 
 export const runtime = "nodejs";
@@ -16,6 +17,7 @@ export async function PATCH(req: Request, ctx: Ctx) {
     const body = (await req.json()) as {
       name?: string;
       description?: string | null;
+      query?: SmartShelfQuery | null;
     };
     updateCollection(id, body);
     return NextResponse.json({ ok: true });

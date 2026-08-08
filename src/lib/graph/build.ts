@@ -71,9 +71,15 @@ export type KnowledgeGraph = {
   nodes: GraphNode[];
   links: GraphLink[];
   meta: {
+    /** Item nodes after cap (sampled) */
     itemCount: number;
+    /** Filter-scoped universe count before cap */
+    totalItems: number;
+    /** Cap applied this build */
+    maxItems: number;
     conceptCount: number;
     linkCount: number;
+    /** totalItems > itemCount */
     truncated: boolean;
     /** Tag nodes actually shown */
     tagsShown: number;
@@ -92,8 +98,9 @@ export const KIND_NODE_COLORS: Record<string, string> = {
 
 const CONCEPT_NODE_COLORS = CONCEPT_COLORS.dark;
 
-const DEFAULT_MAX_ITEMS = 600;
-const HARD_MAX_ITEMS = 800;
+export const DEFAULT_MAX_ITEMS = 600;
+/** Server-enforced ceiling (query maxItems cannot exceed this). */
+export const HARD_MAX_ITEMS = 800;
 /** Only tags used on this many holdings (cuts singleton vision labels). */
 const DEFAULT_MIN_TAG_COUNT = 2;
 /** Cap tag concept nodes even after min filter. */
@@ -196,6 +203,8 @@ export function buildKnowledgeGraph(opts?: GraphBuildOpts): KnowledgeGraph {
     links: [],
     meta: {
       itemCount: 0,
+      totalItems: 0,
+      maxItems,
       conceptCount: 0,
       linkCount: 0,
       truncated: false,
@@ -243,10 +252,18 @@ export function buildKnowledgeGraph(opts?: GraphBuildOpts): KnowledgeGraph {
     args.push(filters.tagId);
   }
   if (filters.collectionId) {
-    where.push(
-      "EXISTS (SELECT 1 FROM collection_items cif WHERE cif.item_id = i.id AND cif.collection_id = ?)",
-    );
-    args.push(filters.collectionId);
+    // Lazy import avoids cycle with catalog/query ↔ collections/manage
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { resolveCollectionItemIds } =
+      require("@/lib/collections/manage") as typeof import("@/lib/collections/manage");
+    const resolved = resolveCollectionItemIds(filters.collectionId);
+    if (resolved.ids.length === 0) {
+      return emptyGraph(opts?.minTagCount ?? DEFAULT_MIN_TAG_COUNT);
+    }
+    // Cap id set for graph sample path (resolve hardCap 2000; graph max ≤800)
+    const capIds = resolved.ids.slice(0, Math.max(maxItems * 2, maxItems));
+    where.push(`i.id IN (${capIds.map(() => "?").join(",")})`);
+    args.push(...capIds);
   }
   if (qIdSet) {
     const ids = [...qIdSet];
@@ -529,6 +546,8 @@ export function buildKnowledgeGraph(opts?: GraphBuildOpts): KnowledgeGraph {
     links: linkList,
     meta: {
       itemCount: items.length,
+      totalItems,
+      maxItems,
       conceptCount,
       linkCount: linkList.length,
       truncated,
@@ -542,7 +561,11 @@ export function buildKnowledgeGraph(opts?: GraphBuildOpts): KnowledgeGraph {
 
 /** Build /graph query string from catalog-style filters. */
 export function graphHrefFromFilters(
-  filters: GraphFilters & { singletons?: boolean },
+  filters: GraphFilters & {
+    singletons?: boolean;
+    maxItems?: number;
+    mode?: "2d" | "3d";
+  },
 ): string {
   const params = new URLSearchParams();
   if (filters.kind) params.set("kind", filters.kind);
@@ -552,6 +575,16 @@ export function graphHrefFromFilters(
     params.set("collectionId", String(filters.collectionId));
   if (filters.q?.trim()) params.set("q", filters.q.trim());
   if (filters.singletons) params.set("singletons", "1");
+  if (
+    filters.maxItems != null &&
+    Number.isFinite(filters.maxItems) &&
+    filters.maxItems > 0
+  ) {
+    params.set("maxItems", String(Math.floor(filters.maxItems)));
+  }
+  if (filters.mode === "2d" || filters.mode === "3d") {
+    params.set("mode", filters.mode);
+  }
   const s = params.toString();
   return s ? `/graph?${s}` : "/graph";
 }

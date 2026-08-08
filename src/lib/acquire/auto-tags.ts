@@ -70,6 +70,8 @@ export function tagsFromExifAndSource(
   if (source === "youtube") out.add("youtube");
   if (source === "arxiv") out.add("arxiv");
   if (source === "image") out.add("grok-image");
+  if (source === "openalex") out.add("openalex");
+  if (source === "clip") out.add("clip");
 
   if (!row) return [...out];
 
@@ -149,6 +151,14 @@ export function applyAcquireTags(
       if (source === "image") {
         addTagToItem(itemId, "grok-image", "acquire");
         applied.push("grok-image");
+      }
+      if (source === "openalex") {
+        addTagToItem(itemId, "openalex", "acquire");
+        applied.push("openalex");
+      }
+      if (source === "clip") {
+        addTagToItem(itemId, "clip", "acquire");
+        applied.push("clip");
       }
     } catch {
       // ignore

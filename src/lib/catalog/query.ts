@@ -3,7 +3,6 @@ import { buildSearchSnippet } from "@/lib/catalog/snippet";
 import { getDb, getSqlite } from "@/lib/db/client";
 import { isHiddenFacetTag } from "@/lib/tags/hidden";
 import {
-  collectionItems,
   itemTags,
   itemText,
   items,
@@ -70,17 +69,23 @@ const ITEM_SELECT = `
           i.is_missing as isMissing
 `;
 
+/**
+ * Hard cap for smart-shelf id expansion (catalog/graph filters).
+ * Public searchCatalog pageSize remains ≤100.
+ */
+export const SMART_ID_HARD_CAP = 2000;
+
 function itemIdsForFilters(params: CatalogSearchParams): number[] | null {
   const db = getDb();
   let ids: number[] | null = null;
 
   if (params.collectionId) {
-    const rows = db
-      .select({ itemId: collectionItems.itemId })
-      .from(collectionItems)
-      .where(eq(collectionItems.collectionId, Number(params.collectionId)))
-      .all();
-    ids = rows.map((r) => r.itemId);
+    // Lazy import avoids circular init: manage → searchCatalogItemIds → manage
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const { resolveCollectionItemIds } =
+      require("@/lib/collections/manage") as typeof import("@/lib/collections/manage");
+    const resolved = resolveCollectionItemIds(Number(params.collectionId));
+    ids = resolved.ids;
     if (ids.length === 0) return [];
   }
 
@@ -275,6 +280,112 @@ function textMatchSql(tokens: string[]): {
     clause,
     args: [ftsMatch, ftsMatch, ...likeArgs],
   };
+}
+
+/**
+ * Internal id-only expand for smart shelves (and similar trusted callers).
+ * Reuses the same WHERE builders as searchCatalog but LIMIT hardCap (≤2000).
+ * Do **not** call with outer collectionId when expanding a smart query
+ * (avoids recursive resolve).
+ *
+ * Not a public HTTP/catalog page API — keep public pageSize ≤ 100.
+ */
+export function searchCatalogItemIds(
+  params: CatalogSearchParams,
+  opts: { hardCap: number },
+): { ids: number[]; total: number; truncated: boolean } {
+  const hardCap = Math.min(
+    SMART_ID_HARD_CAP,
+    Math.max(1, Math.floor(opts.hardCap) || SMART_ID_HARD_CAP),
+  );
+  // Never re-enter collection membership via the outer shelf id
+  const safeParams: CatalogSearchParams = {
+    ...params,
+    collectionId: "",
+    page: 1,
+    pageSize: hardCap,
+  };
+
+  const q = safeParams.q?.trim() ?? "";
+  const sort: CatalogSort = safeParams.sort ?? "mtime";
+  const sortDir: CatalogSortDir =
+    safeParams.sortDir ?? (sort === "name" ? "asc" : "desc");
+
+  const filterIds = itemIdsForFilters(safeParams);
+  if (filterIds && filterIds.length === 0) {
+    return { ids: [], total: 0, truncated: false };
+  }
+
+  const sqlite = getSqlite();
+  const { filters, args } = buildBaseFilters(safeParams);
+  const where = filters.join(" AND ");
+  const order = orderSql(sort, sortDir);
+
+  if (q) {
+    const tokens = searchTokens(q);
+    const textMatch = textMatchSql(tokens);
+    if (!textMatch) {
+      return { ids: [], total: 0, truncated: false };
+    }
+    const matchArgs = textMatch.args;
+    const matchClause = textMatch.clause;
+
+    const totalRow = sqlite
+      .prepare(
+        `
+        SELECT count(*) as c
+        FROM items i
+        JOIN locations l ON l.id = i.location_id
+        WHERE ${matchClause} AND ${where}
+      `,
+      )
+      .get(...matchArgs, ...args) as { c: number };
+
+    const rows = sqlite
+      .prepare(
+        `
+        SELECT i.id as id
+        FROM items i
+        JOIN locations l ON l.id = i.location_id
+        WHERE ${matchClause} AND ${where}
+        ORDER BY ${order}
+        LIMIT ?
+      `,
+      )
+      .all(...matchArgs, ...args, hardCap) as Array<{ id: number }>;
+
+    const ids = rows.map((r) => r.id);
+    const total = totalRow?.c ?? 0;
+    return { ids, total, truncated: total > ids.length };
+  }
+
+  const totalRow = sqlite
+    .prepare(
+      `
+      SELECT count(*) as c
+      FROM items i
+      JOIN locations l ON l.id = i.location_id
+      WHERE ${where}
+    `,
+    )
+    .get(...args) as { c: number };
+
+  const rows = sqlite
+    .prepare(
+      `
+      SELECT i.id as id
+      FROM items i
+      JOIN locations l ON l.id = i.location_id
+      WHERE ${where}
+      ORDER BY ${order}
+      LIMIT ?
+    `,
+    )
+    .all(...args, hardCap) as Array<{ id: number }>;
+
+  const ids = rows.map((r) => r.id);
+  const total = totalRow?.c ?? 0;
+  return { ids, total, truncated: total > ids.length };
 }
 
 export function searchCatalog(params: CatalogSearchParams = {}): {
@@ -541,7 +652,14 @@ export function getItemById(id: number): CatalogItemRow | null {
   return row ? mapRow(row) : null;
 }
 
-export type TitleSource = "filename" | "arxiv" | "manual" | "yt-dlp" | "pdf";
+export type TitleSource =
+  | "filename"
+  | "arxiv"
+  | "manual"
+  | "yt-dlp"
+  | "pdf"
+  | "openalex"
+  | "clip";
 
 /** Set catalog display title without renaming on-disk basename. */
 export function setItemCatalogTitle(

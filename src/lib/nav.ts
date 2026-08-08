@@ -15,12 +15,12 @@ export const PRIMARY_NAV: readonly NavItem[] = [
   {
     href: "/graph",
     label: "Graph",
-    tip: "3D knowledge map",
+    tip: "2D/3D knowledge map",
   },
   {
     href: "/collections",
     label: "Collections",
-    tip: "Manual shelves",
+    tip: "Manual & smart shelves",
   },
   {
     href: "/ask",

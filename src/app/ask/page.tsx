@@ -1,4 +1,4 @@
-import { LibrarianChat } from "@/components/LibrarianChat";
+import { AskChatClient } from "@/components/AskChatClient";
 import {
   agentModeDescription,
   agentModeLabel,
@@ -6,6 +6,8 @@ import {
   resolveAgentMode,
 } from "@/lib/agent/mode";
 import { listThreads } from "@/lib/agent/threads";
+import { displayTitle } from "@/lib/catalog/display";
+import { getItemById } from "@/lib/catalog/query";
 
 export const dynamic = "force-dynamic";
 
@@ -13,7 +15,12 @@ export const metadata = {
   title: "Ask the Librarian",
 };
 
-export default function AskPage() {
+export default async function AskPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ item?: string; quote?: string }>;
+}) {
+  const sp = await searchParams;
   const threads = listThreads().map((t) => ({
     id: t.id,
     title: t.title,
@@ -21,6 +28,14 @@ export default function AskPage() {
   }));
   const mode = resolveAgentMode();
   const hasKey = hasXaiApiKey();
+
+  const rawId = sp.item ? Number(sp.item) : NaN;
+  const holding =
+    Number.isFinite(rawId) && rawId > 0 ? getItemById(Math.floor(rawId)) : null;
+  const holdingItemId = holding?.id ?? null;
+  const holdingLabel = holding ? displayTitle(holding) : null;
+  // Short URL quote only — full quote may live in sessionStorage (client).
+  const urlQuote = (sp.quote ?? "").trim().slice(0, 500) || null;
 
   return (
     <div className="ask-page">
@@ -47,6 +62,22 @@ export default function AskPage() {
             No shell, no wiping the app.
           </span>
         </p>
+
+        {holding ? (
+          <p className="surface-flat border-[var(--accent-ring)] bg-[var(--accent-soft)] px-3 py-2 text-sm text-[var(--ink)]">
+            Active holding:{" "}
+            <a
+              href={`/catalog/${holding.id}`}
+              className="font-semibold text-[var(--accent)] hover:underline"
+            >
+              {displayTitle(holding)}
+            </a>
+            <span className="text-[var(--muted)]">
+              {" "}
+              · id {holding.id} · catalog_read on summarize
+            </span>
+          </p>
+        ) : null}
 
         {mode === "local" && !hasKey ? (
           <details className="surface-flat group border-[var(--accent-ring)] bg-[var(--accent-soft)] px-3 py-2 text-sm text-[var(--ink)] sm:px-4 sm:py-2.5">
@@ -109,7 +140,7 @@ export default function AskPage() {
         ) : null}
       </header>
 
-      <LibrarianChat
+      <AskChatClient
         initialThreads={threads}
         agent={{
           mode,
@@ -117,6 +148,9 @@ export default function AskPage() {
           hasXaiApiKey: hasKey,
           note: agentModeDescription(mode),
         }}
+        holdingItemId={holdingItemId}
+        holdingLabel={holdingLabel}
+        urlQuote={urlQuote}
       />
     </div>
   );

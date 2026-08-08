@@ -9,8 +9,13 @@ import {
   searchCatalog,
   searchTokens,
 } from "@/lib/catalog/query";
-import { listCollections, listTags } from "@/lib/collections/manage";
-import { hasThumb } from "@/lib/indexer/enrich";
+import {
+  listCollections,
+  listTags,
+  type SmartShelfQuery,
+} from "@/lib/collections/manage";
+import { CreateCollectionForm } from "@/components/CreateCollectionForm";
+import { hasThumb } from "@/lib/media/thumbs";
 import { ensureLocationsSynced } from "@/lib/locations/manage";
 import { filterVisibleTags } from "@/lib/tags/hidden";
 import { graphHrefFromFilters } from "@/lib/graph/build";
@@ -104,6 +109,26 @@ export default async function CatalogPage({
   const facets = catalogFacets(searchParamsObj);
   const locations = listLocationsWithCounts();
   const collections = listCollections();
+
+  const smartSeed: SmartShelfQuery = {};
+  if (q.trim()) smartSeed.q = q.trim();
+  if (kind) smartSeed.kind = kind;
+  if (locationId !== "") smartSeed.locationId = Number(locationId);
+  if (tagId !== "") smartSeed.tagId = Number(tagId);
+  if (under) smartSeed.under = under;
+  if (untaggedOnly) smartSeed.untaggedOnly = true;
+  if (missingOnly) smartSeed.missingOnly = true;
+  if (sort && sort !== "mtime") smartSeed.sort = sort;
+  if (sortDir) smartSeed.sortDir = sortDir;
+  const hasSmartFilters = Boolean(
+    smartSeed.q ||
+      smartSeed.kind ||
+      smartSeed.locationId ||
+      smartSeed.tagId ||
+      smartSeed.under ||
+      smartSeed.untaggedOnly ||
+      smartSeed.missingOnly,
+  );
   // Full tag list for resolving active chip; dropdown uses popular only.
   // Hidden meta tags (e.g. vision-tagged) stay off facets/dropdown unless active.
   const tags = listTags({ sortBy: "count" });
@@ -302,6 +327,26 @@ export default async function CatalogPage({
 
       <ActiveFilters chips={filterChips} clearAllHref={clearAllHref} />
 
+      {hasSmartFilters && !collectionId ? (
+        <details className="surface p-3 sm:p-4">
+          <summary className="cursor-pointer text-sm font-semibold text-[var(--ink)]">
+            Save filters as smart shelf
+          </summary>
+          <div className="mt-3">
+            <CreateCollectionForm
+              initialSmartQuery={smartSeed}
+              defaultName={
+                q.trim()
+                  ? q.trim().slice(0, 40)
+                  : kind
+                    ? `${kind} holdings`
+                    : "Smart shelf"
+              }
+            />
+          </div>
+        </details>
+      ) : null}
+
       {underParts.length > 0 ? (
         <nav
           className="flex flex-wrap items-center gap-1 text-xs text-[var(--muted)]"
@@ -379,6 +424,7 @@ export default async function CatalogPage({
             {collections.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
+                {c.kind === "smart" ? " · smart" : ""} ({c.itemCount})
               </option>
             ))}
           </select>
@@ -511,7 +557,9 @@ export default async function CatalogPage({
           thumbIds={thumbIds}
           view={view}
           viewToggleHref={viewToggleHref}
-          collections={collections.map((c) => ({ id: c.id, name: c.name }))}
+          collections={collections
+            .filter((c) => c.kind === "manual")
+            .map((c) => ({ id: c.id, name: c.name }))}
           weedingMode={missingOnly}
           highlightTokens={q ? searchTokens(q) : []}
         />

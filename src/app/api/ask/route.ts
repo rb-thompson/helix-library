@@ -8,6 +8,10 @@ import {
 } from "ai";
 import { createXai } from "@ai-sdk/xai";
 import { tryHandleConfirmOrCancel } from "@/lib/agent/actions";
+import {
+  holdingSystemAppendix,
+  stripUntrustedQuote,
+} from "@/lib/agent/holding-context";
 import { localLibrarianReply } from "@/lib/agent/local";
 import {
   agentModeLabel,
@@ -24,11 +28,21 @@ import {
   titleFromMessage,
   touchThread,
 } from "@/lib/agent/threads";
+import { displayTitle } from "@/lib/catalog/display";
+import { getItemById } from "@/lib/catalog/query";
 import { ensureLocationsSynced } from "@/lib/locations/manage";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 export const maxDuration = 120;
+
+type AskRequestBody = {
+  messages: UIMessage[];
+  threadId?: number | null;
+  holdingItemId?: number | null;
+  /** Untrusted user selection only — never document body. */
+  holdingQuote?: string | null;
+};
 
 function extractText(message: UIMessage): string {
   if (!message.parts?.length) return "";
@@ -79,12 +93,21 @@ function prepareThread(
   return { threadId, userText };
 }
 
+function resolveHolding(
+  raw: unknown,
+): { id: number; title: string } | null {
+  const id = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(id) || id <= 0) return null;
+  const item = getItemById(Math.floor(id));
+  if (!item) return null;
+  return { id: item.id, title: displayTitle(item) };
+}
+
 function streamLocalReply(text: string, threadId: number) {
   const stream = createUIMessageStream({
     execute: ({ writer }) => {
       const id = "local-1";
       writer.write({ type: "text-start", id });
-      // Chunk for smoother UI
       const chunkSize = 48;
       for (let i = 0; i < text.length; i += chunkSize) {
         writer.write({
@@ -123,6 +146,7 @@ function streamLocalReply(text: string, threadId: number) {
 async function streamXaiReply(
   messages: UIMessage[],
   threadId: number,
+  system: string,
 ): Promise<Response> {
   const apiKey = process.env.XAI_API_KEY?.trim();
   if (!apiKey) {
@@ -132,21 +156,17 @@ async function streamXaiReply(
   }
 
   const xai = createXai({ apiKey });
-  // Prefer a widely available id; grok-4.5 is not enabled for every team.
-  // Chat Completions path (xai(model)) is more reliable than responses() for tool use.
   const model = process.env.NON_OS_MODEL?.trim() || "grok-4.3";
 
   const result = streamText({
     model: xai(model),
-    system: LIBRARIAN_SYSTEM_PROMPT,
+    system,
     messages: await convertToModelMessages(messages),
     tools: librarianTools,
     stopWhen: stepCountIs(8),
     temperature: 0.3,
     onFinish: async ({ text, steps }) => {
       let content = text?.trim() ?? "";
-      // If the model called propose_actions but forgot to paste tokens,
-      // append them so Approve / chat "yes" can actually execute.
       const missingTokens: string[] = [];
       for (const step of steps ?? []) {
         for (const tr of step.toolResults ?? []) {
@@ -202,21 +222,20 @@ export async function POST(req: Request) {
   try {
     ensureLocationsSynced();
 
-    const body = (await req.json()) as {
-      messages: UIMessage[];
-      threadId?: number | null;
-    };
+    const body = (await req.json()) as AskRequestBody;
 
     const messages = body.messages ?? [];
     if (!messages.length) {
       return Response.json({ error: "messages required" }, { status: 400 });
     }
 
+    // Never accept client bodyText / full document — only numeric holding id.
+    const holding = resolveHolding(body.holdingItemId);
+    const holdingQuote = stripUntrustedQuote(body.holdingQuote ?? null);
+
     const { threadId, userText } = prepareThread(messages, body.threadId);
     const mode = resolveAgentMode();
 
-    // Approve / cancel never go to the LLM. xAI previously hallucinated
-    // “collection created” without writing — confirm is server-side only.
     if (userText) {
       const lastAssistant = lastAssistantFromThread(threadId);
       const handled = tryHandleConfirmOrCancel(userText, lastAssistant);
@@ -226,11 +245,23 @@ export async function POST(req: Request) {
     }
 
     if (mode === "local") {
-      const reply = localLibrarianReply(userText, { threadId });
+      const reply = localLibrarianReply(userText, {
+        threadId,
+        holdingItemId: holding?.id ?? null,
+      });
       return streamLocalReply(reply, threadId);
     }
 
-    return await streamXaiReply(messages, threadId);
+    let system = LIBRARIAN_SYSTEM_PROMPT;
+    if (holding) {
+      system += holdingSystemAppendix({
+        itemId: holding.id,
+        title: holding.title,
+        quote: holdingQuote,
+      });
+    }
+
+    return await streamXaiReply(messages, threadId, system);
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);
     return Response.json({ error: message }, { status: 500 });

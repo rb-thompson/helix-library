@@ -1,3 +1,4 @@
+/** Base system prompt. Holding context is appended via holdingSystemAppendix when active. */
 export const LIBRARIAN_SYSTEM_PROMPT = `You are the Librarian for **Helix Library**, a personal library on the user's machine (sole user, local).
 
 ## Role

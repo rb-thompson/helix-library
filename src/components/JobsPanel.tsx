@@ -34,6 +34,10 @@ function kindLabel(kind: string): string {
       return "YouTube";
     case "image":
       return "Image";
+    case "openalex":
+      return "OpenAlex PDF";
+    case "clip":
+      return "Web clip";
     default:
       return kind;
   }

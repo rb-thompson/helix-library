@@ -1,16 +1,13 @@
 import { readFile } from "node:fs/promises";
 import type { CatalogItemRow } from "@/lib/types";
+import type { MediaPreview } from "@/lib/media/preview-types";
+import { isTextReadableItem } from "@/lib/media/reading-room";
 import { resolveMediaItem } from "@/lib/media/serve";
 
-const TEXT_PREVIEW_MAX = 64 * 1024;
+export type { MediaPreview } from "@/lib/media/preview-types";
+export { supportsReadingRoom, isTextReadableItem } from "@/lib/media/reading-room";
 
-export type MediaPreview =
-  | { type: "image"; src: string }
-  | { type: "video"; src: string; mime: string | null }
-  | { type: "audio"; src: string; mime: string | null }
-  | { type: "pdf"; src: string }
-  | { type: "text"; text: string; truncated: boolean }
-  | { type: "none"; reason: string };
+const TEXT_PREVIEW_MAX = 64 * 1024;
 
 export async function loadMediaPreview(
   item: CatalogItemRow,
@@ -46,7 +43,7 @@ export async function loadMediaPreview(
     return { type: "pdf", src };
   }
 
-  if (item.kind === "text" || item.kind === "code" || mime?.startsWith("text/")) {
+  if (isTextReadableItem(item)) {
     try {
       const buf = await readFile(resolved.absPath);
       const sample = buf.subarray(0, TEXT_PREVIEW_MAX);

@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { describe, it } from "node:test";
 import path from "node:path";
 import { buildArxivSearchQuery, parseArxivId } from "@/lib/acquire/arxiv";
@@ -7,15 +8,35 @@ import {
   valueToTagName,
 } from "@/lib/acquire/auto-tags";
 import {
-  normalizeYoutubeUrl,
-  parseYtDlpProgressLine,
-} from "@/lib/acquire/youtube";
+  buildClipMarkdownFile,
+  htmlToMarkdownArticle,
+  isAllowedClipUrl,
+} from "@/lib/acquire/clip";
+import { extractImageBytesFromResponse } from "@/lib/acquire/grok-image";
+import {
+  assertSafeOutboundUrl,
+  sniffImageExt,
+} from "@/lib/acquire/outbound";
+import {
+  normalizeOpenAlexInput,
+  parseDoi,
+  parseOpenAlexWorkId,
+  reconstructAbstract,
+  resolveOaPdfUrl,
+} from "@/lib/acquire/openalex";
 import {
   assertUnderArchive,
   getArchiveRoot,
   sanitizeFilename,
   safeArchivePath,
 } from "@/lib/acquire/paths";
+import {
+  normalizeYoutubeUrl,
+  parseYtDlpProgressLine,
+} from "@/lib/acquire/youtube";
+import { createJob, getJob } from "@/lib/jobs/store";
+import { ACQUIRE_JOB_KINDS } from "@/lib/jobs/types";
+import { ACQUIRE_TAG_NAMES } from "@/lib/tags/backfill-source";
 import { createTestEnv } from "./helpers/harness";
 
 describe("parseArxivId", () => {
@@ -136,5 +157,212 @@ describe("acquire auto-tags", () => {
     assert.ok(tags.includes("zakir-hussain"));
     assert.ok(tags.includes("world"));
     assert.ok(tags.includes("lang-eng"));
+  });
+
+  it("tags openalex and clip sources", () => {
+    assert.ok(tagsFromExifAndSource(null, "openalex").includes("openalex"));
+    assert.ok(tagsFromExifAndSource(null, "clip").includes("clip"));
+  });
+});
+
+describe("extractImageBytesFromResponse", () => {
+  it("prefers b64 over url", () => {
+    const r = extractImageBytesFromResponse({
+      data: [{ b64_json: "abc", url: "https://example.com/x.png" }],
+    });
+    assert.equal(r.kind, "b64");
+    assert.equal(r.value, "abc");
+  });
+
+  it("accepts url-only", () => {
+    const r = extractImageBytesFromResponse({
+      data: [{ url: "https://cdn.example.com/a.png" }],
+    });
+    assert.equal(r.kind, "url");
+  });
+
+  it("rejects empty", () => {
+    assert.throws(() => extractImageBytesFromResponse({ data: [] }));
+    assert.throws(() => extractImageBytesFromResponse({ data: [{}] }));
+  });
+});
+
+describe("assertSafeOutboundUrl", () => {
+  it("allows public https", () => {
+    const u = assertSafeOutboundUrl("https://export.arxiv.org/pdf/x.pdf");
+    assert.equal(u.hostname, "export.arxiv.org");
+  });
+
+  it("blocks private and file", () => {
+    assert.throws(() => assertSafeOutboundUrl("http://127.0.0.1/x"));
+    assert.throws(() => assertSafeOutboundUrl("http://192.168.1.1/x"));
+    assert.throws(() => assertSafeOutboundUrl("file:///etc/passwd"));
+    assert.throws(() =>
+      assertSafeOutboundUrl("http://example.com/x", { httpsOnly: true }),
+    );
+  });
+
+  it("allows http when httpsOnly false", () => {
+    const u = assertSafeOutboundUrl("http://example.com/post", {
+      httpsOnly: false,
+    });
+    assert.equal(u.protocol, "http:");
+  });
+});
+
+describe("sniffImageExt", () => {
+  it("detects png magic", () => {
+    const buf = Buffer.from([
+      0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a, 0, 0, 0, 0, 0,
+    ]);
+    assert.equal(sniffImageExt(buf), "png");
+  });
+});
+
+describe("OpenAlex parse helpers", () => {
+  it("parses DOI forms", () => {
+    assert.equal(parseDoi("10.1038/nature14539"), "10.1038/nature14539");
+    assert.equal(
+      parseDoi("https://doi.org/10.1038/nature14539"),
+      "10.1038/nature14539",
+    );
+    assert.equal(parseDoi("doi:10.1000/xyz"), "10.1000/xyz");
+    assert.equal(parseDoi("not-a-doi"), null);
+  });
+
+  it("parses OpenAlex work ids", () => {
+    assert.equal(parseOpenAlexWorkId("W2741809807"), "W2741809807");
+    assert.equal(
+      parseOpenAlexWorkId("https://openalex.org/works/W2741809807"),
+      "W2741809807",
+    );
+  });
+
+  it("normalizes input kinds", () => {
+    assert.equal(normalizeOpenAlexInput("W1").type, "work");
+    assert.equal(normalizeOpenAlexInput("10.1038/nature14539").type, "doi");
+    assert.equal(normalizeOpenAlexInput("transformers").type, "search");
+  });
+
+  it("resolves OA pdf urls https only", () => {
+    assert.equal(
+      resolveOaPdfUrl({
+        best_oa_location: { pdf_url: "https://cdn.example.com/a.pdf" },
+      }),
+      "https://cdn.example.com/a.pdf",
+    );
+    assert.equal(
+      resolveOaPdfUrl({
+        best_oa_location: { pdf_url: "http://cdn.example.com/a.pdf" },
+        primary_location: { pdf_url: "https://ok.example.com/b.pdf" },
+      }),
+      "https://ok.example.com/b.pdf",
+    );
+    assert.equal(
+      resolveOaPdfUrl({
+        best_oa_location: { landing_page_url: "https://example.com/abs" },
+      }),
+      null,
+    );
+  });
+
+  it("reconstructs abstract inverted index", () => {
+    const text = reconstructAbstract({
+      Hello: [0],
+      world: [1],
+      from: [2],
+      OpenAlex: [3],
+    });
+    assert.equal(text, "Hello world from OpenAlex");
+  });
+});
+
+describe("web clip extract", () => {
+  const fixture = (name: string) =>
+    readFileSync(
+      path.join(process.cwd(), "tests", "fixtures", "clip", name),
+      "utf8",
+    );
+
+  it("simple-article uses og:title and keeps key phrase", () => {
+    const { title, markdown, bodyChars } = htmlToMarkdownArticle(
+      fixture("simple-article.html"),
+      "https://example.com/stars",
+    );
+    assert.equal(title, "Simple Article About Stars");
+    assert.ok(bodyChars >= 200);
+    assert.match(markdown, /phosphor catalog entry/);
+    assert.doesNotMatch(markdown, /unique-nav-xyz/);
+    assert.doesNotMatch(markdown, /unique-footer-xyz/);
+  });
+
+  it("blog-with-nav drops nav/aside/footer markers", () => {
+    const { markdown, bodyChars } = htmlToMarkdownArticle(
+      fixture("blog-with-nav.html"),
+      "https://blog.example.com/memory",
+    );
+    assert.ok(bodyChars >= 80);
+    assert.match(markdown, /exclusive-article-body/);
+    assert.doesNotMatch(markdown, /exclusive-nav-marker/);
+    assert.doesNotMatch(markdown, /exclusive-aside-marker/);
+    assert.doesNotMatch(markdown, /exclusive-footer-marker/);
+  });
+
+  it("entities decode in title and body", () => {
+    const { title, markdown } = htmlToMarkdownArticle(
+      fixture("entities.html"),
+      "https://example.com/e",
+    );
+    assert.match(title, /Ampersands & Quotes/);
+    assert.match(markdown, /Tom & Jerry/);
+    assert.match(markdown, /"hello"/);
+  });
+
+  it("too-thin fails quality gate", () => {
+    const { bodyChars } = htmlToMarkdownArticle(
+      fixture("too-thin.html"),
+      "https://example.com/thin",
+    );
+    assert.ok(bodyChars < 80);
+  });
+
+  it("isAllowedClipUrl blocks private hosts", () => {
+    assert.equal(isAllowedClipUrl("https://example.com/a"), true);
+    assert.equal(isAllowedClipUrl("http://127.0.0.1/x"), false);
+  });
+
+  it("buildClipMarkdownFile has frontmatter", () => {
+    const md = buildClipMarkdownFile({
+      title: 'Hi "there"',
+      sourceUrl: "https://example.com/a",
+      acquiredAt: "2026-08-07T00:00:00.000Z",
+      body: "# Hi\n\nBody",
+    });
+    assert.match(md, /^---\n/);
+    assert.match(md, /source_url: "https:\/\/example.com\/a"/);
+  });
+});
+
+describe("job kinds openalex/clip", () => {
+  it("ACQUIRE_JOB_KINDS includes new kinds", () => {
+    assert.ok(ACQUIRE_JOB_KINDS.includes("openalex"));
+    assert.ok(ACQUIRE_JOB_KINDS.includes("clip"));
+  });
+
+  it("ACQUIRE_TAG_NAMES includes openalex and clip", () => {
+    assert.ok((ACQUIRE_TAG_NAMES as readonly string[]).includes("openalex"));
+    assert.ok((ACQUIRE_TAG_NAMES as readonly string[]).includes("clip"));
+  });
+
+  it("toHelixJob round-trips openalex and clip kinds", () => {
+    const env = createTestEnv();
+    try {
+      const a = createJob({ kind: "openalex", label: "W1" });
+      const b = createJob({ kind: "clip", label: "https://example.com" });
+      assert.equal(getJob(a.id)?.kind, "openalex");
+      assert.equal(getJob(b.id)?.kind, "clip");
+    } finally {
+      env.cleanup();
+    }
   });
 });

@@ -1,26 +1,18 @@
 import { execFileSync } from "node:child_process";
-import { mkdirSync, existsSync } from "node:fs";
+import { existsSync, mkdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import path from "node:path";
-import { projectRoot } from "@/lib/config";
 import type { ItemKind } from "@/lib/types";
+import {
+  hasThumb,
+  thumbPathForItem,
+  thumbsDir,
+} from "@/lib/media/thumbs";
+
+export { hasThumb, thumbPathForItem, thumbsDir };
 
 const TEXT_SAMPLE_BYTES = 48 * 1024;
 const THUMB_SIZE = 320;
-
-export function thumbsDir(): string {
-  const dir = path.join(projectRoot(), "data", "thumbs");
-  mkdirSync(dir, { recursive: true });
-  return dir;
-}
-
-export function thumbPathForItem(itemId: number): string {
-  return path.join(thumbsDir(), `${itemId}.webp`);
-}
-
-export function hasThumb(itemId: number): boolean {
-  return existsSync(thumbPathForItem(itemId));
-}
 
 export interface EnrichmentResult {
   width: number | null;

@@ -11,10 +11,13 @@ Public library OPAC/services mapped onto personal files and host machine limits.
 | Holdings | Indexed files |
 | Branches / locations | Configured scan roots |
 | Catalog | Search / browse / filters |
-| Collections | Manual shelves + tags |
+| Collections | Manual shelves + **smart shelves** (saved catalog queries) + tags |
+| Reading room | Continuous text/code + PDF.js page mode on item detail; position memory |
+| Related holdings | Same folder / shared tags / co-shelved neighbors |
+| Knowledge map | `/graph` — 2D (default mobile) + 3D force graph |
 | Services | Reindex, machine status |
-| Acquisitions / ILL | `/acquire` — arXiv, YT/podcast, Grok images into Archive |
-| Ask a librarian | `/ask` (local or optional xAI) |
+| Acquisitions / ILL | `/acquire` — arXiv, OpenAlex OA PDFs, web clips, YT/podcast, Grok images into Archive |
+| Ask a librarian | `/ask` (local or optional xAI); holding-context from reading room |
 | Building | Host CPU/RAM/disk/tools |
 
 ## Scope (current)
@@ -23,11 +26,13 @@ Public library OPAC/services mapped onto personal files and host machine limits.
 - Primary **`archive/`** holdings (+ extra locations via UI/config)
 - Index + enrichment (thumbs, posters, duration, text samples, PDF text layers)
 - Catalog grid/list, media preview, lightbox
-- Locations admin; collections & tags
+- **Reading room** for text, code, and PDF (PDF.js text layer; iframe fallback); client position restore
+- Locations admin; collections, **smart shelves**, tags
 - Read-only machine probe
-- Librarian: **Grok when developer API key present**; else local; content read via catalog extract; mutations approval-gated
+- Librarian: **Grok when developer API key present**; else local; content read via catalog extract; mutations approval-gated; **Ask about this holding** bridge
+- Acquire desk: arXiv preprints, **OpenAlex** search/DOI → OA PDF only when resolvable, **web clip** URL → Markdown notes, yt-dlp media, Grok Imagine images
 - In-app Getting Started (`/docs`) including agent guide
-- Space UI (dark/light), knowledge graph (`/graph`), kind-tinted cards, Helix brand mark
+- Space UI (dark/light; light brand mark), knowledge graph 2D/3D (`/graph`), kind-tinted cards
 
 ## Non-goals (v1)
 

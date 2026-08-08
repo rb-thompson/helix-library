@@ -2,21 +2,56 @@
 
 import { useState } from "react";
 import { Download, Maximize2 } from "lucide-react";
+import { DocumentReadingRoom } from "@/components/DocumentReadingRoom";
 import { MediaLightbox, type LightboxItem } from "@/components/MediaLightbox";
 import { Tooltip } from "@/components/Tooltip";
-import type { MediaPreview } from "@/lib/media/preview";
+import type { MediaPreview } from "@/lib/media/preview-types";
+import {
+  readingRoomMode,
+  supportsReadingRoom,
+} from "@/lib/media/reading-room";
 import type { CatalogItemRow } from "@/lib/types";
 
 export function ItemMediaViewer({
   item,
   preview,
   neighbors,
+  focusRoom = false,
+  indexedBody = null,
 }: {
   item: CatalogItemRow;
   preview: MediaPreview;
   neighbors: LightboxItem[];
+  focusRoom?: boolean;
+  indexedBody?: string | null;
 }) {
   const [open, setOpen] = useState(false);
+  const useRoom = supportsReadingRoom(item, preview);
+
+  if (useRoom) {
+    const mode = readingRoomMode(item, preview);
+    const kindLabel =
+      mode === "pdf"
+        ? "Reading room · PDF"
+        : item.kind === "code"
+          ? "Reading room · code"
+          : item.kind === "text"
+            ? "Reading room · text"
+            : "Reading room";
+    return (
+      <DocumentReadingRoom
+        itemId={item.id}
+        itemName={item.name}
+        kindLabel={kindLabel}
+        focusRoom={focusRoom}
+        indexedBody={indexedBody}
+        catalogPath={`/catalog/${item.id}`}
+        mode={mode}
+        sizeBytes={item.sizeBytes}
+      />
+    );
+  }
+
   const canLightbox =
     preview.type === "image" ||
     preview.type === "video" ||
@@ -122,27 +157,7 @@ export function ItemMediaViewer({
             </div>
           ) : null}
 
-          {preview.type === "pdf" ? (
-            <iframe
-              title={item.name}
-              src={preview.src}
-              className="h-[70vh] w-full rounded-md bg-[var(--surface)]"
-              onClick={(e) => e.stopPropagation()}
-            />
-          ) : null}
-
-          {preview.type === "text" ? (
-            <div className="w-full max-w-4xl" onClick={(e) => e.stopPropagation()}>
-              <pre className="max-h-[70vh] overflow-auto rounded-md bg-black/40 p-4 text-left text-xs leading-relaxed text-white/90">
-                {preview.text}
-              </pre>
-              {preview.truncated ? (
-                <p className="mt-2 text-center text-xs text-[var(--muted)]">
-                  Preview truncated to first 64 KB.
-                </p>
-              ) : null}
-            </div>
-          ) : null}
+          {/* PDF + text are handled by DocumentReadingRoom above */}
 
           {preview.type === "none" ? (
             <p className="px-4 py-10 text-center text-sm text-[var(--muted-faint)]">

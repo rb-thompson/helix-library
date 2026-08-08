@@ -5,8 +5,8 @@
 | **Document** | Season design — Discovery depth & reading room |
 | **Author** | Helix owner + design loop |
 | **Date** | 2026-08-06 |
-| **Status** | **Approved** (owner 2026-08-06) — rev 3 |
-| **Approval** | Owner approved design + PR plan; implementation may proceed PR1a → … |
+| **Status** | **Implemented** (PR1a–PR5 + PR7 on main, 2026-08-07) — rev 3; PR6 stretch optional |
+| **Approval** | Owner approved design + PR plan; required PRs landed |
 | **Workspace** | `/home/brandon/Projects/non-os` (package `helix-library`) |
 | **Baseline tip** | `7fcfdd3` on `main` (synced with origin; 83 tests pass) |
 | **Prior season** | [Curation & intake integrity](./2026-08-curation-intake.md) — **Implemented** PR1–PR7 |
@@ -1036,15 +1036,15 @@ Mergeable slices. Owner may reorder PR3/PR4/PR5. Stretch and polish may slip wit
 
 ### Definition of done (season)
 
-- [ ] Text reading with scroll restore on a real archive sample  
-- [ ] PDF page mode with position restore **or** documented iframe fallback if PDF.js cut (prefer full PDF.js)  
-- [ ] PDF text layer selectable when PDF.js path is on  
-- [ ] Ask-about-holding: transport sends `holdingItemId`; server appendix; `catalog_read` exercised  
-- [ ] Related panel shows ≥1 useful group on typical holdings  
-- [ ] ≥1 smart shelf: catalog filter + graph filter + live count + paginated detail + cannot add item  
-- [ ] Graph shows `itemCount` of `totalItems` when truncated; 2D mode usable on phone-sized viewport  
-- [ ] `npm run typecheck` && `npm test` && `npm run build` green  
-- [ ] SESSION-HANDOFF + AGENTS.md updated; design status → Implemented when required PRs land  
+- [x] Text reading with scroll restore on a real archive sample  
+- [x] PDF page mode with position restore **or** documented iframe fallback if PDF.js cut (prefer full PDF.js)  
+- [x] PDF text layer selectable when PDF.js path is on  
+- [x] Ask-about-holding: transport sends `holdingItemId`; server appendix; `catalog_read` exercised  
+- [x] Related panel shows ≥1 useful group on typical holdings  
+- [x] ≥1 smart shelf: catalog filter + graph filter + live count + paginated detail + cannot add item  
+- [x] Graph shows `itemCount` of `totalItems` when truncated; 2D mode usable on phone-sized viewport  
+- [x] `npm run typecheck` && `npm test` && `npm run build` green  
+- [x] SESSION-HANDOFF + AGENTS.md updated; design status → Implemented when required PRs land  
 
 ### Explicitly not required for season done
 

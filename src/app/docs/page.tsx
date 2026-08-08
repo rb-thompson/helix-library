@@ -8,6 +8,7 @@ import {
   Layers,
   Library,
   MessageCircle,
+  Network,
   RefreshCw,
   Search,
 } from "lucide-react";
@@ -21,7 +22,9 @@ const toc = [
   { id: "getting-started", label: "Getting started" },
   { id: "concepts", label: "Core concepts" },
   { id: "catalog", label: "Catalog & media" },
+  { id: "reading-room", label: "Reading room" },
   { id: "collections", label: "Collections & tags" },
+  { id: "graph", label: "Knowledge graph" },
   { id: "locations", label: "Locations" },
   { id: "acquire", label: "Acquire (ILL desk)" },
   { id: "services", label: "Services & reindex" },
@@ -101,19 +104,23 @@ export default function DocsPage() {
               <strong>Grid</strong> / <strong>List</strong>, filter by format or
               location, and open any item to preview images, video, PDFs, and
               text. PDF holdings also show an indexed text sample when
-              extractable.
+              extractable. Documents open in the{" "}
+              <strong>reading room</strong> with position memory.
             </Step>
             <Step n={4} title="Curate (optional)">
-              Create a shelf on{" "}
+              Create a manual or <strong>smart</strong> shelf on{" "}
               <DocLink href="/collections">Collections</DocLink>, then open an
               item and use <strong>Curation</strong> to add tags or put it on a
-              shelf.
+              shelf. Explore neighbors on the item page and on the{" "}
+              <DocLink href="/graph">knowledge graph</DocLink>.
             </Step>
             <Step n={5} title="Ask the Librarian">
               <DocLink href="/ask">Ask</DocLink> finds holdings, reads extracted
-              PDF/note text, and can propose library tasks. With an xAI{" "}
-              <strong>developer</strong> API key it uses Grok; otherwise a local
-              assistant. Mutations always need your <strong>approve</strong>.
+              PDF/note text, and can propose library tasks. From a reading room
+              selection, use <strong>Ask</strong> to open chat about that
+              holding. With an xAI <strong>developer</strong> API key it uses
+              Grok; otherwise a local assistant. Mutations always need your{" "}
+              <strong>approve</strong>.
             </Step>
           </ol>
 
@@ -154,12 +161,17 @@ export default function DocsPage() {
               indexed. Default: <code className="code-inline">archive/</code>.
             </Term>
             <Term title="Collection">
-              A manual shelf you curate (e.g. “STEM materials”). Does not move
-              files on disk.
+              A shelf you curate — either a <strong>manual</strong> list of
+              holdings or a <strong>smart</strong> shelf driven by a saved
+              catalog query. Does not move files on disk.
             </Term>
             <Term title="Tag">
               Lightweight labels on items. Filter the catalog by tag or browse
               tags from Collections.
+            </Term>
+            <Term title="Reading room">
+              Continuous text/code reader and PDF page viewer on item detail,
+              with local position memory so you can resume where you left off.
             </Term>
             <Term title="Reindex">
               Walks locations, updates the SQLite catalog, builds thumbs/posters
@@ -187,7 +199,15 @@ export default function DocsPage() {
             </li>
             <li>
               <strong>Item detail</strong> streams media in-browser (image,
-              video, audio, PDF, text). Download keeps the original filename.
+              video, audio, PDF, text). Documents use the{" "}
+              <a href="#reading-room" className="link-accent">
+                reading room
+              </a>
+              . Download keeps the original filename.
+            </li>
+            <li>
+              <strong>Related holdings</strong> on the item page list neighbors
+              in the same folder, sharing tags, or co-shelved with this item.
             </li>
             <li>
               <strong>Thumbs</strong> for images use sharp; video posters use
@@ -200,14 +220,75 @@ export default function DocsPage() {
           </ul>
         </section>
 
+        {/* Reading room */}
+        <section id="reading-room" className="scroll-mt-28">
+          <SectionTitle
+            icon={<BookOpen className="h-5 w-5" />}
+            title="Reading room"
+          />
+          <p className="prose-body mt-3">
+            Open a text, code, or PDF holding to read in place. The room
+            remembers scroll (text) or page (PDF) in this browser via{" "}
+            <code className="code-inline">helix-read-position</code> — no
+            server-side history. Use{" "}
+            <code className="code-inline">?room=1</code> on an item URL to force
+            the room layout.
+          </p>
+          <ul className="mt-4 prose-body list-disc space-y-2 pl-5">
+            <li>
+              <strong>Text / code</strong> — continuous scroll with restore on
+              reload.
+            </li>
+            <li>
+              <strong>PDF</strong> — page-mode viewer with a selectable text
+              layer when the file has extractable text. If the viewer fails, an
+              iframe fallback still works; download always remains available.
+            </li>
+            <li>
+              <strong>Selection toolbar</strong> — select text, then{" "}
+              <strong>Tag</strong>, <strong>Ask</strong> (opens{" "}
+              <DocLink href="/ask">Ask</DocLink> with this holding in context),
+              or <strong>Copy</strong>.
+            </li>
+            <li>
+              Binary or unsupported types stay on the normal media preview;
+              they are not forced into the room.
+            </li>
+          </ul>
+        </section>
+
         {/* Collections */}
         <section id="collections" className="scroll-mt-28">
           <SectionTitle icon={<Layers className="h-5 w-5" />} title="Collections & tags" />
           <p className="prose-body mt-3">
-            Collections are named shelves. Create one, open any catalog item,
-            and use the Curation panel to add the item or attach tags. Filtering
-            the catalog by collection or tag narrows results without changing
-            files on disk.
+            Collections are named shelves. Create a <strong>manual</strong>{" "}
+            shelf, open any catalog item, and use the Curation panel to add the
+            item or attach tags. Filtering the catalog by collection or tag
+            narrows results without changing files on disk.
+          </p>
+          <p className="prose-body mt-3">
+            <strong>Smart shelves</strong> save a catalog query (kind, tags,
+            path, etc.) and stay live as the index changes. Use them from
+            Collections, catalog filters, and the knowledge graph. You cannot
+            manually add or remove items on a smart shelf — edit the query
+            instead. Shelf detail pages paginate when a query matches many
+            holdings.
+          </p>
+        </section>
+
+        {/* Graph */}
+        <section id="graph" className="scroll-mt-28">
+          <SectionTitle
+            icon={<Network className="h-5 w-5" />}
+            title="Knowledge graph"
+          />
+          <p className="prose-body mt-3">
+            Open <DocLink href="/graph">Graph</DocLink> for a map of holdings,
+            tags, and shelves. Prefer <strong>2D</strong> on phones or when you
+            reduce motion; switch to <strong>3D</strong> when you want depth.
+            Caps keep large libraries responsive — the UI shows how many items
+            are drawn versus the full catalog. Filter by collection (including
+            smart shelves) or kind from the controls.
           </p>
         </section>
 
@@ -260,8 +341,21 @@ export default function DocsPage() {
           </p>
           <ul className="mt-4 prose-body list-disc space-y-2 pl-5">
             <li>
-              <strong>arXiv PDF</strong> — paste an id or abs URL; saves under{" "}
+              <strong>arXiv PDF</strong> — search by topic or paste an id/URL;
+              saves under{" "}
               <code className="code-inline">archive/documents/</code>.
+            </li>
+            <li>
+              <strong>Papers (OpenAlex)</strong> — wider open-access net by
+              search or DOI. <strong>Fetch</strong> only enables when OpenAlex
+              lists a direct PDF URL (accuracy gate). Optional free API key:{" "}
+              <code className="code-inline">NON_OS_OPENALEX_API_KEY</code>.
+            </li>
+            <li>
+              <strong>Web clip</strong> — paste a page URL; extracts readable
+              Markdown into{" "}
+              <code className="code-inline">archive/notes/</code> with source
+              URL frontmatter.
             </li>
             <li>
               <strong>YouTube / podcast</strong> — needs host{" "}
@@ -272,13 +366,19 @@ export default function DocsPage() {
             <li>
               <strong>Grok image</strong> — needs{" "}
               <code className="code-inline">XAI_API_KEY</code> (developer API,
-              not SuperGrok alone). Saves under{" "}
-              <code className="code-inline">archive/images/</code>.
+              not SuperGrok alone) and cloud allowed (
+              <code className="code-inline">NON_OS_USE_XAI</code> not{" "}
+              <code className="code-inline">0</code>). Default model{" "}
+              <code className="code-inline">grok-imagine-image-quality</code>{" "}
+              (override with{" "}
+              <code className="code-inline">NON_OS_IMAGE_MODEL</code>). Saves
+              under <code className="code-inline">archive/images/</code>.
             </li>
           </ul>
           <p className="prose-body mt-3">
             Each successful acquire reindexes automatically. Personal use only;
-            you are responsible for rights to downloaded media.
+            you are responsible for rights to downloaded media and clipped
+            pages. No paywall bypass — OpenAlex only fetches listed OA PDFs.
           </p>
         </section>
 
@@ -350,6 +450,12 @@ export default function DocsPage() {
             <li>
               <em>Read / review:</em> “Is my resume good?” · “Summarize the
               Science PDF”
+            </li>
+            <li>
+              <em>This holding:</em> from the reading room, select text →{" "}
+              <strong>Ask</strong>, or open{" "}
+              <code className="code-inline">/ask?item=…</code> — the librarian
+              already has catalog context for that item.
             </li>
             <li>
               <em>Machine:</em> “How much disk free?” · “Is ffmpeg available?”
@@ -458,6 +564,17 @@ export default function DocsPage() {
             <li>
               Agent says it can’t evaluate a PDF? Reindex so text is extracted;
               scanned image-only PDFs may have no text layer.
+            </li>
+            <li>
+              PDF reading room broken after a dependency change? Run{" "}
+              <code className="code-inline">npm run sync:pdfjs</code> and hard
+              refresh. Do not webpack-import{" "}
+              <code className="code-inline">pdfjs-dist</code> — the app loads
+              from <code className="code-inline">public/</code>.
+            </li>
+            <li>
+              Theme: toggle dark/light in the header; the Helix mark swaps to a
+              light-field asset on light theme.
             </li>
             <li>
               Grok errors about a model “not on your team”? Set{" "}

@@ -24,7 +24,7 @@ import {
 } from "@/lib/catalog/query";
 import { collectionCount, listCollections } from "@/lib/collections/manage";
 import { kindLabel } from "@/lib/format";
-import { hasThumb } from "@/lib/indexer/enrich";
+import { hasThumb } from "@/lib/media/thumbs";
 import { getLatestJob, isReindexRunning } from "@/lib/indexer/run";
 import { ensureLocationsSynced } from "@/lib/locations/manage";
 
@@ -152,7 +152,7 @@ export default function HomePage() {
           href="/graph"
           icon={<Network className="h-4 w-4" />}
           title="Graph"
-          body="3D knowledge map"
+          body="2D/3D knowledge map"
         />
         <ServiceCard
           href="/collections"

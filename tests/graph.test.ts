@@ -43,16 +43,20 @@ describe("knowledge graph filters", () => {
     assert.equal(graph.nodes.length, 0);
     assert.equal(graph.links.length, 0);
     assert.equal(graph.meta.itemCount, 0);
+    assert.equal(graph.meta.totalItems, 0);
     assert.equal(graph.meta.truncated, false);
     assert.equal(graph.meta.filters.q, "zzznomatch_unlikely_token_xyz");
   });
 
-  it("respects hard maxItems cap", () => {
+  it("respects hard maxItems cap and exposes totalItems", () => {
     const graph = buildKnowledgeGraph({ maxItems: 2 });
     const itemNodes = graph.nodes.filter((n) => n.type === "item");
     assert.ok(itemNodes.length <= 2);
+    assert.equal(graph.meta.maxItems, 2);
+    assert.ok(graph.meta.totalItems >= graph.meta.itemCount);
     if (graph.meta.truncated) {
       assert.ok(itemNodes.length === 2);
+      assert.ok(graph.meta.totalItems > graph.meta.itemCount);
     }
   });
 

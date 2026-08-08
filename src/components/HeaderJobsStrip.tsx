@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { Loader2 } from "lucide-react";
 
@@ -11,15 +11,32 @@ type JobRow = {
   label: string;
 };
 
+/** Don't hammer Next during cold compiles (dev is single-threaded). */
+const POLL_MS = 12_000;
+const FETCH_TIMEOUT_MS = 4_000;
+
 /**
  * Compact active-job indicator for the site header.
+ * Polls gently: longer interval, pauses when tab hidden, aborts in-flight.
  */
 export function HeaderJobsStrip() {
   const [active, setActive] = useState<JobRow[]>([]);
+  const inFlight = useRef<AbortController | null>(null);
 
   const refresh = useCallback(async () => {
+    if (typeof document !== "undefined" && document.visibilityState === "hidden") {
+      return;
+    }
+    // Drop previous poll if still waiting (prevents pile-up during compiles)
+    inFlight.current?.abort();
+    const ac = new AbortController();
+    inFlight.current = ac;
+    const timer = setTimeout(() => ac.abort(), FETCH_TIMEOUT_MS);
     try {
-      const res = await fetch("/api/jobs?limit=12", { cache: "no-store" });
+      const res = await fetch("/api/jobs?limit=12", {
+        cache: "no-store",
+        signal: ac.signal,
+      });
       const data = await res.json();
       if (!res.ok || !data.ok || !Array.isArray(data.jobs)) return;
       setActive(
@@ -28,14 +45,25 @@ export function HeaderJobsStrip() {
         ),
       );
     } catch {
-      // ignore
+      // ignore abort / network during compile
+    } finally {
+      clearTimeout(timer);
+      if (inFlight.current === ac) inFlight.current = null;
     }
   }, []);
 
   useEffect(() => {
     void refresh();
-    const t = setInterval(() => void refresh(), 2500);
-    return () => clearInterval(t);
+    const t = setInterval(() => void refresh(), POLL_MS);
+    function onVis() {
+      if (document.visibilityState === "visible") void refresh();
+    }
+    document.addEventListener("visibilitychange", onVis);
+    return () => {
+      clearInterval(t);
+      document.removeEventListener("visibilitychange", onVis);
+      inFlight.current?.abort();
+    };
   }, [refresh]);
 
   if (active.length === 0) return null;

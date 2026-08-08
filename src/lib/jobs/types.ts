@@ -1,4 +1,10 @@
-export type HelixJobKind = "reindex" | "arxiv" | "youtube" | "image";
+export type HelixJobKind =
+  | "reindex"
+  | "arxiv"
+  | "youtube"
+  | "image"
+  | "openalex"
+  | "clip";
 
 export type HelixJobStatus =
   | "pending"
@@ -31,7 +37,13 @@ export type HelixJob = {
   cancelRequested: boolean;
 };
 
-export const ACQUIRE_JOB_KINDS = ["arxiv", "youtube", "image"] as const;
+export const ACQUIRE_JOB_KINDS = [
+  "arxiv",
+  "youtube",
+  "image",
+  "openalex",
+  "clip",
+] as const;
 export type AcquireJobKind = (typeof ACQUIRE_JOB_KINDS)[number];
 
 export function isAcquireJobKind(k: string): k is AcquireJobKind {
@@ -39,10 +51,5 @@ export function isAcquireJobKind(k: string): k is AcquireJobKind {
 }
 
 export function isHelixJobKind(k: string): k is HelixJobKind {
-  return (
-    k === "reindex" ||
-    k === "arxiv" ||
-    k === "youtube" ||
-    k === "image"
-  );
+  return k === "reindex" || isAcquireJobKind(k);
 }

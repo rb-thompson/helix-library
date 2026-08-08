@@ -149,13 +149,31 @@ function renderAssistantText(
 export function LibrarianChat({
   initialThreads,
   agent,
+  holdingItemId = null,
+  holdingLabel = null,
+  initialQuote = null,
 }: {
   initialThreads: ThreadRow[];
   agent: AgentInfo;
+  /** Active holding for catalog_read bridge (PR2). */
+  holdingItemId?: number | null;
+  holdingLabel?: string | null;
+  /** Untrusted selection seed (composer + optional server appendix). */
+  initialQuote?: string | null;
 }) {
   const [threads, setThreads] = useState(initialThreads);
   const [threadId, setThreadId] = useState<number | null>(null);
   const [input, setInput] = useState("");
+  const quoteSeeded = useRef(false);
+
+  // Seed composer once when quote arrives (may hydrate from sessionStorage after mount)
+  useEffect(() => {
+    if (quoteSeeded.current) return;
+    const q = initialQuote?.trim();
+    if (!q) return;
+    quoteSeeded.current = true;
+    setInput(`Regarding the selection:\n“${q.slice(0, 500)}”\n\n`);
+  }, [initialQuote]);
   const [bootError, setBootError] = useState<string | null>(null);
   const [proposeBusy, setProposeBusy] = useState<string | null>(null);
   const [proposeNote, setProposeNote] = useState<string | null>(null);
@@ -165,12 +183,19 @@ export function LibrarianChat({
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const threadIdRef = useRef<number | null>(null);
   threadIdRef.current = threadId;
+  const holdingIdRef = useRef<number | null>(holdingItemId ?? null);
+  holdingIdRef.current = holdingItemId ?? null;
+  const holdingQuoteRef = useRef<string | null>(initialQuote ?? null);
 
   const transport = useMemo(
     () =>
       new DefaultChatTransport({
         api: "/api/ask",
-        body: () => ({ threadId: threadIdRef.current }),
+        body: () => ({
+          threadId: threadIdRef.current,
+          holdingItemId: holdingIdRef.current,
+          holdingQuote: holdingQuoteRef.current,
+        }),
       }),
     [],
   );
@@ -494,6 +519,15 @@ export function LibrarianChat({
             >
               {agent.label}
             </span>
+            {holdingItemId ? (
+              <a
+                href={`/catalog/${holdingItemId}`}
+                className="chip chip-active !max-w-[12rem] truncate !py-0.5 text-[0.65rem]"
+                title={holdingLabel ?? `Holding #${holdingItemId}`}
+              >
+                Holding · {holdingLabel ?? `#${holdingItemId}`}
+              </a>
+            ) : null}
           </div>
           <button
             type="button"
@@ -510,13 +544,43 @@ export function LibrarianChat({
         >
           {messages.length === 0 ? (
             <div className="empty-state !py-6 sm:!py-8">
-              <strong>Try asking</strong>
-              <ul className="mt-2 space-y-1 text-[var(--muted)]">
-                <li>“Where is my resume?”</li>
-                <li>“Create collection Career” → approve</li>
-                <li>“Tag resume as career” → approve / say yes</li>
-                <li>“Reindex now” → approve</li>
-              </ul>
+              {holdingItemId ? (
+                <>
+                  <strong>Active holding</strong>
+                  <p className="mt-1 text-[var(--muted)]">
+                    Context is set to{" "}
+                    <a
+                      className="link-accent"
+                      href={`/catalog/${holdingItemId}`}
+                    >
+                      {holdingLabel ?? `item #${holdingItemId}`}
+                    </a>
+                    . Ask to summarize, explain, or review — the Librarian will
+                    read the indexed sample first.
+                  </p>
+                  {initialQuote ? (
+                    <p className="mt-2 rounded-md bg-[var(--paper-deep)] px-2 py-1.5 text-left text-xs text-[var(--ink-soft)]">
+                      Selection: “{initialQuote.slice(0, 240)}
+                      {initialQuote.length > 240 ? "…" : ""}”
+                    </p>
+                  ) : null}
+                  <ul className="mt-2 space-y-1 text-[var(--muted)]">
+                    <li>“Summarize this”</li>
+                    <li>“What are the main claims?”</li>
+                    <li>“Explain the methods section”</li>
+                  </ul>
+                </>
+              ) : (
+                <>
+                  <strong>Try asking</strong>
+                  <ul className="mt-2 space-y-1 text-[var(--muted)]">
+                    <li>“Where is my resume?”</li>
+                    <li>“Create collection Career” → approve</li>
+                    <li>“Tag resume as career” → approve / say yes</li>
+                    <li>“Reindex now” → approve</li>
+                  </ul>
+                </>
+              )}
             </div>
           ) : (
             messages.map((m) => {

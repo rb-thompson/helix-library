@@ -5,6 +5,10 @@ import { loadConfig } from "@/lib/config";
 import { ensureArchiveSubdir, assertUnderArchive } from "@/lib/acquire/paths";
 import { indexAfterAcquire } from "@/lib/acquire/index-after";
 import type { AcquireProgress } from "@/lib/acquire/jobs";
+import {
+  ytDlpAvailable,
+  ytDlpVersion,
+} from "@/lib/acquire/yt-dlp-bin";
 import { setItemCatalogTitle } from "@/lib/catalog/query";
 import {
   isCancelRequested,
@@ -13,31 +17,7 @@ import {
 } from "@/lib/jobs/store";
 import { readExifRaw } from "@/lib/media/exif";
 
-export function ytDlpAvailable(): boolean {
-  try {
-    execFileSync("yt-dlp", ["--version"], { stdio: "ignore", timeout: 5000 });
-    return true;
-  } catch {
-    try {
-      execFileSync("which", ["yt-dlp"], { stdio: "ignore" });
-      return true;
-    } catch {
-      return false;
-    }
-  }
-}
-
-export function ytDlpVersion(): string | null {
-  try {
-    const out = execFileSync("yt-dlp", ["--version"], {
-      encoding: "utf8",
-      timeout: 5000,
-    });
-    return out.trim().split("\n")[0] ?? null;
-  } catch {
-    return null;
-  }
-}
+export { ytDlpAvailable, ytDlpVersion };
 
 /** Strip share/tracking params that confuse some extractors. */
 export function normalizeYoutubeUrl(url: string): string {

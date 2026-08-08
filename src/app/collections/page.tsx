@@ -26,8 +26,8 @@ export default function CollectionsPage() {
         <p className="eyebrow">Shelves</p>
         <h1 className="page-title mt-1">Collections</h1>
         <p className="page-sub max-w-xl">
-          Manual shelves for curating holdings. Tags live on items and also
-          filter the catalog.
+          Manual shelves for hand-picked holdings, or smart shelves that track
+          live catalog filters.
         </p>
       </div>
 
@@ -36,7 +36,8 @@ export default function CollectionsPage() {
       {collections.length === 0 ? (
         <div className="empty-state">
           <strong>No collections yet</strong>
-          Create one above, then add items from catalog detail or bulk Select.
+          Create a manual shelf above, or save catalog filters as a smart shelf
+          from the catalog.
         </div>
       ) : (
         <ul className="grid auto-rows-fr gap-2.5 sm:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4">
@@ -46,12 +47,21 @@ export default function CollectionsPage() {
                 href={`/collections/${c.id}`}
                 className="shelf-card group"
               >
-                <h2 className="shelf-card__title">{c.name}</h2>
+                <div className="flex items-start justify-between gap-2">
+                  <h2 className="shelf-card__title">{c.name}</h2>
+                  {c.kind === "smart" ? (
+                    <span className="chip chip-active shrink-0 !py-0.5 text-[0.65rem]">
+                      Smart
+                    </span>
+                  ) : null}
+                </div>
                 <p className="shelf-card__desc">
-                  {c.description?.trim() || "\u00a0"}
+                  {c.description?.trim() ||
+                    (c.kind === "smart" ? "Live query shelf" : "\u00a0")}
                 </p>
                 <p className="shelf-card__meta">
                   {c.itemCount} item{c.itemCount === 1 ? "" : "s"}
+                  {c.kind === "smart" ? " · live" : ""}
                 </p>
               </Link>
             </li>

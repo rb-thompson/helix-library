@@ -6,6 +6,7 @@ import {
   CheckCircle2,
   Download,
   FileText,
+  Globe,
   ImageIcon,
   Loader2,
   Search,
@@ -22,6 +23,9 @@ type Caps = {
   ytDlpVersion: string | null;
   grokImage: boolean;
   hasXaiApiKey: boolean;
+  xaiCloudAllowed?: boolean;
+  imageModel?: string;
+  openAlexKey?: boolean;
 };
 
 type ResultBox = {
@@ -38,6 +42,9 @@ type JobProgress = {
   detail?: string;
 };
 
+type JobKind = "arxiv" | "youtube" | "image" | "openalex" | "clip";
+type BusyKind = JobKind | "arxiv-search" | "openalex-search" | null;
+
 type ArxivHit = {
   id: string;
   title: string;
@@ -48,6 +55,22 @@ type ArxivHit = {
   absUrl: string;
 };
 
+type OpenAlexHit = {
+  id: string;
+  doi: string | null;
+  title: string;
+  abstract: string;
+  authors: string[];
+  year: number | null;
+  citedBy: number;
+  oaStatus: string | null;
+  isOa: boolean;
+  pdfUrl: string | null;
+  landingUrl: string | null;
+  concepts: string[];
+  openAlexUrl: string;
+};
+
 export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
   const [caps, setCaps] = useState(initialCaps);
   const [arxivMode, setArxivMode] = useState<"search" | "id">("search");
@@ -56,16 +79,29 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
   const [arxivTotal, setArxivTotal] = useState(0);
   const [arxivSearchErr, setArxivSearchErr] = useState<string | null>(null);
   const [fetchingId, setFetchingId] = useState<string | null>(null);
+
+  const [oaMode, setOaMode] = useState<"search" | "doi">("search");
+  const [oaIn, setOaIn] = useState("");
+  const [oaHits, setOaHits] = useState<OpenAlexHit[]>([]);
+  const [oaTotal, setOaTotal] = useState(0);
+  const [oaSearchErr, setOaSearchErr] = useState<string | null>(null);
+  const [oaFetchingId, setOaFetchingId] = useState<string | null>(null);
+
+  const [clipUrl, setClipUrl] = useState("");
   const [ytUrl, setYtUrl] = useState("");
   const [ytMode, setYtMode] = useState<"video" | "audio">("video");
   const [prompt, setPrompt] = useState("");
-  const [busy, setBusy] = useState<
-    null | "arxiv" | "arxiv-search" | "youtube" | "image"
-  >(null);
+  const [busy, setBusy] = useState<BusyKind>(null);
+
   const [arxivResult, setArxivResult] = useState<ResultBox | null>(null);
+  const [oaResult, setOaResult] = useState<ResultBox | null>(null);
+  const [clipResult, setClipResult] = useState<ResultBox | null>(null);
   const [ytResult, setYtResult] = useState<ResultBox | null>(null);
   const [imgResult, setImgResult] = useState<ResultBox | null>(null);
+
   const [arxivProgress, setArxivProgress] = useState<JobProgress | null>(null);
+  const [oaProgress, setOaProgress] = useState<JobProgress | null>(null);
+  const [clipProgress, setClipProgress] = useState<JobProgress | null>(null);
   const [ytProgress, setYtProgress] = useState<JobProgress | null>(null);
   const [imgProgress, setImgProgress] = useState<JobProgress | null>(null);
 
@@ -81,6 +117,9 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
           ytDlpVersion: data.ytDlpVersion,
           grokImage: data.grokImage,
           hasXaiApiKey: data.hasXaiApiKey,
+          xaiCloudAllowed: data.xaiCloudAllowed,
+          imageModel: data.imageModel,
+          openAlexKey: data.openAlexKey,
         });
       }
     } catch {
@@ -92,22 +131,20 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
     void refreshCaps();
   }, [refreshCaps]);
 
-  function setProgress(
-    kind: "arxiv" | "youtube" | "image",
-    p: JobProgress | null,
-  ) {
+  function setProgress(kind: JobKind, p: JobProgress | null) {
     if (kind === "arxiv") setArxivProgress(p);
     else if (kind === "youtube") setYtProgress(p);
-    else setImgProgress(p);
+    else if (kind === "image") setImgProgress(p);
+    else if (kind === "openalex") setOaProgress(p);
+    else setClipProgress(p);
   }
 
   async function pollJob(
     jobId: string | number,
-    kind: "arxiv" | "youtube" | "image",
+    kind: JobKind,
     setResult: (r: ResultBox | null) => void,
   ) {
-    // YouTube polls faster so % updates feel live
-    const maxAttempts = kind === "youtube" ? 1800 : 360; // ~15m / ~3m
+    const maxAttempts = kind === "youtube" ? 1800 : 360;
     const intervalMs = kind === "youtube" ? 500 : 800;
     let notFoundStreak = 0;
     for (let i = 0; i < maxAttempts; i++) {
@@ -118,7 +155,6 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
         });
         const data = await res.json();
         if (!res.ok || !data.ok) {
-          // Brief race / HMR: retry a few times before failing
           notFoundStreak += 1;
           if (notFoundStreak <= 8) {
             setProgress(kind, {
@@ -153,8 +189,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
           const vcodec =
             typeof r.videoCodec === "string" ? r.videoCodec : null;
           const hard =
-            vcodec &&
-            /av1|av01|vp9|vp09/i.test(vcodec);
+            vcodec && /av1|av01|vp9|vp09/i.test(vcodec);
           const tags = Array.isArray(r.tags)
             ? (r.tags as unknown[]).filter((t) => typeof t === "string")
             : [];
@@ -182,7 +217,6 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
           return;
         }
       } catch (e) {
-        // Transient poll errors — keep trying a few times
         if (i > maxAttempts - 5) {
           setResult({
             ok: false,
@@ -201,7 +235,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
   async function post(
     url: string,
     body: Record<string, unknown>,
-    kind: "arxiv" | "youtube" | "image",
+    kind: JobKind,
     setResult: (r: ResultBox | null) => void,
   ) {
     setBusy(kind);
@@ -227,7 +261,6 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
         return;
       }
 
-      // Async job path (arXiv / YT / image) — poll for progress
       if (data.async && data.jobId) {
         if (data.job?.progress) {
           setProgress(kind, data.job.progress as JobProgress);
@@ -236,7 +269,6 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
         return;
       }
 
-      // Sync fallback
       const r = (data.result ?? {}) as Record<string, unknown>;
       setResult({
         ok: true,
@@ -252,7 +284,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
         message:
           e instanceof Error
             ? e.message === "Failed to fetch" || e.name === "TypeError"
-              ? "Network error (connection dropped). For long YT downloads the server should return a job id immediately — try again after refresh."
+              ? "Network error (connection dropped). For long downloads the server should return a job id immediately — try again after refresh."
               : e.message
             : "Request failed",
       });
@@ -260,7 +292,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
     } finally {
       setBusy(null);
       setFetchingId(null);
-      // Keep last progress briefly on success; clear indeterminate on idle
+      setOaFetchingId(null);
       setTimeout(() => {
         setProgress(kind, null);
       }, 2500);
@@ -295,6 +327,34 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
     }
   }
 
+  async function searchOpenAlex() {
+    const q = oaIn.trim();
+    if (!q || busy) return;
+    setBusy("openalex-search");
+    setOaSearchErr(null);
+    setOaHits([]);
+    setOaResult(null);
+    try {
+      const res = await fetch(
+        `/api/acquire/openalex/search?q=${encodeURIComponent(q)}&max=12`,
+      );
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setOaSearchErr(data.error ?? "Search failed");
+        return;
+      }
+      setOaHits((data.hits as OpenAlexHit[]) ?? []);
+      setOaTotal(Number(data.total) || 0);
+      if (!data.hits?.length) {
+        setOaSearchErr("No works matched that query.");
+      }
+    } catch (e) {
+      setOaSearchErr(e instanceof Error ? e.message : "Search failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
   function fetchArxivId(id: string) {
     setFetchingId(id);
     void post(
@@ -304,6 +364,26 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
       setArxivResult,
     );
   }
+
+  function fetchOpenAlex(idOrDoi: string) {
+    setOaFetchingId(idOrDoi);
+    void post(
+      "/api/acquire/openalex",
+      { idOrDoi },
+      "openalex",
+      setOaResult,
+    );
+  }
+
+  const clipIsHttp =
+    clipUrl.trim().toLowerCase().startsWith("http://") &&
+    !clipUrl.trim().toLowerCase().startsWith("https://");
+
+  const grokChipLabel = !caps.hasXaiApiKey
+    ? "no key"
+    : caps.xaiCloudAllowed === false
+      ? "cloud off"
+      : "keyed";
 
   return (
     <div className="space-y-4 sm:space-y-5">
@@ -329,16 +409,26 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             {caps.ytDlp ? caps.ytDlpVersion ?? "ok" : "missing"}
           </span>
         </span>
+        <span
+          className={cn(
+            "chip chip-stat",
+            !caps.openAlexKey && "opacity-70",
+          )}
+          title="Free key from openalex.org/settings/api improves rate limits"
+        >
+          <span className="chip-label">OpenAlex</span>
+          <span className="chip-value">
+            {caps.openAlexKey ? "keyed" : "no key"}
+          </span>
+        </span>
         <span className={cn("chip chip-stat", !caps.grokImage && "opacity-70")}>
           <span className="chip-label">Grok image</span>
-          <span className="chip-value">
-            {caps.grokImage ? "keyed" : "no key"}
-          </span>
+          <span className="chip-value">{grokChipLabel}</span>
         </span>
       </div>
 
       <div className="grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
-        {/* arXiv — wider when search results need room */}
+        {/* arXiv */}
         <section
           className={cn(
             "surface flex flex-col p-4 sm:p-5",
@@ -352,7 +442,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
                 arXiv PDF
               </h2>
               <p className="mt-1 text-xs text-[var(--muted)]">
-                Search by topic or fetch by id →{" "}
+                Fast path for preprints →{" "}
                 <code className="code-inline">archive/documents/</code>
               </p>
             </div>
@@ -518,6 +608,311 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
           <ResultPanel result={arxivResult} />
         </section>
 
+        {/* OpenAlex Papers */}
+        <section
+          className={cn(
+            "surface flex flex-col p-4 sm:p-5",
+            oaHits.length > 0 && "md:col-span-2 xl:col-span-2",
+          )}
+        >
+          <div className="flex items-start gap-2">
+            <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
+            <div>
+              <h2 className="text-base font-semibold tracking-tight text-[var(--ink)]">
+                Papers (OpenAlex)
+              </h2>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Wider OA net by search or DOI. Fetch only when a direct{" "}
+                <strong className="font-medium text-[var(--ink-soft)]">PDF</strong>{" "}
+                link exists →{" "}
+                <code className="code-inline">archive/documents/</code>
+              </p>
+            </div>
+          </div>
+
+          {!caps.openAlexKey ? (
+            <p className="mt-3 text-xs text-[var(--warn)]">
+              Works better with a free{" "}
+              <a
+                href="https://openalex.org/settings/api"
+                className="link-accent"
+                target="_blank"
+                rel="noreferrer"
+              >
+                OpenAlex API key
+              </a>{" "}
+              in{" "}
+              <code className="code-inline">NON_OS_OPENALEX_API_KEY</code>{" "}
+              (or <code className="code-inline">OPENALEX_API_KEY</code>).
+            </p>
+          ) : null}
+
+          <div
+            className="segment mt-4 w-full"
+            role="group"
+            aria-label="OpenAlex input mode"
+          >
+            <button
+              type="button"
+              className={cn("flex-1", oaMode === "search" && "is-active")}
+              onClick={() => setOaMode("search")}
+              disabled={busy !== null}
+            >
+              Search
+            </button>
+            <button
+              type="button"
+              className={cn("flex-1", oaMode === "doi" && "is-active")}
+              onClick={() => setOaMode("doi")}
+              disabled={busy !== null}
+            >
+              DOI / id
+            </button>
+          </div>
+
+          <label className="mt-3 block">
+            <span className="label-quiet">
+              {oaMode === "search"
+                ? "Topic, title, or author keywords"
+                : "DOI or OpenAlex work id"}
+            </span>
+            <input
+              className="field"
+              value={oaIn}
+              onChange={(e) => setOaIn(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  if (oaMode === "search") void searchOpenAlex();
+                  else if (oaIn.trim()) fetchOpenAlex(oaIn.trim());
+                }
+              }}
+              placeholder={
+                oaMode === "search"
+                  ? "e.g. retrieval augmented generation"
+                  : "10.1038/… or W2741809807"
+              }
+              disabled={busy !== null || !caps.archiveWritable}
+            />
+          </label>
+
+          {oaMode === "search" ? (
+            <button
+              type="button"
+              className="btn btn-primary mt-3 min-h-11 w-full sm:w-auto"
+              disabled={
+                busy !== null || !oaIn.trim() || !caps.archiveWritable
+              }
+              onClick={() => void searchOpenAlex()}
+            >
+              {busy === "openalex-search" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+              Search OpenAlex
+            </button>
+          ) : (
+            <button
+              type="button"
+              className="btn btn-primary mt-3 min-h-11 w-full sm:w-auto"
+              disabled={
+                busy !== null || !oaIn.trim() || !caps.archiveWritable
+              }
+              onClick={() => fetchOpenAlex(oaIn.trim())}
+            >
+              {busy === "openalex" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Fetch OA PDF
+            </button>
+          )}
+
+          {oaSearchErr ? (
+            <p className="mt-2 text-xs text-[var(--danger)]" role="alert">
+              {oaSearchErr}
+            </p>
+          ) : null}
+
+          {oaHits.length > 0 ? (
+            <div className="mt-3 min-h-0">
+              <p className="text-xs text-[var(--muted)]">
+                <span className="tabular-nums font-medium text-[var(--ink-soft)]">
+                  {oaTotal.toLocaleString()}
+                </span>{" "}
+                matches · showing {oaHits.length}.
+              </p>
+              <ul className="mt-2 max-h-72 space-y-2 overflow-y-auto overscroll-contain pr-0.5">
+                {oaHits.map((hit) => {
+                  const canFetch = Boolean(hit.pdfUrl);
+                  return (
+                    <li
+                      key={hit.id}
+                      className="rounded-[var(--radius-sm)] border border-[var(--line)] bg-[var(--paper-deep)] p-2.5"
+                    >
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                        <div className="min-w-0 flex-1">
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <p className="text-sm font-semibold leading-snug text-[var(--ink)]">
+                              {hit.title}
+                            </p>
+                            {hit.pdfUrl ? (
+                              <span
+                                className="rounded-full bg-[color-mix(in_srgb,var(--ok)_18%,transparent)] px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--ok)]"
+                                title="Direct PDF URL available"
+                              >
+                                PDF
+                              </span>
+                            ) : hit.isOa ? (
+                              <span
+                                className="rounded-full bg-[color-mix(in_srgb,var(--warn)_20%,transparent)] px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--warn)]"
+                                title="OA but no direct PDF URL in OpenAlex"
+                              >
+                                OA
+                              </span>
+                            ) : (
+                              <span
+                                className="rounded-full bg-[var(--paper)] px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--muted)]"
+                                title="No open-access PDF listed"
+                              >
+                                Closed
+                              </span>
+                            )}
+                          </div>
+                          <p className="mt-0.5 font-mono text-[0.65rem] text-[var(--muted)]">
+                            {hit.id}
+                            {hit.year ? ` · ${hit.year}` : ""}
+                            {hit.doi ? ` · ${hit.doi}` : ""}
+                          </p>
+                          {hit.authors.length ? (
+                            <p className="mt-0.5 truncate text-[0.7rem] text-[var(--muted-faint)]">
+                              {hit.authors.join(", ")}
+                            </p>
+                          ) : null}
+                          {hit.abstract ? (
+                            <p className="mt-1 line-clamp-2 text-[0.7rem] leading-snug text-[var(--ink-soft)]">
+                              {hit.abstract}
+                            </p>
+                          ) : null}
+                        </div>
+                        <div className="flex shrink-0 flex-wrap gap-1.5">
+                          <a
+                            href={hit.openAlexUrl}
+                            target="_blank"
+                            rel="noreferrer"
+                            className="btn btn-ghost btn-sm"
+                          >
+                            OpenAlex
+                          </a>
+                          {hit.landingUrl ? (
+                            <a
+                              href={hit.landingUrl}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="btn btn-ghost btn-sm"
+                            >
+                              Landing
+                            </a>
+                          ) : null}
+                          <button
+                            type="button"
+                            className="btn btn-primary btn-sm"
+                            disabled={
+                              !canFetch ||
+                              busy !== null ||
+                              !caps.archiveWritable
+                            }
+                            title={
+                              canFetch
+                                ? "Download OA PDF"
+                                : "No direct PDF URL in OpenAlex"
+                            }
+                            onClick={() =>
+                              fetchOpenAlex(hit.doi ? hit.doi : hit.id)
+                            }
+                          >
+                            {oaFetchingId === (hit.doi ?? hit.id) &&
+                            busy === "openalex" ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <Download className="h-3.5 w-3.5" />
+                            )}
+                            Fetch
+                          </button>
+                        </div>
+                      </div>
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ) : null}
+
+          <ProgressPanel
+            progress={oaProgress}
+            active={busy === "openalex"}
+          />
+          <ResultPanel result={oaResult} />
+        </section>
+
+        {/* Web clip */}
+        <section className="surface flex flex-col p-4 sm:p-5">
+          <div className="flex items-start gap-2">
+            <Globe className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
+            <div>
+              <h2 className="text-base font-semibold tracking-tight text-[var(--ink)]">
+                Web clip
+              </h2>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Single page → readable Markdown in{" "}
+                <code className="code-inline">archive/notes/</code> with source
+                URL provenance.
+              </p>
+            </div>
+          </div>
+          <label className="mt-4 block">
+            <span className="label-quiet">Page URL</span>
+            <input
+              className="field"
+              value={clipUrl}
+              onChange={(e) => setClipUrl(e.target.value)}
+              placeholder="https://example.com/essay…"
+              disabled={busy !== null || !caps.archiveWritable}
+            />
+          </label>
+          {clipIsHttp ? (
+            <p className="mt-2 text-xs text-[var(--warn)]">
+              Prefer https when available. http is allowed for legacy blogs.
+            </p>
+          ) : null}
+          <button
+            type="button"
+            className="btn btn-primary mt-3 min-h-11 w-full sm:w-auto"
+            disabled={
+              busy !== null || !clipUrl.trim() || !caps.archiveWritable
+            }
+            onClick={() =>
+              void post(
+                "/api/acquire/clip",
+                { url: clipUrl.trim() },
+                "clip",
+                setClipResult,
+              )
+            }
+          >
+            {busy === "clip" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {busy === "clip" ? "Clipping…" : "Clip to notes"}
+          </button>
+          <ProgressPanel progress={clipProgress} active={busy === "clip"} />
+          <ResultPanel result={clipResult} />
+        </section>
+
         {/* YouTube */}
         <section className="surface flex flex-col p-4 sm:p-5">
           <div className="flex items-start gap-2">
@@ -608,15 +1003,20 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
                 Grok image
               </h2>
               <p className="mt-1 text-xs text-[var(--muted)]">
-                Generate via xAI developer API →{" "}
-                <code className="code-inline">archive/images/</code>
+                Generate via xAI developer API
+                {caps.imageModel ? (
+                  <>
+                    {" "}
+                    (<code className="code-inline">{caps.imageModel}</code>
+                  </>
+                ) : null}{" "}
+                → <code className="code-inline">archive/images/</code>
               </p>
             </div>
           </div>
-          {!caps.grokImage ? (
+          {!caps.hasXaiApiKey ? (
             <p className="mt-3 text-xs text-[var(--warn)]">
-              Set{" "}
-              <code className="code-inline">XAI_API_KEY</code> from{" "}
+              Set <code className="code-inline">XAI_API_KEY</code> from{" "}
               <a
                 href="https://console.x.ai"
                 className="link-accent"
@@ -627,6 +1027,12 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
               </a>{" "}
               (SuperGrok chat alone is not enough).
             </p>
+          ) : caps.xaiCloudAllowed === false ? (
+            <p className="mt-3 text-xs text-[var(--warn)]">
+              Cloud Grok is disabled (
+              <code className="code-inline">NON_OS_USE_XAI=0</code>). Image
+              generation is unavailable.
+            </p>
           ) : null}
           <label className="mt-4 block">
             <span className="label-quiet">Prompt</span>
@@ -635,7 +1041,9 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               placeholder="A phosphor-green CRT displaying a star catalog…"
-              disabled={busy !== null || !caps.grokImage || !caps.archiveWritable}
+              disabled={
+                busy !== null || !caps.grokImage || !caps.archiveWritable
+              }
             />
           </label>
           <button
@@ -669,9 +1077,10 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
       </div>
 
       <p className="text-xs text-[var(--muted-faint)]">
-        Personal use only. You are responsible for rights to downloaded media.
-        arXiv papers are open access. Files land under your Archive root and are
-        reindexed automatically.
+        Personal use only. You are responsible for rights to downloaded media
+        and clipped pages. OpenAlex Fetch only uses listed OA PDF URLs — never
+        paywall bypass. arXiv is open access. Files land under your Archive root
+        and are reindexed automatically. Respect site terms of service.
       </p>
     </div>
   );
