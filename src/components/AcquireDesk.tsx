@@ -13,6 +13,10 @@ import {
   Video,
   XCircle,
 } from "lucide-react";
+import {
+  AcquireModuleCard,
+  type AcquireModuleId,
+} from "@/components/AcquireModuleCard";
 import { cn } from "@/lib/cn";
 import { formatBytes } from "@/lib/format";
 
@@ -89,6 +93,39 @@ type GrokipediaHit = {
   url: string;
 };
 
+
+const ACQUIRE_OPEN_KEY = "helix-acquire-open-v1";
+
+const DEFAULT_OPEN: Record<AcquireModuleId, boolean> = {
+  arxiv: false,
+  openalex: false,
+  clip: false,
+  grokipedia: false,
+  image_url: false,
+  youtube: false,
+  image: false,
+};
+
+function loadOpenModules(): Record<AcquireModuleId, boolean> {
+  if (typeof window === "undefined") return { ...DEFAULT_OPEN };
+  try {
+    const raw = localStorage.getItem(ACQUIRE_OPEN_KEY);
+    if (!raw) return { ...DEFAULT_OPEN };
+    const parsed = JSON.parse(raw) as Partial<Record<AcquireModuleId, boolean>>;
+    return { ...DEFAULT_OPEN, ...parsed };
+  } catch {
+    return { ...DEFAULT_OPEN };
+  }
+}
+
+function saveOpenModules(state: Record<AcquireModuleId, boolean>) {
+  try {
+    localStorage.setItem(ACQUIRE_OPEN_KEY, JSON.stringify(state));
+  } catch {
+    /* ignore */
+  }
+}
+
 export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
   const [caps, setCaps] = useState(initialCaps);
   const [arxivMode, setArxivMode] = useState<"search" | "id">("search");
@@ -131,6 +168,8 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
   const [imgUrlProgress, setImgUrlProgress] = useState<JobProgress | null>(null);
   const [ytProgress, setYtProgress] = useState<JobProgress | null>(null);
   const [imgProgress, setImgProgress] = useState<JobProgress | null>(null);
+  const [openMods, setOpenMods] = useState<Record<AcquireModuleId, boolean>>(DEFAULT_OPEN);
+  const [openReady, setOpenReady] = useState(false);
 
   const refreshCaps = useCallback(async () => {
     try {
@@ -157,6 +196,42 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
   useEffect(() => {
     void refreshCaps();
   }, [refreshCaps]);
+
+  useEffect(() => {
+    setOpenMods(loadOpenModules());
+    setOpenReady(true);
+  }, []);
+
+  useEffect(() => {
+    if (!openReady) return;
+    saveOpenModules(openMods);
+  }, [openMods, openReady]);
+
+  // Expand the module that is actively running a job
+  useEffect(() => {
+    if (!busy) return;
+    const map: Partial<Record<string, AcquireModuleId>> = {
+      arxiv: "arxiv",
+      "arxiv-search": "arxiv",
+      openalex: "openalex",
+      "openalex-search": "openalex",
+      clip: "clip",
+      grokipedia: "grokipedia",
+      "grokipedia-search": "grokipedia",
+      image_url: "image_url",
+      youtube: "youtube",
+      image: "image",
+    };
+    const id = map[busy];
+    if (id) {
+      setOpenMods((prev) => (prev[id] ? prev : { ...prev, [id]: true }));
+    }
+  }, [busy]);
+
+  function toggleMod(id: AcquireModuleId) {
+    setOpenMods((prev) => ({ ...prev, [id]: !prev[id] }));
+  }
+
 
   function setProgress(kind: JobKind, p: JobProgress | null) {
     if (kind === "arxiv") setArxivProgress(p);
@@ -494,27 +569,54 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
         </span>
       </div>
 
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <p className="text-xs text-[var(--muted)]">
+          Expand a tool to search or fetch. Open state is remembered.
+        </p>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() =>
+              setOpenMods({
+                arxiv: true,
+                openalex: true,
+                clip: true,
+                grokipedia: true,
+                image_url: true,
+                youtube: true,
+                image: true,
+              })
+            }
+          >
+            Expand all
+          </button>
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm"
+            onClick={() => setOpenMods({ ...DEFAULT_OPEN })}
+          >
+            Collapse all
+          </button>
+        </div>
+      </div>
+
       <div className="grid gap-3 sm:gap-4 md:grid-cols-2 xl:grid-cols-3">
         {/* arXiv */}
-        <section
-          className={cn(
-            "surface flex flex-col p-4 sm:p-5",
-            arxivHits.length > 0 && "md:col-span-2 xl:col-span-2",
-          )}
+        <AcquireModuleCard
+          id="arxiv"
+          open={openMods.arxiv}
+          onToggle={() => toggleMod("arxiv")}
+          title="arXiv PDF"
+          description={
+            <>
+              Fast path for preprints →{" "}
+              <code className="code-inline">archive/documents/</code>
+            </>
+          }
+          icon={<FileText className="h-4 w-4" />}
+          className={cn(arxivHits.length > 0 && openMods.arxiv && "md:col-span-2 xl:col-span-2")}
         >
-          <div className="flex items-start gap-2">
-            <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
-            <div>
-              <h2 className="text-base font-semibold tracking-tight text-[var(--ink)]">
-                arXiv PDF
-              </h2>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                Fast path for preprints →{" "}
-                <code className="code-inline">archive/documents/</code>
-              </p>
-            </div>
-          </div>
-
           <div
             className="segment mt-4 w-full"
             role="group"
@@ -673,30 +775,30 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
 
           <ProgressPanel progress={arxivProgress} active={busy === "arxiv"} />
           <ResultPanel result={arxivResult} />
-        </section>
+        </AcquireModuleCard>
 
         {/* OpenAlex Papers */}
-        <section
-          className={cn(
-            "surface flex flex-col p-4 sm:p-5",
-            oaHits.length > 0 && "md:col-span-2 xl:col-span-2",
-          )}
+        <AcquireModuleCard
+          id="openalex"
+          open={openMods.openalex}
+          onToggle={() => toggleMod("openalex")}
+          title="Papers (OpenAlex)"
+          description={
+            <>
+              Wider OA net by search or DOI. Fetch only when a direct PDF link
+              exists → <code className="code-inline">archive/documents/</code>
+            </>
+          }
+          icon={<FileText className="h-4 w-4" />}
+          className={cn(oaHits.length > 0 && openMods.openalex && "md:col-span-2 xl:col-span-2")}
+          badge={
+            !caps.openAlexKey ? (
+              <span className="text-[0.65rem] text-[var(--warn)]">no key</span>
+            ) : (
+              <span className="text-[0.65rem] text-[var(--ok)]">keyed</span>
+            )
+          }
         >
-          <div className="flex items-start gap-2">
-            <FileText className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
-            <div>
-              <h2 className="text-base font-semibold tracking-tight text-[var(--ink)]">
-                Papers (OpenAlex)
-              </h2>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                Wider OA net by search or DOI. Fetch only when a direct{" "}
-                <strong className="font-medium text-[var(--ink-soft)]">PDF</strong>{" "}
-                link exists →{" "}
-                <code className="code-inline">archive/documents/</code>
-              </p>
-            </div>
-          </div>
-
           {!caps.openAlexKey ? (
             <p className="mt-3 text-xs text-[var(--warn)]">
               Works better with a free{" "}
@@ -922,24 +1024,24 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             active={busy === "openalex"}
           />
           <ResultPanel result={oaResult} />
-        </section>
+        </AcquireModuleCard>
 
         {/* Web clip */}
-        <section className="surface flex flex-col p-4 sm:p-5">
-          <div className="flex items-start gap-2">
-            <Globe className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
-            <div>
-              <h2 className="text-base font-semibold tracking-tight text-[var(--ink)]">
-                Web clip
-              </h2>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                Single page → readable Markdown in{" "}
-                <code className="code-inline">archive/notes/</code> with source
-                URL provenance.
-              </p>
-            </div>
-          </div>
-          <label className="mt-4 block">
+        <AcquireModuleCard
+          id="clip"
+          open={openMods.clip}
+          onToggle={() => toggleMod("clip")}
+          title="Web clip"
+          description={
+            <>
+              Single page → Markdown in{" "}
+              <code className="code-inline">archive/notes/</code> with source URL
+              provenance.
+            </>
+          }
+          icon={<Globe className="h-4 w-4" />}
+        >
+          <label className="block">
             <span className="label-quiet">Page URL</span>
             <input
               className="field"
@@ -978,37 +1080,33 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
           </button>
           <ProgressPanel progress={clipProgress} active={busy === "clip"} />
           <ResultPanel result={clipResult} />
-        </section>
+        </AcquireModuleCard>
 
         {/* Grokipedia */}
-        <section
-          className={cn(
-            "surface flex flex-col p-4 sm:p-5",
-            gpHits.length > 0 && "md:col-span-2",
-          )}
+        <AcquireModuleCard
+          id="grokipedia"
+          open={openMods.grokipedia}
+          onToggle={() => toggleMod("grokipedia")}
+          title="Grokipedia"
+          description={
+            <>
+              Reference from{" "}
+              <a
+                href="https://grokipedia.com"
+                className="link-accent"
+                target="_blank"
+                rel="noreferrer"
+                onClick={(e) => e.stopPropagation()}
+              >
+                grokipedia.com
+              </a>{" "}
+              → <code className="code-inline">archive/notes/</code> (not Wikipedia).
+            </>
+          }
+          icon={<Globe className="h-4 w-4" />}
+          className={cn(gpHits.length > 0 && openMods.grokipedia && "md:col-span-2")}
         >
-          <div className="flex items-start gap-2">
-            <Globe className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
-            <div>
-              <h2 className="text-base font-semibold tracking-tight text-[var(--ink)]">
-                Grokipedia
-              </h2>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                Reference articles from{" "}
-                <a
-                  href="https://grokipedia.com"
-                  className="link-accent"
-                  target="_blank"
-                  rel="noreferrer"
-                >
-                  grokipedia.com
-                </a>{" "}
-                → Markdown in <code className="code-inline">archive/notes/</code>
-                . Preferred over Wikipedia.
-              </p>
-            </div>
-          </div>
-          <label className="mt-4 block">
+          <label className="block">
             <span className="label-quiet">Topic, slug, or page URL</span>
             <input
               className="field"
@@ -1113,24 +1211,23 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             active={busy === "grokipedia"}
           />
           <ResultPanel result={gpResult} />
-        </section>
+        </AcquireModuleCard>
 
         {/* Image URL */}
-        <section className="surface flex flex-col p-4 sm:p-5">
-          <div className="flex items-start gap-2">
-            <ImageIcon className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
-            <div>
-              <h2 className="text-base font-semibold tracking-tight text-[var(--ink)]">
-                Image URL
-              </h2>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                Found images (not generated) →{" "}
-                <code className="code-inline">archive/images/</code>. https only;
-                png/jpeg/webp magic required.
-              </p>
-            </div>
-          </div>
-          <label className="mt-4 block">
+        <AcquireModuleCard
+          id="image_url"
+          open={openMods.image_url}
+          onToggle={() => toggleMod("image_url")}
+          title="Image URL"
+          description={
+            <>
+              Found images → <code className="code-inline">archive/images/</code>
+              . https only; png/jpeg/webp.
+            </>
+          }
+          icon={<ImageIcon className="h-4 w-4" />}
+        >
+          <label className="block">
             <span className="label-quiet">Image URL</span>
             <input
               className="field"
@@ -1167,25 +1264,28 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             active={busy === "image_url"}
           />
           <ResultPanel result={imgUrlResult} />
-        </section>
+        </AcquireModuleCard>
 
         {/* YouTube */}
-        <section className="surface flex flex-col p-4 sm:p-5">
-          <div className="flex items-start gap-2">
-            <Video className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
-            <div>
-              <h2 className="text-base font-semibold tracking-tight text-[var(--ink)]">
-                YouTube / podcast
-              </h2>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                Requires <code className="code-inline">yt-dlp</code> (+{" "}
-                <code className="code-inline">ffmpeg</code> for merges). Prefers
-                H.264/AAC for browser playback →{" "}
-                <code className="code-inline">video/</code> or{" "}
-                <code className="code-inline">audio/</code>.
-              </p>
-            </div>
-          </div>
+        <AcquireModuleCard
+          id="youtube"
+          open={openMods.youtube}
+          onToggle={() => toggleMod("youtube")}
+          title="YouTube / podcast"
+          description={
+            <>
+              <code className="code-inline">yt-dlp</code> (+ ffmpeg) →{" "}
+              <code className="code-inline">video/</code> or{" "}
+              <code className="code-inline">audio/</code>
+            </>
+          }
+          icon={<Video className="h-4 w-4" />}
+          badge={
+            !caps.ytDlp ? (
+              <span className="text-[0.65rem] text-[var(--warn)]">missing</span>
+            ) : null
+          }
+        >
           {!caps.ytDlp ? (
             <p className="mt-3 text-xs text-[var(--warn)]">
               yt-dlp not found on PATH. Install it (e.g.{" "}
@@ -1248,30 +1348,36 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
           </button>
           <ProgressPanel progress={ytProgress} active={busy === "youtube"} />
           <ResultPanel result={ytResult} />
-        </section>
+        </AcquireModuleCard>
 
         {/* Grok image */}
-        <section className="surface flex flex-col p-4 sm:p-5 md:col-span-2 xl:col-span-1">
-          <div className="flex items-start gap-2">
-            <ImageIcon className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
-            <div>
-              <h2 className="text-base font-semibold tracking-tight text-[var(--ink)]">
-                Grok image
-              </h2>
-              <p className="mt-1 text-xs text-[var(--muted)]">
-                Generate via xAI developer API
-                {caps.imageModel ? (
-                  <>
-                    {" "}
-                    (<code className="code-inline">{caps.imageModel}</code>
-                  </>
-                ) : null}{" "}
-                → <code className="code-inline">archive/images/</code>
-              </p>
-            </div>
-          </div>
+        <AcquireModuleCard
+          id="image"
+          open={openMods.image}
+          onToggle={() => toggleMod("image")}
+          title="Grok image"
+          description={
+            <>
+              xAI Imagine
+              {caps.imageModel ? (
+                <>
+                  {" "}
+                  <code className="code-inline">{caps.imageModel}</code>
+                </>
+              ) : null}{" "}
+              → <code className="code-inline">archive/images/</code>
+            </>
+          }
+          icon={<ImageIcon className="h-4 w-4" />}
+          className="md:col-span-2 xl:col-span-1"
+          badge={
+            <span className="text-[0.65rem] text-[var(--muted)]">
+              {grokChipLabel}
+            </span>
+          }
+        >
           {!caps.hasXaiApiKey ? (
-            <p className="mt-3 text-xs text-[var(--warn)]">
+            <p className="text-xs text-[var(--warn)]">
               Set <code className="code-inline">XAI_API_KEY</code> from{" "}
               <a
                 href="https://console.x.ai"
@@ -1284,13 +1390,13 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
               (SuperGrok chat alone is not enough).
             </p>
           ) : caps.xaiCloudAllowed === false ? (
-            <p className="mt-3 text-xs text-[var(--warn)]">
+            <p className="text-xs text-[var(--warn)]">
               Cloud Grok is disabled (
               <code className="code-inline">NON_OS_USE_XAI=0</code>). Image
               generation is unavailable.
             </p>
           ) : null}
-          <label className="mt-4 block">
+          <label className="mt-3 block">
             <span className="label-quiet">Prompt</span>
             <textarea
               className="field min-h-[5.5rem] resize-y"
@@ -1329,7 +1435,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
           </button>
           <ProgressPanel progress={imgProgress} active={busy === "image"} />
           <ResultPanel result={imgResult} />
-        </section>
+        </AcquireModuleCard>
       </div>
 
       <p className="text-xs text-[var(--muted-faint)]">

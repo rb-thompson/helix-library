@@ -1,13 +1,24 @@
 "use client";
 
-import { useCallback, useEffect, useId, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type PointerEvent as ReactPointerEvent,
+  type WheelEvent as ReactWheelEvent,
+} from "react";
 import Link from "next/link";
 import {
   ChevronLeft,
   ChevronRight,
   Download,
   ExternalLink,
+  RotateCcw,
   X,
+  ZoomIn,
+  ZoomOut,
 } from "lucide-react";
 
 export type LightboxItem = {
@@ -15,6 +26,10 @@ export type LightboxItem = {
   name: string;
   kind: string;
 };
+
+const ZOOM_MIN = 1;
+const ZOOM_MAX = 6;
+const ZOOM_STEP = 0.35;
 
 export function MediaLightbox({
   items,
@@ -33,10 +48,26 @@ export function MediaLightbox({
     items.findIndex((i) => i.id === startId),
   );
   const [index, setIndex] = useState(startIndex);
+  const [zoom, setZoom] = useState(1);
+  const [pan, setPan] = useState({ x: 0, y: 0 });
+  const dragRef = useRef<{
+    pointerId: number;
+    startX: number;
+    startY: number;
+    originX: number;
+    originY: number;
+  } | null>(null);
 
   useEffect(() => {
     if (open) setIndex(startIndex);
   }, [open, startIndex, startId]);
+
+  // Reset zoom when navigating items or closing
+  useEffect(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+    dragRef.current = null;
+  }, [index, open, startId]);
 
   const current = items[index] ?? null;
   const hasPrev = index > 0;
@@ -49,12 +80,51 @@ export function MediaLightbox({
     setIndex((i) => Math.min(items.length - 1, i + 1));
   }, [items.length]);
 
+  const clampZoom = useCallback((z: number) => {
+    return Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, Math.round(z * 100) / 100));
+  }, []);
+
+  const zoomBy = useCallback(
+    (delta: number) => {
+      setZoom((z) => {
+        const next = clampZoom(z + delta);
+        if (next <= ZOOM_MIN) setPan({ x: 0, y: 0 });
+        return next;
+      });
+    },
+    [clampZoom],
+  );
+
+  const resetZoom = useCallback(() => {
+    setZoom(1);
+    setPan({ x: 0, y: 0 });
+  }, []);
+
   useEffect(() => {
     if (!open) return;
     function onKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowLeft") goPrev();
-      if (e.key === "ArrowRight") goNext();
+      if (e.key === "Escape") {
+        if (zoom > 1) {
+          e.preventDefault();
+          resetZoom();
+          return;
+        }
+        onClose();
+      }
+      if (e.key === "ArrowLeft" && zoom <= 1) goPrev();
+      if (e.key === "ArrowRight" && zoom <= 1) goNext();
+      if (e.key === "+" || e.key === "=") {
+        e.preventDefault();
+        zoomBy(ZOOM_STEP);
+      }
+      if (e.key === "-" || e.key === "_") {
+        e.preventDefault();
+        zoomBy(-ZOOM_STEP);
+      }
+      if (e.key === "0") {
+        e.preventDefault();
+        resetZoom();
+      }
     }
     window.addEventListener("keydown", onKey);
     const prev = document.body.style.overflow;
@@ -63,7 +133,7 @@ export function MediaLightbox({
       window.removeEventListener("keydown", onKey);
       document.body.style.overflow = prev;
     };
-  }, [open, onClose, goPrev, goNext]);
+  }, [open, onClose, goPrev, goNext, zoom, zoomBy, resetZoom]);
 
   if (!open || !current) return null;
 
@@ -71,6 +141,47 @@ export function MediaLightbox({
   const isImage = current.kind === "image";
   const isVideo = current.kind === "video";
   const isAudio = current.kind === "audio";
+  const zoomed = zoom > 1.01;
+
+  function onWheel(e: ReactWheelEvent) {
+    if (!isImage) return;
+    e.preventDefault();
+    const dir = e.deltaY > 0 ? -ZOOM_STEP : ZOOM_STEP;
+    zoomBy(dir);
+  }
+
+  function onPointerDown(e: ReactPointerEvent) {
+    if (!isImage || zoom <= 1) return;
+    e.currentTarget.setPointerCapture(e.pointerId);
+    dragRef.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      originX: pan.x,
+      originY: pan.y,
+    };
+  }
+
+  function onPointerMove(e: ReactPointerEvent) {
+    const d = dragRef.current;
+    if (!d || d.pointerId !== e.pointerId) return;
+    setPan({
+      x: d.originX + (e.clientX - d.startX),
+      y: d.originY + (e.clientY - d.startY),
+    });
+  }
+
+  function onPointerUp(e: ReactPointerEvent) {
+    if (dragRef.current?.pointerId === e.pointerId) {
+      dragRef.current = null;
+    }
+  }
+
+  function onImageDoubleClick(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (zoom > 1) resetZoom();
+    else setZoom(clampZoom(2.5));
+  }
 
   return (
     <div
@@ -86,9 +197,44 @@ export function MediaLightbox({
           </p>
           <p className="text-xs text-white/45">
             {index + 1} / {items.length} · {current.kind}
+            {isImage && zoomed ? ` · ${Math.round(zoom * 100)}%` : ""}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-1 sm:gap-2">
+          {isImage ? (
+            <>
+              <button
+                type="button"
+                onClick={() => zoomBy(-ZOOM_STEP)}
+                className="media-theater-btn !p-2"
+                aria-label="Zoom out"
+                title="Zoom out (−)"
+                disabled={zoom <= ZOOM_MIN}
+              >
+                <ZoomOut className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={() => zoomBy(ZOOM_STEP)}
+                className="media-theater-btn !p-2"
+                aria-label="Zoom in"
+                title="Zoom in (+)"
+                disabled={zoom >= ZOOM_MAX}
+              >
+                <ZoomIn className="h-4 w-4" />
+              </button>
+              <button
+                type="button"
+                onClick={resetZoom}
+                className="media-theater-btn !p-2"
+                aria-label="Reset zoom"
+                title="Reset zoom (0)"
+                disabled={!zoomed}
+              >
+                <RotateCcw className="h-4 w-4" />
+              </button>
+            </>
+          ) : null}
           <Link
             href={`/catalog/${current.id}`}
             title="Open full item page with metadata, EXIF, and curation"
@@ -117,8 +263,13 @@ export function MediaLightbox({
         </div>
       </header>
 
-      <div className="relative flex min-h-0 flex-1 items-center justify-center p-2 sm:p-4">
-        {hasPrev ? (
+      <div
+        className={`relative flex min-h-0 flex-1 items-center justify-center overflow-hidden p-2 sm:p-4 ${
+          isImage && zoomed ? "cursor-grab active:cursor-grabbing" : ""
+        }`}
+        onWheel={isImage ? onWheel : undefined}
+      >
+        {hasPrev && !zoomed ? (
           <button
             type="button"
             onClick={goPrev}
@@ -137,7 +288,24 @@ export function MediaLightbox({
               key={current.id}
               src={mediaSrc}
               alt={current.name}
-              className="max-h-[calc(100dvh-7rem)] max-w-full object-contain"
+              draggable={false}
+              onDoubleClick={onImageDoubleClick}
+              onPointerDown={onPointerDown}
+              onPointerMove={onPointerMove}
+              onPointerUp={onPointerUp}
+              onPointerCancel={onPointerUp}
+              className={`max-h-[calc(100dvh-7rem)] max-w-full select-none object-contain transition-transform duration-100 ease-out ${
+                zoomed ? "cursor-grab active:cursor-grabbing" : "cursor-zoom-in"
+              }`}
+              style={{
+                transform: `translate(${pan.x}px, ${pan.y}px) scale(${zoom})`,
+                transformOrigin: "center center",
+              }}
+              title={
+                zoomed
+                  ? "Drag to pan · double-click or 0 to reset · scroll to zoom"
+                  : "Scroll or + to zoom · double-click to zoom in"
+              }
             />
           ) : null}
           {isVideo ? (
@@ -156,7 +324,13 @@ export function MediaLightbox({
               <p className="mb-4 text-center text-sm text-white/70">
                 {current.name}
               </p>
-              <audio key={current.id} controls autoPlay className="w-full" src={mediaSrc} />
+              <audio
+                key={current.id}
+                controls
+                autoPlay
+                className="w-full"
+                src={mediaSrc}
+              />
             </div>
           ) : null}
           {!isImage && !isVideo && !isAudio ? (
@@ -172,7 +346,7 @@ export function MediaLightbox({
           ) : null}
         </div>
 
-        {hasNext ? (
+        {hasNext && !zoomed ? (
           <button
             type="button"
             onClick={goNext}
@@ -184,6 +358,13 @@ export function MediaLightbox({
           </button>
         ) : null}
       </div>
+
+      {isImage ? (
+        <p className="shrink-0 border-t border-white/10 px-3 py-1.5 text-center text-[0.65rem] text-white/40">
+          Scroll / + − to zoom · drag to pan · double-click or 0 to reset · Esc
+          closes{zoomed ? " (resets zoom first)" : ""}
+        </p>
+      ) : null}
     </div>
   );
 }

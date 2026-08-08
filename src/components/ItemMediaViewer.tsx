@@ -114,7 +114,8 @@ export function ItemMediaViewer({
             <img
               src={preview.src}
               alt={item.name}
-              className="max-h-[70vh] w-auto max-w-full rounded-md object-contain"
+              className="max-h-[70vh] w-auto max-w-full rounded-md object-contain transition hover:brightness-110"
+              title="Click for fullscreen zoom"
             />
           ) : null}
 
