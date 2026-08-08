@@ -176,6 +176,31 @@ export function looksNonEnglishBody(text: string): boolean {
 }
 
 /**
+ * True only for inputs that clearly name a page path — not free-text titles.
+ * Bare words like "Palantir" must go through search (real page is often
+ * Palantir_Technologies); treating them as slugs causes 404s.
+ */
+export function looksLikeExactGrokipediaSlug(input: string): boolean {
+  const raw = input.trim();
+  if (!raw) return false;
+  if (/grokipedia\.com\/page\//i.test(raw)) return true;
+  if (/^\/?page\//i.test(raw)) return true;
+  // Underscore / wiki disambiguation → already a slug form
+  if (/[_(]/.test(raw) && !/\s/.test(raw)) return true;
+  return false;
+}
+
+function decodeHrefSlug(raw: string): string {
+  let s = raw.replace(/&amp;/g, "&").replace(/&#38;/g, "&");
+  try {
+    s = decodeURIComponent(s);
+  } catch {
+    /* keep */
+  }
+  return s;
+}
+
+/**
  * Parse Grokipedia search HTML for /page/ hits.
  */
 export function parseGrokipediaSearchHtml(html: string): GrokipediaSearchHit[] {
@@ -184,13 +209,8 @@ export function parseGrokipediaSearchHtml(html: string): GrokipediaSearchHit[] {
   const re = /href="(\/page\/([^"#?]+))"/gi;
   let m: RegExpExecArray | null;
   while ((m = re.exec(html)) !== null) {
-    let slug: string;
-    try {
-      slug = decodeURIComponent(m[2]);
-    } catch {
-      slug = m[2];
-    }
-    if (seen.has(slug.toLowerCase())) continue;
+    const slug = decodeHrefSlug(m[2]);
+    if (!slug || seen.has(slug.toLowerCase())) continue;
     seen.add(slug.toLowerCase());
     hits.push({
       slug,
@@ -202,6 +222,48 @@ export function parseGrokipediaSearchHtml(html: string): GrokipediaSearchHit[] {
   return hits;
 }
 
+/** Rank search hits so "Palantir" prefers Palantir_Technologies over weak matches. */
+export function rankGrokipediaHits(
+  hits: GrokipediaSearchHit[],
+  query: string,
+): GrokipediaSearchHit[] {
+  const q = query.trim().toLowerCase();
+  const qSlug = q.replace(/\s+/g, "_");
+  const score = (h: GrokipediaSearchHit): number => {
+    const s = h.slug.toLowerCase();
+    const t = h.title.toLowerCase();
+    let sc = 0;
+    if (s === qSlug || t === q) sc = 100;
+    else if (t.startsWith(`${q} `) || t.startsWith(`${q},`)) sc = 88;
+    else if (s.startsWith(`${qSlug}_`)) sc = 72;
+    else if (s.includes(qSlug) || t.includes(q)) sc = 40;
+    else sc = 10;
+
+    // Comparison / list pages are rarely what "Fetch" means
+    if (/^comparison_of_|^companies_similar_to_/i.test(s)) sc -= 35;
+    // Hyphenated partials (Tar-Palantir) below primary Query_* pages
+    if (s.includes("-") && !s.startsWith(`${qSlug}_`)) sc -= 15;
+    // Prefer fewer extra slug segments: Technologies (1) > RSU_sales (2)
+    if (s.startsWith(`${qSlug}_`)) {
+      const rest = s.slice(qSlug.length + 1);
+      sc -= Math.min(18, rest.split("_").filter(Boolean).length * 4);
+    }
+    // Entity-ish disambiguators
+    if (
+      /\b(technologies|technology|company|inc\.?|corp\.?|corporation|organization|group)\b/i.test(
+        t,
+      )
+    ) {
+      sc += 14;
+    }
+    return sc;
+  };
+  return hits
+    .map((h, index) => ({ h, index, sc: score(h) }))
+    .sort((a, b) => b.sc - a.sc || a.index - b.index)
+    .map((x) => x.h);
+}
+
 export async function searchGrokipedia(
   query: string,
   opts?: { max?: number },
@@ -210,18 +272,21 @@ export async function searchGrokipedia(
   if (!q) throw new Error("Search query is required");
   const max = Math.min(25, Math.max(1, opts?.max ?? 12));
 
-  const asSlug = parseGrokipediaSlug(q);
-  if (asSlug && (!/\s/.test(q) || /grokipedia\.com\/page\//i.test(q))) {
-    return {
-      query: q,
-      hits: [
-        {
-          slug: asSlug,
-          title: titleFromSlug(asSlug),
-          url: grokipediaPageUrl(asSlug),
-        },
-      ],
-    };
+  // Exact URL / explicit wiki slug only — never skip search for bare titles
+  if (looksLikeExactGrokipediaSlug(q)) {
+    const asSlug = parseGrokipediaSlug(q);
+    if (asSlug) {
+      return {
+        query: q,
+        hits: [
+          {
+            slug: asSlug,
+            title: titleFromSlug(asSlug),
+            url: grokipediaPageUrl(asSlug),
+          },
+        ],
+      };
+    }
   }
 
   const url = `${GP_ORIGIN}/search?q=${encodeURIComponent(q)}`;
@@ -232,8 +297,18 @@ export async function searchGrokipedia(
     headers: GP_HEADERS,
   });
   const html = fetched.buf.toString("utf8");
-  const hits = parseGrokipediaSearchHtml(html).slice(0, max);
+  const hits = rankGrokipediaHits(parseGrokipediaSearchHtml(html), q).slice(
+    0,
+    max,
+  );
   return { query: q, hits };
+}
+
+export class GrokipediaNotFoundError extends Error {
+  constructor(slug: string) {
+    super(`Grokipedia page not found: ${slug}`);
+    this.name = "GrokipediaNotFoundError";
+  }
 }
 
 async function fetchGrokipediaHtml(slug: string): Promise<{
@@ -242,18 +317,35 @@ async function fetchGrokipediaHtml(slug: string): Promise<{
   finalUrl: string;
 }> {
   const pageUrl = grokipediaPageUrl(slug);
-  const fetched = await fetchSafeOutbound(pageUrl, {
-    httpsOnly: true,
-    timeoutMs: TIMEOUT_MS,
-    maxBytes: MAX_HTML,
-    headers: GP_HEADERS,
-  });
-  return {
-    slug,
-    html: fetched.buf.toString("utf8"),
-    finalUrl: fetched.finalUrl,
-  };
+  try {
+    const fetched = await fetchSafeOutbound(pageUrl, {
+      httpsOnly: true,
+      timeoutMs: TIMEOUT_MS,
+      maxBytes: MAX_HTML,
+      headers: GP_HEADERS,
+    });
+    return {
+      slug,
+      html: fetched.buf.toString("utf8"),
+      finalUrl: fetched.finalUrl,
+    };
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : String(e);
+    if (/\(404\)/.test(msg) || /\b404\b/.test(msg)) {
+      throw new GrokipediaNotFoundError(slug);
+    }
+    throw e;
+  }
 }
+
+type ResolvedPage = {
+  slug: string;
+  html: string;
+  finalUrl: string;
+  title: string;
+  markdown: string;
+  bodyChars: number;
+};
 
 /**
  * Resolve page HTML preferring English: follow #REDIRECT, then MediaWiki slug.
@@ -261,43 +353,51 @@ async function fetchGrokipediaHtml(slug: string): Promise<{
 export async function resolveGrokipediaPageHtml(
   initialSlug: string,
   onProgress?: ProgressCb,
-): Promise<{
-  slug: string;
-  html: string;
-  finalUrl: string;
-  title: string;
-  markdown: string;
-  bodyChars: number;
-}> {
+  opts?: { searchFallbackQuery?: string },
+): Promise<ResolvedPage> {
   // Grokipedia paths are case-sensitive (Artificial_Intelligence ≠ Artificial_intelligence).
   // Track exact slugs tried — do not fold case.
   const tried = new Set<string>();
-  let slug = initialSlug;
+  const queue: string[] = [initialSlug];
   let hops = 0;
-  const maxHops = 4;
+  const maxHops = 8;
+  let last404: string | null = null;
 
-  while (hops < maxHops) {
+  while (queue.length > 0 && hops < maxHops) {
     hops += 1;
-    if (tried.has(slug)) break;
+    const slug = queue.shift()!;
+    if (tried.has(slug)) continue;
     tried.add(slug);
 
     onProgress?.({
       stage: "fetching",
-      percent: 8 + hops * 12,
+      percent: 8 + hops * 8,
       detail: `Fetching Grokipedia ${slug}…`,
     });
 
-    const page = await fetchGrokipediaHtml(slug);
+    let page: { slug: string; html: string; finalUrl: string };
+    try {
+      page = await fetchGrokipediaHtml(slug);
+    } catch (e) {
+      if (e instanceof GrokipediaNotFoundError) {
+        last404 = slug;
+        // MediaWiki casing before search fallback
+        const alt = mediaWikiPrimarySlug(slug);
+        if (alt !== slug && !tried.has(alt)) queue.push(alt);
+        continue;
+      }
+      throw e;
+    }
 
     // Wiki soft-redirect (often non-English body still present on the stub)
     const redir = extractGrokipediaRedirect(page.html);
     if (redir && redir !== slug && !tried.has(redir)) {
       onProgress?.({
         stage: "resolving",
-        percent: 20 + hops * 10,
+        percent: 20 + hops * 6,
         detail: `Following redirect → ${redir}`,
       });
-      slug = redir;
+      queue.unshift(redir);
       continue;
     }
 
@@ -310,13 +410,8 @@ export async function resolveGrokipediaPageHtml(
     const extracted = htmlToMarkdownArticle(page.html, page.finalUrl);
     if (extracted.bodyChars < MIN_BODY) {
       const alt = mediaWikiPrimarySlug(initialSlug);
-      if (alt !== slug && !tried.has(alt)) {
-        slug = alt;
-        continue;
-      }
-      throw new Error(
-        `Could not extract Grokipedia article for "${initialSlug}" (page missing or JS-only shell).`,
-      );
+      if (alt !== slug && !tried.has(alt)) queue.push(alt);
+      continue;
     }
 
     if (looksNonEnglishBody(extracted.markdown)) {
@@ -327,17 +422,17 @@ export async function resolveGrokipediaPageHtml(
           percent: 50,
           detail: "Non-English body detected; trying English slug…",
         });
-        slug = alt;
+        queue.unshift(alt);
         continue;
       }
       const alt0 = mediaWikiPrimarySlug(initialSlug);
       if (alt0 !== slug && !tried.has(alt0)) {
-        slug = alt0;
+        queue.push(alt0);
         continue;
       }
-      throw new Error(
-        `Grokipedia page "${slug}" is not in English (locale mirror or redirect stub). Try the English slug, e.g. Artificial_intelligence.`,
-      );
+      // fall through to search fallback below
+      last404 = slug;
+      break;
     }
 
     const displayTitle =
@@ -359,8 +454,33 @@ export async function resolveGrokipediaPageHtml(
     };
   }
 
+  // Search fallback: bare titles (Palantir) and missing slugs
+  const q = (opts?.searchFallbackQuery ?? initialSlug.replace(/_/g, " ")).trim();
+  if (q) {
+    onProgress?.({
+      stage: "searching",
+      percent: 55,
+      detail: `Page missing; searching Grokipedia for “${q}”…`,
+    });
+    const { hits } = await searchGrokipedia(q, { max: 8 });
+    for (const hit of hits) {
+      if (tried.has(hit.slug)) continue;
+      try {
+        return await resolveGrokipediaPageHtml(hit.slug, onProgress, {
+          // prevent infinite search loops
+          searchFallbackQuery: "",
+        });
+      } catch {
+        tried.add(hit.slug);
+        continue;
+      }
+    }
+  }
+
   throw new Error(
-    `Could not resolve an English Grokipedia page for "${initialSlug}".`,
+    last404
+      ? `Grokipedia page not found for “${initialSlug}” (404 on ${last404}). Search returned no fetchable English article.`
+      : `Could not resolve an English Grokipedia page for "${initialSlug}".`,
   );
 }
 
@@ -375,15 +495,51 @@ export async function acquireGrokipedia(
     }
   };
 
-  const slugIn = parseGrokipediaSlug(titleOrSlugOrUrl);
-  if (!slugIn) {
+  const raw = titleOrSlugOrUrl.trim();
+  if (!raw) {
     throw new Error(
       "Could not parse Grokipedia page. Try a title, slug, or grokipedia.com/page/… URL.",
     );
   }
 
+  // Free-text titles: resolve via search first (avoid treating "Palantir" as a slug)
+  let slugIn: string;
+  let searchFallback = raw;
+  if (looksLikeExactGrokipediaSlug(raw)) {
+    const parsed = parseGrokipediaSlug(raw);
+    if (!parsed) {
+      throw new Error(
+        "Could not parse Grokipedia page. Try a title, slug, or grokipedia.com/page/… URL.",
+      );
+    }
+    slugIn = parsed;
+    searchFallback = titleFromSlug(parsed);
+  } else {
+    onProgress?.({
+      stage: "searching",
+      percent: 5,
+      detail: `Searching Grokipedia for “${raw}”…`,
+    });
+    checkCancel();
+    const { hits } = await searchGrokipedia(raw, { max: 8 });
+    if (!hits.length) {
+      throw new Error(
+        `No Grokipedia pages matched “${raw}”. Try a more specific title.`,
+      );
+    }
+    slugIn = hits[0]!.slug;
+    searchFallback = raw;
+    onProgress?.({
+      stage: "resolving",
+      percent: 12,
+      detail: `Best match: ${hits[0]!.title} (${slugIn})`,
+    });
+  }
+
   checkCancel();
-  const resolved = await resolveGrokipediaPageHtml(slugIn, onProgress);
+  const resolved = await resolveGrokipediaPageHtml(slugIn, onProgress, {
+    searchFallbackQuery: searchFallback,
+  });
   checkCancel();
 
   const acquiredAt = new Date().toISOString();

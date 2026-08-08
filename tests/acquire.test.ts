@@ -45,6 +45,8 @@ import {
   extractGrokipediaRedirect,
   mediaWikiPrimarySlug,
   looksNonEnglishBody,
+  looksLikeExactGrokipediaSlug,
+  rankGrokipediaHits,
 } from "@/lib/acquire/grokipedia";
 import { createTestEnv } from "./helpers/harness";
 
@@ -424,6 +426,29 @@ describe("Grokipedia helpers", () => {
     );
     // Case-only slug differences are distinct URLs on Grokipedia
     assert.notEqual("Artificial_Intelligence", "Artificial_intelligence");
+  });
+
+
+  it("does not treat bare titles as exact slugs", () => {
+    assert.equal(looksLikeExactGrokipediaSlug("Palantir"), false);
+    assert.equal(looksLikeExactGrokipediaSlug("Artificial intelligence"), false);
+    assert.equal(looksLikeExactGrokipediaSlug("Artificial_Intelligence"), true);
+    assert.equal(
+      looksLikeExactGrokipediaSlug("https://grokipedia.com/page/Palantir_Technologies"),
+      true,
+    );
+  });
+
+  it("ranks Palantir_Technologies above Mafia", () => {
+    const ranked = rankGrokipediaHits(
+      [
+        { slug: "Palantir_Mafia", title: "Palantir Mafia", url: "u1" },
+        { slug: "Palantir_Technologies", title: "Palantir Technologies", url: "u2" },
+        { slug: "Tar-Palantir", title: "Tar-Palantir", url: "u3" },
+      ],
+      "Palantir",
+    );
+    assert.equal(ranked[0]!.slug, "Palantir_Technologies");
   });
 
   it("detects French body vs English", () => {

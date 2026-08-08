@@ -1020,10 +1020,14 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
                   void searchGrokipedia();
                 }
               }}
-              placeholder="Artificial intelligence or /page/…"
+              placeholder="Artificial intelligence, Palantir, or /page/Slug…"
               disabled={busy !== null || !caps.archiveWritable}
             />
           </label>
+          <p className="mt-1.5 text-[0.7rem] text-[var(--muted-faint)]">
+            Free-text titles search first (e.g. Palantir → Palantir Technologies).
+            Use an exact slug or page URL only when you know it.
+          </p>
           <div className="mt-3 flex flex-wrap gap-2">
             <button
               type="button"
@@ -1047,14 +1051,14 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
                 busy !== null || !gpIn.trim() || !caps.archiveWritable
               }
               onClick={() => fetchGrokipedia(gpIn.trim())}
-              title="Fetch using the input as title/slug/URL without searching"
+              title="Search or fetch: free text searches; exact slugs/URLs fetch directly"
             >
               {busy === "grokipedia" ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <Download className="h-4 w-4" />
               )}
-              Fetch page
+              Fetch best match
             </button>
           </div>
           {gpSearchErr ? (
