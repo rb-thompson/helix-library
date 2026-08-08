@@ -42,6 +42,9 @@ import {
   parseGrokipediaSearchHtml,
   titleFromSlug,
   grokipediaPageUrl,
+  extractGrokipediaRedirect,
+  mediaWikiPrimarySlug,
+  looksNonEnglishBody,
 } from "@/lib/acquire/grokipedia";
 import { createTestEnv } from "./helpers/harness";
 
@@ -400,6 +403,42 @@ describe("Grokipedia helpers", () => {
     assert.equal(hits.length, 2);
     assert.equal(hits[0]!.slug, "Helix");
     assert.equal(hits[1]!.slug, "Project_Helix");
+  });
+
+  it("extracts wiki REDIRECT to English slug", () => {
+    const html = `#REDIRECT [Artificial intelligence](https://grokipedia.com/page/Artificial_intelligence)`;
+    assert.equal(
+      extractGrokipediaRedirect(html),
+      "Artificial_intelligence",
+    );
+    // Grokipedia HTML embeds the link as an <a href>
+    const htmlAnchor =
+      '#REDIRECT [<a href="/page/Artificial_intelligence">Artificial intelligence</a>]';
+    assert.equal(
+      extractGrokipediaRedirect(htmlAnchor),
+      "Artificial_intelligence",
+    );
+    assert.equal(
+      mediaWikiPrimarySlug("Artificial_Intelligence"),
+      "Artificial_intelligence",
+    );
+    // Case-only slug differences are distinct URLs on Grokipedia
+    assert.notEqual("Artificial_Intelligence", "Artificial_intelligence");
+  });
+
+  it("detects French body vs English", () => {
+    assert.equal(
+      looksNonEnglishBody(
+        "Les origines conceptuelles de l'intelligence artificielle remontent à des réflexions. L'histoire des automates est dans les textes pour les chercheurs avec une base.",
+      ),
+      true,
+    );
+    assert.equal(
+      looksNonEnglishBody(
+        "Artificial intelligence is the science and engineering of making intelligent machines for that purpose with history from the early years.",
+      ),
+      false,
+    );
   });
 });
 
