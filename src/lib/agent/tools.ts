@@ -280,7 +280,7 @@ export const librarianTools = {
    */
   propose_actions: tool({
     description:
-      "Stage one or more in-app mutations for the user to approve. Does not change the catalog until the user confirms. Use for reindex, tags, collections, locations, and acquire (arXiv / YouTube / Grok image).",
+      "Stage one or more in-app mutations for the user to approve. Does not change the catalog until the user confirms. Use for reindex, tags, collections, locations, and acquire (arXiv / OpenAlex / clip / Grokipedia / YouTube / Grok image / image URL).",
     inputSchema: z.object({
       title: z
         .string()
@@ -311,6 +311,10 @@ export const librarianTools = {
               "acquire_arxiv",
               "acquire_youtube",
               "acquire_image",
+              "acquire_openalex",
+              "acquire_clip",
+              "acquire_grokipedia",
+              "acquire_image_url",
               "merge_tags",
               "rename_tag",
             ]),
@@ -328,12 +332,16 @@ export const librarianTools = {
             root: z.string().optional(),
             /** acquire_arxiv — bare id or arxiv.org URL from user text only */
             idOrUrl: z.string().optional(),
-            /** acquire_youtube — full https URL from user text only */
+            /** acquire_youtube / clip / image_url — full https URL from user text only */
             url: z.string().optional(),
             mode: z.enum(["video", "audio"]).optional(),
             /** acquire_image — generation prompt from user */
             prompt: z.string().optional(),
             filenameHint: z.string().optional(),
+            /** acquire_openalex — DOI or W… id from user text only */
+            idOrDoi: z.string().optional(),
+            /** acquire_grokipedia — title, slug, or grokipedia.com/page/… URL */
+            titleOrSlug: z.string().optional(),
             sourceTagIds: z.array(z.number().int().positive()).optional(),
             targetTagId: z.number().int().positive().optional(),
             targetName: z.string().optional(),
@@ -488,6 +496,39 @@ export const librarianTools = {
               actions.push({
                 type: "acquire_image",
                 prompt: a.prompt.trim(),
+                filenameHint: a.filenameHint?.trim() || undefined,
+              });
+            }
+            break;
+          case "acquire_openalex":
+            if (a.idOrDoi?.trim()) {
+              actions.push({
+                type: "acquire_openalex",
+                idOrDoi: a.idOrDoi.trim(),
+              });
+            }
+            break;
+          case "acquire_clip":
+            if (a.url?.trim()) {
+              actions.push({
+                type: "acquire_clip",
+                url: a.url.trim(),
+              });
+            }
+            break;
+          case "acquire_grokipedia":
+            if (a.titleOrSlug?.trim()) {
+              actions.push({
+                type: "acquire_grokipedia",
+                titleOrSlug: a.titleOrSlug.trim(),
+              });
+            }
+            break;
+          case "acquire_image_url":
+            if (a.url?.trim()) {
+              actions.push({
+                type: "acquire_image_url",
+                url: a.url.trim(),
                 filenameHint: a.filenameHint?.trim() || undefined,
               });
             }

@@ -7,7 +7,7 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Acquire",
   description:
-    "Interlibrary-style acquisitions: arXiv, OpenAlex OA PDFs, web clips, YouTube/podcast, Grok images into your archive.",
+    "Interlibrary-style acquisitions: arXiv, OpenAlex OA PDFs, web clips, Grokipedia, YouTube/podcast, Grok and remote images into your archive.",
 };
 
 export default function AcquirePage() {
@@ -21,8 +21,8 @@ export default function AcquirePage() {
         <h1 className="page-title mt-1">Acquire</h1>
         <p className="page-sub max-w-2xl">
           Interlibrary loan for your personal stacks — pull remote papers (arXiv
-          + OpenAlex OA), web clips, media, and generated images into Archive
-          holdings, then reindex so they appear in the catalog.
+          + OpenAlex OA), web clips, Grokipedia articles, media, and images into
+          Archive holdings, then reindex so they appear in the catalog.
         </p>
       </div>
 

@@ -203,6 +203,97 @@ export function localLibrarianReply(
     }
   }
 
+  // OpenAlex / DOI paper
+  {
+    const oaIntent =
+      /\b(fetch|get|download|acquire|pull)\b/.test(lower) &&
+      /\b(doi|openalex|oa\s*pdf|paper)\b/.test(lower);
+    if (oaIntent) {
+      const doi =
+        q.match(/\b(10\.\d{4,9}\/[^\s]+)/i)?.[1]?.replace(/[.,;)\]]+$/, "") ||
+        q.match(/doi\.org\/(10\.\d{4,9}\/\S+)/i)?.[1]?.replace(/[.,;)\]]+$/, "");
+      const wid = q.match(/\b(W\d{5,})\b/i)?.[1];
+      const idOrDoi = doi || wid;
+      if (idOrDoi) {
+        return formatProposalMessage(
+          "Acquire OpenAlex PDF",
+          "Fetches only when OpenAlex lists a direct OA PDF URL. Approve to start a background job.",
+          [{ type: "acquire_openalex", idOrDoi }],
+        );
+      }
+      return "Paste a **DOI** (10.…) or OpenAlex **W…** id, or use Papers search on [/acquire](/acquire).";
+    }
+  }
+
+  // Web clip
+  {
+    const clipIntent =
+      /\b(clip|save\s+page|archive\s+page|web\s*clip)\b/.test(lower) ||
+      (/\b(clip|save)\b/.test(lower) && /\b(url|page|article|blog)\b/.test(lower));
+    const urlMatch = q.match(/https?:\/\/[^\s<>"']+/i);
+    if (clipIntent && urlMatch) {
+      return formatProposalMessage(
+        "Web clip",
+        "Extracts readable Markdown into archive/notes. Approve to start a background job.",
+        [
+          {
+            type: "acquire_clip",
+            url: urlMatch[0].replace(/[),.;]+$/, ""),
+          },
+        ],
+      );
+    }
+  }
+
+  // Grokipedia
+  {
+    const gpIntent =
+      /\bgrokipedia\b/.test(lower) ||
+      (/\b(fetch|get|acquire|pull|save)\b/.test(lower) &&
+        /\b(encyclopedia|reference\s+article)\b/.test(lower));
+    if (gpIntent) {
+      const urlSlug = q.match(/grokipedia\.com\/page\/([^\s<>"']+)/i)?.[1];
+      const after = q
+        .replace(/^.*?\bgrokipedia\b\s*(article|page|entry)?\s*/i, "")
+        .replace(/^["']|["']$/g, "")
+        .trim();
+      const titleOrSlug = urlSlug
+        ? decodeURIComponent(urlSlug.replace(/[),.;]+$/, ""))
+        : after.length >= 2
+          ? after
+          : null;
+      if (titleOrSlug) {
+        return formatProposalMessage(
+          "Acquire Grokipedia",
+          "Saves the article as Markdown under archive/notes. Approve to start a background job.",
+          [{ type: "acquire_grokipedia", titleOrSlug }],
+        );
+      }
+      return "Name a Grokipedia topic, e.g. **fetch grokipedia Artificial intelligence**.";
+    }
+  }
+
+  // Remote image URL
+  {
+    const imgUrlIntent =
+      /\b(save|download|fetch|acquire|pull)\b/.test(lower) &&
+      /\b(image|png|jpe?g|webp|photo)\b/.test(lower);
+    const urlMatch = q.match(/https?:\/\/[^\s<>"']+\.(?:png|jpe?g|webp|gif)(?:\?[^\s<>"']*)?/i)
+      || (imgUrlIntent ? q.match(/https?:\/\/[^\s<>"']+/i) : null);
+    if (imgUrlIntent && urlMatch) {
+      return formatProposalMessage(
+        "Save image URL",
+        "Downloads https image into archive/images. Approve to start a background job.",
+        [
+          {
+            type: "acquire_image_url",
+            url: urlMatch[0].replace(/[),.;]+$/, ""),
+          },
+        ],
+      );
+    }
+  }
+
   // Multi-step first: create collection X and put/place/add Y (one approve batch)
   const createAndShelve = q.match(
     /\b(?:create|make|new)\s+(?:a\s+)?(?:collection|shelf)\s+(?:titled\s+|called\s+|named\s+)?(.+?)\s+and\s+(?:add|put|place|shelve)\s+(.+)$/i,

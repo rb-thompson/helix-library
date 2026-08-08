@@ -38,6 +38,10 @@ function kindLabel(kind: string): string {
       return "OpenAlex PDF";
     case "clip":
       return "Web clip";
+    case "grokipedia":
+      return "Grokipedia";
+    case "image_url":
+      return "Image URL";
     default:
       return kind;
   }

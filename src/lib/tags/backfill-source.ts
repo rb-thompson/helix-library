@@ -13,6 +13,8 @@ export const ACQUIRE_TAG_NAMES = [
   "grok-image",
   "openalex",
   "clip",
+  "grokipedia",
+  "image-url",
 ] as const;
 
 const ACQUIRE_TAG_IN_LIST = ACQUIRE_TAG_NAMES.map((n) => `'${n}'`).join(", ");

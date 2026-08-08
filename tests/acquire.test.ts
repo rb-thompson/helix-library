@@ -37,6 +37,12 @@ import {
 import { createJob, getJob } from "@/lib/jobs/store";
 import { ACQUIRE_JOB_KINDS } from "@/lib/jobs/types";
 import { ACQUIRE_TAG_NAMES } from "@/lib/tags/backfill-source";
+import {
+  parseGrokipediaSlug,
+  parseGrokipediaSearchHtml,
+  titleFromSlug,
+  grokipediaPageUrl,
+} from "@/lib/acquire/grokipedia";
 import { createTestEnv } from "./helpers/harness";
 
 describe("parseArxivId", () => {
@@ -361,6 +367,55 @@ describe("job kinds openalex/clip", () => {
       const b = createJob({ kind: "clip", label: "https://example.com" });
       assert.equal(getJob(a.id)?.kind, "openalex");
       assert.equal(getJob(b.id)?.kind, "clip");
+    } finally {
+      env.cleanup();
+    }
+  });
+});
+
+
+describe("Grokipedia helpers", () => {
+  it("parses slug and URL forms", () => {
+    assert.equal(parseGrokipediaSlug("Artificial intelligence"), "Artificial_intelligence");
+    assert.equal(
+      parseGrokipediaSlug("https://grokipedia.com/page/Artificial_intelligence"),
+      "Artificial_intelligence",
+    );
+    assert.equal(parseGrokipediaSlug("Helix"), "Helix");
+    assert.equal(parseGrokipediaSlug(""), null);
+  });
+
+  it("builds page URLs and titles", () => {
+    assert.match(grokipediaPageUrl("Artificial_intelligence"), /\/page\/Artificial_intelligence$/);
+    assert.equal(titleFromSlug("Artificial_intelligence"), "Artificial intelligence");
+  });
+
+  it("parses search HTML for /page/ links", () => {
+    const html = `
+      <a href="/page/Helix">Helix</a>
+      <a href="/page/Project_Helix">Project</a>
+      <a href="/page/Helix">dup</a>
+    `;
+    const hits = parseGrokipediaSearchHtml(html);
+    assert.equal(hits.length, 2);
+    assert.equal(hits[0]!.slug, "Helix");
+    assert.equal(hits[1]!.slug, "Project_Helix");
+  });
+});
+
+describe("job kinds grokipedia/image_url", () => {
+  it("includes new kinds in ACQUIRE_JOB_KINDS", () => {
+    assert.ok(ACQUIRE_JOB_KINDS.includes("grokipedia"));
+    assert.ok(ACQUIRE_JOB_KINDS.includes("image_url"));
+  });
+
+  it("round-trips new job kinds", () => {
+    const env = createTestEnv();
+    try {
+      const a = createJob({ kind: "grokipedia", label: "Helix" });
+      const b = createJob({ kind: "image_url", label: "https://x/a.png" });
+      assert.equal(getJob(a.id)?.kind, "grokipedia");
+      assert.equal(getJob(b.id)?.kind, "image_url");
     } finally {
       env.cleanup();
     }

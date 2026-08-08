@@ -4,7 +4,9 @@ export type HelixJobKind =
   | "youtube"
   | "image"
   | "openalex"
-  | "clip";
+  | "clip"
+  | "grokipedia"
+  | "image_url";
 
 export type HelixJobStatus =
   | "pending"
@@ -43,6 +45,8 @@ export const ACQUIRE_JOB_KINDS = [
   "image",
   "openalex",
   "clip",
+  "grokipedia",
+  "image_url",
 ] as const;
 export type AcquireJobKind = (typeof ACQUIRE_JOB_KINDS)[number];
 

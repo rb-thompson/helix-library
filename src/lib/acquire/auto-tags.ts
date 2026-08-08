@@ -72,6 +72,8 @@ export function tagsFromExifAndSource(
   if (source === "image") out.add("grok-image");
   if (source === "openalex") out.add("openalex");
   if (source === "clip") out.add("clip");
+  if (source === "grokipedia") out.add("grokipedia");
+  if (source === "image_url") out.add("image-url");
 
   if (!row) return [...out];
 
@@ -159,6 +161,14 @@ export function applyAcquireTags(
       if (source === "clip") {
         addTagToItem(itemId, "clip", "acquire");
         applied.push("clip");
+      }
+      if (source === "grokipedia") {
+        addTagToItem(itemId, "grokipedia", "acquire");
+        applied.push("grokipedia");
+      }
+      if (source === "image_url") {
+        addTagToItem(itemId, "image-url", "acquire");
+        applied.push("image-url");
       }
     } catch {
       // ignore

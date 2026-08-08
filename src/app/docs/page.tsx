@@ -358,6 +358,16 @@ export default function DocsPage() {
               URL frontmatter.
             </li>
             <li>
+              <strong>Grokipedia</strong> — search or fetch reference articles
+              from grokipedia.com into{" "}
+              <code className="code-inline">archive/notes/</code> (preferred over
+              Wikipedia).
+            </li>
+            <li>
+              <strong>Image URL</strong> — save a remote https image (png/jpeg/webp)
+              into <code className="code-inline">archive/images/</code>.
+            </li>
+            <li>
               <strong>YouTube / podcast</strong> — needs host{" "}
               <code className="code-inline">yt-dlp</code> on{" "}
               <code className="code-inline">PATH</code> (and often{" "}

@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-08-07  
 **Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`)  
-**Status:** Daily-usable OPAC. **Curation & intake shipped.** **Discovery season shipped.** **Acquire depth Tier 1 shipped** (OpenAlex + web clip + Grok image fix) — [designs/2026-08-acquire-depth.md](./designs/2026-08-acquire-depth.md). Optional Discovery **PR6** open events and Acquire Tier 2 (Grokipedia) remain stretch.
+**Status:** Daily-usable OPAC. **Curation & intake shipped.** **Discovery season shipped.** **Acquire depth Tier 1 + Tier 2 (Grokipedia, image URL) + Ask acquire parity shipped** — [designs/2026-08-acquire-depth.md](./designs/2026-08-acquire-depth.md). Optional Discovery **PR6** open events, export/backup, Gutenberg remain stretch.
 
 Read [AGENTS.md](../AGENTS.md) first, then this file.
 
@@ -46,10 +46,10 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | Graph `/graph` | Theme-aware phosphor; **2D + 3D**; physics; cap chips + `totalItems`; client-only load |
 | Reindex | Async + poll; `npm run watch` optional |
 | Ask | Viewport chat; sticky composer; **holding chip** + `holdingItemId`; Grok/local approve |
-| **Acquire `/acquire`** | arXiv; **OpenAlex** search/DOI → OA PDF only; **web clip** URL → Markdown notes; YT/podcast (yt-dlp); Grok image (`grok-imagine-image-quality` + b64/url); SSRF-safe outbound; async jobs + progress; auto-tags |
+| **Acquire `/acquire`** | arXiv; OpenAlex OA PDF; web clip; **Grokipedia**; **image URL**; YT/podcast; Grok image; Ask propose+approve for all acquire kinds; SSRF outbound; jobs + auto-tags |
 | Theme / nav | Dark/light; **light helix mark** swap; Primary + More (Locations, **Acquire**, Services, Docs) |
 | Shell | `.shell-x`, `--shell-max` wider at 2xl |
-| Tests | `npm test` — **143 pass** |
+| Tests | `npm test` — **148 pass** |
 | Docs | In-app `/docs` includes Acquire, reading room, smart shelves, graph |
 | **Reading room (PR1a+1b)** | Text/code continuous + PDF.js page mode (canvas + text layer); `helix-read-position` scroll/page; `?room=1`; public unbundled pdf.min.mjs |
 | **Read → act (PR2)** | Selection toolbar Tag/Ask/Copy; `/ask?item=`; transport `holdingItemId` + quote; system appendix; local summarize → indexed body |
@@ -162,7 +162,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 1. **Optional Discovery PR6** — server `item_events` open tracking (stretch). See discovery design.  
 2. yt-dlp JS runtime (optional deno) for more formats  
 3. Export/backup story  
-4. **Acquire Tier 2** — Grokipedia article → Markdown (preferred over Wikipedia); Gutenberg stretch — see [designs/2026-08-acquire-depth.md](./designs/2026-08-acquire-depth.md)  
+4. **Gutenberg / Standard Ebooks** stretch book intake  
 5. Embeddings / semantic search (explicit non-goal)
 
 **Season “Curation & intake” (2026-08):** PR1–PR7 landed — see [designs/2026-08-curation-intake.md](./designs/2026-08-curation-intake.md).  

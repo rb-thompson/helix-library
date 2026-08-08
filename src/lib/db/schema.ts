@@ -78,7 +78,7 @@ export const jobs = sqliteTable(
     createdAt: integer("created_at")
       .notNull()
       .default(sql`(unixepoch() * 1000)`),
-    /** reindex | arxiv | youtube | image | openalex | clip */
+    /** reindex | arxiv | youtube | image | openalex | clip | grokipedia | image_url */
     kind: text("kind").notNull().default("reindex"),
     label: text("label"),
     progressJson: text("progress_json"),

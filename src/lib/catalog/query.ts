@@ -659,7 +659,8 @@ export type TitleSource =
   | "yt-dlp"
   | "pdf"
   | "openalex"
-  | "clip";
+  | "clip"
+  | "grokipedia";
 
 /** Set catalog display title without renaming on-disk basename. */
 export function setItemCatalogTitle(

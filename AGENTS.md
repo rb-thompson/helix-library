@@ -148,7 +148,7 @@ npm run build            # before calling a slice “done”
 - Config + SQLite catalog + hybrid FTS/LIKE + snippets/highlights
 - Indexer + enrichment; media (unicode-safe serve); EXIF; optional `npm run watch`
 - Catalog + weeding (`?missing=1`); video **thumb editor**; tag hygiene
-- **`/acquire`** ILL desk: arXiv; **OpenAlex** OA PDFs (accuracy-gated); **web clip** → notes; yt-dlp YT/podcast; Grok Imagine (default `grok-imagine-image-quality`) + auto-tags
+- **`/acquire`** ILL desk: arXiv; OpenAlex OA PDFs; web clip; **Grokipedia**; image URL; yt-dlp; Grok Imagine; Ask propose+approve for acquires
 - **Reading room** — text/code continuous + PDF.js page mode (text layer); `helix-read-position`
 - **Smart shelves** — query-backed collections; catalog/graph resolve; live counts
 - **Related holdings** on item detail (folder / tags / co-shelved)

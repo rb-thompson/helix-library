@@ -42,8 +42,20 @@ type JobProgress = {
   detail?: string;
 };
 
-type JobKind = "arxiv" | "youtube" | "image" | "openalex" | "clip";
-type BusyKind = JobKind | "arxiv-search" | "openalex-search" | null;
+type JobKind =
+  | "arxiv"
+  | "youtube"
+  | "image"
+  | "openalex"
+  | "clip"
+  | "grokipedia"
+  | "image_url";
+type BusyKind =
+  | JobKind
+  | "arxiv-search"
+  | "openalex-search"
+  | "grokipedia-search"
+  | null;
 
 type ArxivHit = {
   id: string;
@@ -71,6 +83,12 @@ type OpenAlexHit = {
   openAlexUrl: string;
 };
 
+type GrokipediaHit = {
+  slug: string;
+  title: string;
+  url: string;
+};
+
 export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
   const [caps, setCaps] = useState(initialCaps);
   const [arxivMode, setArxivMode] = useState<"search" | "id">("search");
@@ -88,6 +106,11 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
   const [oaFetchingId, setOaFetchingId] = useState<string | null>(null);
 
   const [clipUrl, setClipUrl] = useState("");
+  const [gpIn, setGpIn] = useState("");
+  const [gpHits, setGpHits] = useState<GrokipediaHit[]>([]);
+  const [gpSearchErr, setGpSearchErr] = useState<string | null>(null);
+  const [gpFetching, setGpFetching] = useState<string | null>(null);
+  const [imgUrl, setImgUrl] = useState("");
   const [ytUrl, setYtUrl] = useState("");
   const [ytMode, setYtMode] = useState<"video" | "audio">("video");
   const [prompt, setPrompt] = useState("");
@@ -96,12 +119,16 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
   const [arxivResult, setArxivResult] = useState<ResultBox | null>(null);
   const [oaResult, setOaResult] = useState<ResultBox | null>(null);
   const [clipResult, setClipResult] = useState<ResultBox | null>(null);
+  const [gpResult, setGpResult] = useState<ResultBox | null>(null);
+  const [imgUrlResult, setImgUrlResult] = useState<ResultBox | null>(null);
   const [ytResult, setYtResult] = useState<ResultBox | null>(null);
   const [imgResult, setImgResult] = useState<ResultBox | null>(null);
 
   const [arxivProgress, setArxivProgress] = useState<JobProgress | null>(null);
   const [oaProgress, setOaProgress] = useState<JobProgress | null>(null);
   const [clipProgress, setClipProgress] = useState<JobProgress | null>(null);
+  const [gpProgress, setGpProgress] = useState<JobProgress | null>(null);
+  const [imgUrlProgress, setImgUrlProgress] = useState<JobProgress | null>(null);
   const [ytProgress, setYtProgress] = useState<JobProgress | null>(null);
   const [imgProgress, setImgProgress] = useState<JobProgress | null>(null);
 
@@ -136,7 +163,9 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
     else if (kind === "youtube") setYtProgress(p);
     else if (kind === "image") setImgProgress(p);
     else if (kind === "openalex") setOaProgress(p);
-    else setClipProgress(p);
+    else if (kind === "clip") setClipProgress(p);
+    else if (kind === "grokipedia") setGpProgress(p);
+    else setImgUrlProgress(p);
   }
 
   async function pollJob(
@@ -293,6 +322,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
       setBusy(null);
       setFetchingId(null);
       setOaFetchingId(null);
+      setGpFetching(null);
       setTimeout(() => {
         setProgress(kind, null);
       }, 2500);
@@ -372,6 +402,43 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
       { idOrDoi },
       "openalex",
       setOaResult,
+    );
+  }
+
+  async function searchGrokipedia() {
+    const q = gpIn.trim();
+    if (!q || busy) return;
+    setBusy("grokipedia-search");
+    setGpSearchErr(null);
+    setGpHits([]);
+    setGpResult(null);
+    try {
+      const res = await fetch(
+        `/api/acquire/grokipedia/search?q=${encodeURIComponent(q)}&max=12`,
+      );
+      const data = await res.json();
+      if (!res.ok || !data.ok) {
+        setGpSearchErr(data.error ?? "Search failed");
+        return;
+      }
+      setGpHits((data.hits as GrokipediaHit[]) ?? []);
+      if (!data.hits?.length) {
+        setGpSearchErr("No Grokipedia pages matched that query.");
+      }
+    } catch (e) {
+      setGpSearchErr(e instanceof Error ? e.message : "Search failed");
+    } finally {
+      setBusy(null);
+    }
+  }
+
+  function fetchGrokipedia(titleOrSlug: string) {
+    setGpFetching(titleOrSlug);
+    void post(
+      "/api/acquire/grokipedia",
+      { titleOrSlug },
+      "grokipedia",
+      setGpResult,
     );
   }
 
@@ -911,6 +978,191 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
           </button>
           <ProgressPanel progress={clipProgress} active={busy === "clip"} />
           <ResultPanel result={clipResult} />
+        </section>
+
+        {/* Grokipedia */}
+        <section
+          className={cn(
+            "surface flex flex-col p-4 sm:p-5",
+            gpHits.length > 0 && "md:col-span-2",
+          )}
+        >
+          <div className="flex items-start gap-2">
+            <Globe className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
+            <div>
+              <h2 className="text-base font-semibold tracking-tight text-[var(--ink)]">
+                Grokipedia
+              </h2>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Reference articles from{" "}
+                <a
+                  href="https://grokipedia.com"
+                  className="link-accent"
+                  target="_blank"
+                  rel="noreferrer"
+                >
+                  grokipedia.com
+                </a>{" "}
+                → Markdown in <code className="code-inline">archive/notes/</code>
+                . Preferred over Wikipedia.
+              </p>
+            </div>
+          </div>
+          <label className="mt-4 block">
+            <span className="label-quiet">Topic, slug, or page URL</span>
+            <input
+              className="field"
+              value={gpIn}
+              onChange={(e) => setGpIn(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  e.preventDefault();
+                  void searchGrokipedia();
+                }
+              }}
+              placeholder="Artificial intelligence or /page/…"
+              disabled={busy !== null || !caps.archiveWritable}
+            />
+          </label>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="btn btn-primary min-h-11"
+              disabled={
+                busy !== null || !gpIn.trim() || !caps.archiveWritable
+              }
+              onClick={() => void searchGrokipedia()}
+            >
+              {busy === "grokipedia-search" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Search className="h-4 w-4" />
+              )}
+              Search
+            </button>
+            <button
+              type="button"
+              className="btn btn-ghost min-h-11"
+              disabled={
+                busy !== null || !gpIn.trim() || !caps.archiveWritable
+              }
+              onClick={() => fetchGrokipedia(gpIn.trim())}
+              title="Fetch using the input as title/slug/URL without searching"
+            >
+              {busy === "grokipedia" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4" />
+              )}
+              Fetch page
+            </button>
+          </div>
+          {gpSearchErr ? (
+            <p className="mt-2 text-xs text-[var(--danger)]" role="alert">
+              {gpSearchErr}
+            </p>
+          ) : null}
+          {gpHits.length > 0 ? (
+            <ul className="mt-3 max-h-60 space-y-2 overflow-y-auto">
+              {gpHits.map((hit) => (
+                <li
+                  key={hit.slug}
+                  className="flex flex-col gap-2 rounded-[var(--radius-sm)] border border-[var(--line)] bg-[var(--paper-deep)] p-2.5 sm:flex-row sm:items-center sm:justify-between"
+                >
+                  <div className="min-w-0">
+                    <p className="text-sm font-semibold text-[var(--ink)]">
+                      {hit.title}
+                    </p>
+                    <p className="font-mono text-[0.65rem] text-[var(--muted)]">
+                      {hit.slug}
+                    </p>
+                  </div>
+                  <div className="flex shrink-0 gap-1.5">
+                    <a
+                      href={hit.url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="btn btn-ghost btn-sm"
+                    >
+                      Open
+                    </a>
+                    <button
+                      type="button"
+                      className="btn btn-primary btn-sm"
+                      disabled={busy !== null || !caps.archiveWritable}
+                      onClick={() => fetchGrokipedia(hit.slug)}
+                    >
+                      {gpFetching === hit.slug && busy === "grokipedia" ? (
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      ) : (
+                        <Download className="h-3.5 w-3.5" />
+                      )}
+                      Fetch
+                    </button>
+                  </div>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <ProgressPanel
+            progress={gpProgress}
+            active={busy === "grokipedia"}
+          />
+          <ResultPanel result={gpResult} />
+        </section>
+
+        {/* Image URL */}
+        <section className="surface flex flex-col p-4 sm:p-5">
+          <div className="flex items-start gap-2">
+            <ImageIcon className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
+            <div>
+              <h2 className="text-base font-semibold tracking-tight text-[var(--ink)]">
+                Image URL
+              </h2>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Found images (not generated) →{" "}
+                <code className="code-inline">archive/images/</code>. https only;
+                png/jpeg/webp magic required.
+              </p>
+            </div>
+          </div>
+          <label className="mt-4 block">
+            <span className="label-quiet">Image URL</span>
+            <input
+              className="field"
+              value={imgUrl}
+              onChange={(e) => setImgUrl(e.target.value)}
+              placeholder="https://…/photo.png"
+              disabled={busy !== null || !caps.archiveWritable}
+            />
+          </label>
+          <button
+            type="button"
+            className="btn btn-primary mt-3 min-h-11 w-full sm:w-auto"
+            disabled={
+              busy !== null || !imgUrl.trim() || !caps.archiveWritable
+            }
+            onClick={() =>
+              void post(
+                "/api/acquire/image-url",
+                { url: imgUrl.trim() },
+                "image_url",
+                setImgUrlResult,
+              )
+            }
+          >
+            {busy === "image_url" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <Download className="h-4 w-4" />
+            )}
+            {busy === "image_url" ? "Downloading…" : "Save image"}
+          </button>
+          <ProgressPanel
+            progress={imgUrlProgress}
+            active={busy === "image_url"}
+          />
+          <ResultPanel result={imgUrlResult} />
         </section>
 
         {/* YouTube */}

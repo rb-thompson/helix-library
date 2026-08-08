@@ -23,12 +23,16 @@ import {
   updateCollection,
 } from "@/lib/collections/manage";
 import { acquireArxivPdf, parseArxivId } from "@/lib/acquire/arxiv";
+import { acquireWebClip, isAllowedClipUrl } from "@/lib/acquire/clip";
 import { acquireGrokImage } from "@/lib/acquire/grok-image";
+import { acquireGrokipedia, parseGrokipediaSlug } from "@/lib/acquire/grokipedia";
+import { acquireImageUrl } from "@/lib/acquire/image-url";
 import {
   createAcquireJob,
   isAcquireBusy,
   runAcquireJob,
 } from "@/lib/acquire/jobs";
+import { acquireOpenAlexPdf, parseDoi, parseOpenAlexWorkId } from "@/lib/acquire/openalex";
 import {
   acquireYoutube,
   normalizeYoutubeUrl,
@@ -76,6 +80,10 @@ export type LibrarianAction =
       prompt: string;
       filenameHint?: string;
     }
+  | { type: "acquire_openalex"; idOrDoi: string }
+  | { type: "acquire_clip"; url: string }
+  | { type: "acquire_grokipedia"; titleOrSlug: string }
+  | { type: "acquire_image_url"; url: string; filenameHint?: string }
   | {
       type: "merge_tags";
       sourceTagIds: number[];
@@ -114,6 +122,10 @@ const ACTION_TYPES = new Set([
   "acquire_arxiv",
   "acquire_youtube",
   "acquire_image",
+  "acquire_openalex",
+  "acquire_clip",
+  "acquire_grokipedia",
+  "acquire_image_url",
   "merge_tags",
   "rename_tag",
 ]);
@@ -216,6 +228,14 @@ export function actionLabel(action: LibrarianAction): string {
       return "Download media";
     case "acquire_image":
       return "Generate image";
+    case "acquire_openalex":
+      return "Fetch OpenAlex PDF";
+    case "acquire_clip":
+      return "Clip web page";
+    case "acquire_grokipedia":
+      return "Fetch Grokipedia";
+    case "acquire_image_url":
+      return "Save image URL";
     case "merge_tags":
       return "Merge tags";
     case "rename_tag":
@@ -305,6 +325,14 @@ export function describeAction(action: LibrarianAction): string {
         p.length > 120 ? `${p.slice(0, 120)}…` : p;
       return `Generate Grok image for prompt “${preview}” into Archive (needs \`XAI_API_KEY\`). Progress on **Services** or [/acquire](/acquire).`;
     }
+    case "acquire_openalex":
+      return `Download OpenAlex OA PDF for **${action.idOrDoi}** into Archive (only if a direct PDF URL exists). Progress on **Services** or [/acquire](/acquire).`;
+    case "acquire_clip":
+      return `Clip page \`${action.url}\` to Markdown under Archive notes. Progress on **Services** or [/acquire](/acquire).`;
+    case "acquire_grokipedia":
+      return `Fetch Grokipedia article **${action.titleOrSlug}** into Archive notes. Progress on **Services** or [/acquire](/acquire).`;
+    case "acquire_image_url":
+      return `Download image from \`${action.url}\` into Archive images. Progress on **Services** or [/acquire](/acquire).`;
     case "merge_tags": {
       const n = action.sourceTagIds.length;
       const target =
@@ -593,6 +621,114 @@ export function executeLibrarianAction(action: LibrarianAction): ActionResult {
           action,
           message: `Started acquire job #${job.id} (Grok image). Progress on [Services](/services) or [Acquire](/acquire).`,
           data: { jobId: job.id, kind: "image" },
+        };
+      }
+      case "acquire_openalex": {
+        const idOrDoi = action.idOrDoi.trim();
+        if (!idOrDoi) throw new Error("DOI or OpenAlex work id is required");
+        if (!parseDoi(idOrDoi) && !parseOpenAlexWorkId(idOrDoi)) {
+          throw new Error(
+            "Paste a DOI (10.…) or OpenAlex work id (W…). Use search on /acquire for free text.",
+          );
+        }
+        if (isAcquireBusy("openalex")) {
+          return {
+            ok: false,
+            action,
+            message: "An OpenAlex download is already running. Wait for it.",
+          };
+        }
+        const job = createAcquireJob("openalex", idOrDoi.slice(0, 100));
+        void runAcquireJob(job, async (report) => {
+          const result = await acquireOpenAlexPdf(idOrDoi, report, {
+            jobId: job.id,
+          });
+          return { ...result };
+        });
+        return {
+          ok: true,
+          action,
+          message: `Started acquire job #${job.id} (OpenAlex). Progress on [Services](/services) or [Acquire](/acquire).`,
+          data: { jobId: job.id, kind: "openalex" },
+        };
+      }
+      case "acquire_clip": {
+        const url = action.url.trim();
+        if (!url) throw new Error("URL is required");
+        if (!isAllowedClipUrl(url)) {
+          throw new Error("URL is not allowed (http(s) only; no private hosts).");
+        }
+        if (isAcquireBusy("clip")) {
+          return {
+            ok: false,
+            action,
+            message: "A web clip is already running. Wait for it.",
+          };
+        }
+        const job = createAcquireJob("clip", url.slice(0, 100));
+        void runAcquireJob(job, async (report) => {
+          const result = await acquireWebClip(url, report, { jobId: job.id });
+          return { ...result };
+        });
+        return {
+          ok: true,
+          action,
+          message: `Started acquire job #${job.id} (web clip). Progress on [Services](/services) or [Acquire](/acquire).`,
+          data: { jobId: job.id, kind: "clip" },
+        };
+      }
+      case "acquire_grokipedia": {
+        const titleOrSlug = action.titleOrSlug.trim();
+        if (!titleOrSlug) throw new Error("Grokipedia title or slug is required");
+        if (!parseGrokipediaSlug(titleOrSlug)) {
+          throw new Error(
+            "Could not parse Grokipedia page. Try a title, slug, or grokipedia.com/page/… URL.",
+          );
+        }
+        if (isAcquireBusy("grokipedia")) {
+          return {
+            ok: false,
+            action,
+            message: "A Grokipedia acquire is already running. Wait for it.",
+          };
+        }
+        const job = createAcquireJob("grokipedia", titleOrSlug.slice(0, 100));
+        void runAcquireJob(job, async (report) => {
+          const result = await acquireGrokipedia(titleOrSlug, report, {
+            jobId: job.id,
+          });
+          return { ...result };
+        });
+        return {
+          ok: true,
+          action,
+          message: `Started acquire job #${job.id} (Grokipedia). Progress on [Services](/services) or [Acquire](/acquire).`,
+          data: { jobId: job.id, kind: "grokipedia" },
+        };
+      }
+      case "acquire_image_url": {
+        const url = action.url.trim();
+        if (!url) throw new Error("Image URL is required");
+        if (isAcquireBusy("image_url")) {
+          return {
+            ok: false,
+            action,
+            message: "An image URL download is already running. Wait for it.",
+          };
+        }
+        const job = createAcquireJob("image_url", url.slice(0, 100));
+        void runAcquireJob(job, async (report) => {
+          const result = await acquireImageUrl(url, report, {
+            jobId: job.id,
+            filenameHint: action.filenameHint,
+          });
+          return { ...result };
+        });
+        return {
+          ok: true,
+          action,
+          message: `Started acquire job #${job.id} (image URL). Progress on [Services](/services) or [Acquire](/acquire).`,
+          data: { jobId: job.id, kind: "image_url" },
         };
       }
       case "merge_tags": {
