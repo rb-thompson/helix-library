@@ -15,11 +15,13 @@ import {
   ChevronRight,
   Download,
   ExternalLink,
+  PictureInPicture2,
   RotateCcw,
   X,
   ZoomIn,
   ZoomOut,
 } from "lucide-react";
+import { useMiniPlayerOptional } from "@/components/player/MiniPlayerProvider";
 
 export type LightboxItem = {
   id: number;
@@ -43,6 +45,9 @@ export function MediaLightbox({
   onClose: () => void;
 }) {
   const titleId = useId();
+  const mini = useMiniPlayerOptional();
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
   const startIndex = Math.max(
     0,
     items.findIndex((i) => i.id === startId),
@@ -142,6 +147,23 @@ export function MediaLightbox({
   const isVideo = current.kind === "video";
   const isAudio = current.kind === "audio";
   const zoomed = zoom > 1.01;
+  const canMini = (isVideo || isAudio) && mini != null;
+
+  function popOutMini() {
+    if (!mini || (!isVideo && !isAudio)) return;
+    const el = isVideo ? videoRef.current : audioRef.current;
+    const startAt = el && Number.isFinite(el.currentTime) ? el.currentTime : 0;
+    el?.pause();
+    mini.play(
+      {
+        itemId: current.id,
+        name: current.name,
+        kind: isVideo ? "video" : "audio",
+      },
+      { startAt, autoplay: true },
+    );
+    onClose();
+  }
 
   function onWheel(e: ReactWheelEvent) {
     if (!isImage) return;
@@ -235,6 +257,17 @@ export function MediaLightbox({
               </button>
             </>
           ) : null}
+          {canMini ? (
+            <button
+              type="button"
+              onClick={popOutMini}
+              title="Continue in mini player while browsing"
+              className="media-theater-btn sm:gap-1.5 sm:px-2.5 sm:py-1.5"
+            >
+              <PictureInPicture2 className="h-3.5 w-3.5" aria-hidden />
+              <span className="hidden sm:inline">Mini player</span>
+            </button>
+          ) : null}
           <Link
             href={`/catalog/${current.id}`}
             title="Open full item page with metadata, EXIF, and curation"
@@ -311,6 +344,7 @@ export function MediaLightbox({
           {isVideo ? (
             <video
               key={current.id}
+              ref={videoRef}
               controls
               autoPlay
               playsInline
@@ -326,6 +360,7 @@ export function MediaLightbox({
               </p>
               <audio
                 key={current.id}
+                ref={audioRef}
                 controls
                 autoPlay
                 className="w-full"

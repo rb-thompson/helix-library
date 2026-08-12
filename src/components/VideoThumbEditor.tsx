@@ -2,7 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import { useRef, useState } from "react";
-import { ImagePlus, Loader2, RefreshCw, Trash2 } from "lucide-react";
+import { ImagePlus, RefreshCw, Trash2 } from "lucide-react";
+import { HelixSpinner } from "@/components/icons/HelixSpinner";
 import { cn } from "@/lib/cn";
 
 /**
@@ -161,7 +162,7 @@ export function VideoThumbEditor({
                 onClick={() => grabFrame(seek)}
               >
                 {busy ? (
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                  <HelixSpinner size="sm" decorative />
                 ) : (
                   <RefreshCw className="h-3.5 w-3.5" />
                 )}

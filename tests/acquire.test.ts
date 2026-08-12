@@ -27,9 +27,14 @@ import {
 import {
   assertUnderArchive,
   getArchiveRoot,
+  getDefaultArchiveRoot,
+  listAcquireTargets,
+  resolveArchiveRootFromLocationId,
+  runWithArchiveRoot,
   sanitizeFilename,
   safeArchivePath,
 } from "@/lib/acquire/paths";
+import { syncLocationsFromConfig } from "@/lib/locations/sync";
 import {
   normalizeYoutubeUrl,
   parseYtDlpProgressLine,
@@ -96,10 +101,50 @@ describe("acquire path safety", () => {
     try {
       const root = getArchiveRoot();
       assert.ok(root);
+      assert.equal(getDefaultArchiveRoot(), root);
       assert.throws(() => safeArchivePath("documents", "../etc/passwd"));
       assert.throws(() => assertUnderArchive("/tmp/evil.pdf"));
       const ok = safeArchivePath("documents", "ok-paper.pdf");
       assert.ok(ok.endsWith(`${path.sep}documents${path.sep}ok-paper.pdf`));
+    } finally {
+      env.cleanup();
+    }
+  });
+
+  it("runWithArchiveRoot overrides destination", () => {
+    const env = createTestEnv({
+      root: path.join(process.cwd(), "fixtures", "sample-root"),
+      locationName: "Archive",
+    });
+    try {
+      const other = env.dir;
+      const dest = runWithArchiveRoot(other, () =>
+        safeArchivePath("notes", "clip.md"),
+      );
+      assert.ok(dest.startsWith(other));
+      assert.ok(dest.endsWith(`${path.sep}notes${path.sep}clip.md`));
+      // Outside the ALS override, default root returns
+      assert.ok(!getArchiveRoot().startsWith(path.join(other, "notes")));
+    } finally {
+      env.cleanup();
+    }
+  });
+
+  it("lists targets and resolves location ids", () => {
+    const env = createTestEnv({
+      root: path.join(process.cwd(), "fixtures", "sample-root"),
+      locationName: "Archive",
+    });
+    try {
+      syncLocationsFromConfig();
+      const targets = listAcquireTargets();
+      assert.ok(targets.length >= 1);
+      const arch = targets.find((t) => t.name === "Archive");
+      assert.ok(arch);
+      assert.equal(arch!.writable, true);
+      const root = resolveArchiveRootFromLocationId(arch!.locationId);
+      assert.equal(root, arch!.root);
+      assert.throws(() => resolveArchiveRootFromLocationId(999999));
     } finally {
       env.cleanup();
     }

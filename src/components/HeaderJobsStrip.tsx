@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
-import { Loader2 } from "lucide-react";
+import { HelixSpinner } from "@/components/icons/HelixSpinner";
+
 
 type JobRow = {
   id: number;
@@ -80,7 +81,7 @@ export function HeaderJobsStrip() {
       className="hidden items-center gap-1.5 rounded-full border border-[var(--accent-ring)] bg-[var(--accent-soft)] px-2.5 py-1 text-[0.7rem] font-semibold text-[var(--accent)] transition hover:border-[var(--accent)] lg:inline-flex"
       title={active.map((j) => `#${j.id} ${j.kind}: ${j.label}`).join("\n")}
     >
-      <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+      <HelixSpinner size="sm" decorative />
       <span className="max-w-[9rem] truncate">{label}</span>
     </Link>
   );

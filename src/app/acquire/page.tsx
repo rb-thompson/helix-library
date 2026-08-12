@@ -22,7 +22,8 @@ export default function AcquirePage() {
         <p className="page-sub max-w-2xl">
           Interlibrary loan for your personal stacks — pull remote papers (arXiv
           + OpenAlex OA), web clips, Grokipedia articles, media, and images into
-          Archive holdings, then reindex so they appear in the catalog.
+          a chosen location (project Archive or hot-swap Vault), then reindex so
+          they appear in the catalog.
         </p>
       </div>
 

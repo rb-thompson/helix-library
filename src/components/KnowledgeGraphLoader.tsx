@@ -2,6 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useState } from "react";
+import { HelixSpinner } from "@/components/icons/HelixSpinner";
 import type { KnowledgeGraph } from "@/lib/graph/build";
 import {
   defaultGraphMode,
@@ -9,6 +10,15 @@ import {
   type GraphMode,
 } from "@/lib/client/graph-mode";
 import { cn } from "@/lib/cn";
+
+function GraphLoadingShell({ label }: { label: string }) {
+  return (
+    <div className="graph-shell flex min-h-[22rem] flex-col items-center justify-center gap-3 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--paper)] text-sm text-[var(--muted)] sm:min-h-[28rem]">
+      <HelixSpinner size="lg" label={label} />
+      <span>{label}</span>
+    </div>
+  );
+}
 
 /**
  * Client-only load of 2D or 3D force graph.
@@ -19,11 +29,7 @@ const KnowledgeGraph3D = dynamic(
     import("@/components/KnowledgeGraph").then((m) => m.KnowledgeGraphView),
   {
     ssr: false,
-    loading: () => (
-      <div className="graph-shell flex min-h-[22rem] items-center justify-center rounded-[var(--radius)] border border-[var(--line)] bg-[var(--paper)] text-sm text-[var(--muted)] sm:min-h-[28rem]">
-        Loading 3D graph…
-      </div>
-    ),
+    loading: () => <GraphLoadingShell label="Loading 3D graph…" />,
   },
 );
 
@@ -32,11 +38,7 @@ const KnowledgeGraph2D = dynamic(
     import("@/components/KnowledgeGraph2D").then((m) => m.KnowledgeGraph2DView),
   {
     ssr: false,
-    loading: () => (
-      <div className="graph-shell flex min-h-[22rem] items-center justify-center rounded-[var(--radius)] border border-[var(--line)] bg-[var(--paper)] text-sm text-[var(--muted)] sm:min-h-[28rem]">
-        Loading 2D graph…
-      </div>
-    ),
+    loading: () => <GraphLoadingShell label="Loading 2D graph…" />,
   },
 );
 
@@ -91,9 +93,7 @@ export function KnowledgeGraphLoader({
         </button>
       </div>
       {mode == null ? (
-        <div className="graph-shell flex min-h-[22rem] items-center justify-center rounded-[var(--radius)] border border-[var(--line)] bg-[var(--paper)] text-sm text-[var(--muted)] sm:min-h-[28rem]">
-          Choosing graph mode…
-        </div>
+        <GraphLoadingShell label="Choosing graph mode…" />
       ) : mode === "2d" ? (
         <KnowledgeGraph2D data={data} />
       ) : (

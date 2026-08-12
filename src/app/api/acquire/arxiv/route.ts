@@ -5,6 +5,11 @@ import {
   runAcquireJob,
   serializeAcquireJob,
 } from "@/lib/acquire/jobs";
+import {
+  parseLocationIdBody,
+  resolveArchiveRootFromLocationId,
+  runWithArchiveRootAsync,
+} from "@/lib/acquire/paths";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +18,7 @@ export const maxDuration = 180;
 /** Start arXiv PDF fetch as a job; poll for progress. */
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as { idOrUrl?: string };
+    const body = (await req.json()) as { idOrUrl?: string; locationId?: number };
     const idOrUrl = body.idOrUrl?.trim();
     if (!idOrUrl) {
       return NextResponse.json(
@@ -22,9 +27,14 @@ export async function POST(req: Request) {
       );
     }
 
+    const locationId = parseLocationIdBody(body);
+    const archiveRoot = resolveArchiveRootFromLocationId(locationId);
+
     const job = createAcquireJob("arxiv", idOrUrl.slice(0, 80));
     void runAcquireJob(job, async (report) => {
-      const result = await acquireArxivPdf(idOrUrl, report);
+      const result = await runWithArchiveRootAsync(archiveRoot, () =>
+        acquireArxivPdf(idOrUrl, report),
+      );
       return { ...result };
     });
 

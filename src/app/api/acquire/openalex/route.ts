@@ -6,6 +6,11 @@ import {
   runAcquireJob,
   serializeAcquireJob,
 } from "@/lib/acquire/jobs";
+import {
+  parseLocationIdBody,
+  resolveArchiveRootFromLocationId,
+  runWithArchiveRootAsync,
+} from "@/lib/acquire/paths";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +18,11 @@ export const maxDuration = 180;
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as { idOrDoi?: string; workId?: string };
+    const body = (await req.json()) as {
+      idOrDoi?: string;
+      workId?: string;
+      locationId?: number;
+    };
     const idOrDoi = (body.idOrDoi ?? body.workId)?.trim();
     if (!idOrDoi) {
       return NextResponse.json(
@@ -32,11 +41,16 @@ export async function POST(req: Request) {
       );
     }
 
+    const locationId = parseLocationIdBody(body);
+    const archiveRoot = resolveArchiveRootFromLocationId(locationId);
+
     const job = createAcquireJob("openalex", idOrDoi.slice(0, 100));
     void runAcquireJob(job, async (report) => {
-      const result = await acquireOpenAlexPdf(idOrDoi, report, {
-        jobId: job.id,
-      });
+      const result = await runWithArchiveRootAsync(archiveRoot, () =>
+        acquireOpenAlexPdf(idOrDoi, report, {
+          jobId: job.id,
+        }),
+      );
       return { ...result };
     });
 

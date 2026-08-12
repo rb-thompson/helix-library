@@ -5,10 +5,10 @@ import Link from "next/link";
 import {
   AlertTriangle,
   Check,
-  Loader2,
   Tags,
   Trash2,
 } from "lucide-react";
+import { HelixSpinner } from "@/components/icons/HelixSpinner";
 import type { RescueSnapshot } from "@/lib/catalog/rescue";
 
 type FailedJob = RescueSnapshot["failedJobs"][number];
@@ -119,7 +119,7 @@ export function RescuePanel({ rescue }: { rescue: RescueSnapshot }) {
               className="surface-inset flex h-full flex-col gap-1 rounded-[var(--radius-md)] p-3 transition hover:border-[var(--accent-ring)]"
             >
               <span className="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-[var(--accent)]">
-                <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden />
+                <HelixSpinner size="sm" decorative />
                 Running
               </span>
               <span className="text-lg font-semibold tabular-nums text-[var(--ink)]">
@@ -176,7 +176,7 @@ export function RescuePanel({ rescue }: { rescue: RescueSnapshot }) {
               onClick={() => void dismiss({ allFailed: true })}
             >
               {busy === "all" ? (
-                <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                <HelixSpinner size="sm" decorative />
               ) : (
                 <Check className="h-3.5 w-3.5" />
               )}
@@ -213,7 +213,7 @@ export function RescuePanel({ rescue }: { rescue: RescueSnapshot }) {
                     onClick={() => void dismiss({ id: job.id })}
                   >
                     {busy === job.id ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <HelixSpinner size="sm" decorative />
                     ) : (
                       <Check className="h-3.5 w-3.5" />
                     )}

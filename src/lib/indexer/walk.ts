@@ -48,13 +48,15 @@ export async function* walkFiles(
         continue;
       }
 
-      // Also ignore well-known heavy dirs by name even if patterns miss
+      // Also ignore well-known heavy / foreign-volume dirs by name
       if (
         entry.isDirectory() &&
         (entry.name === "node_modules" ||
           entry.name === ".git" ||
           entry.name === ".next" ||
-          entry.name === "target")
+          entry.name === "target" ||
+          entry.name === "$RECYCLE.BIN" ||
+          entry.name === "System Volume Information")
       ) {
         onSkipped?.("ignored", absPath);
         continue;

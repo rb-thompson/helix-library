@@ -303,7 +303,9 @@ export default function DocsPage() {
             <code className="code-inline">
               library.config.json
             </code>
-            .
+            . Removable drives work as locations: if the path is missing at
+            reindex time, that branch is skipped and holdings can show as
+            missing until the volume remounts at the same path.
           </p>
         </section>
 

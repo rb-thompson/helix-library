@@ -6,6 +6,7 @@ import { useEffect, useId, useRef, useState } from "react";
 import { ChevronDown, Menu, X } from "lucide-react";
 import { HeaderJobsStrip } from "@/components/HeaderJobsStrip";
 import { HelixMark } from "@/components/HelixMark";
+import { NavIcon } from "@/components/icons/nav";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import {
   PRIMARY_NAV,
@@ -101,7 +102,8 @@ export function Header() {
                 title={item.tip}
                 className={cn("nav-link", active && "is-active")}
               >
-                {item.label}
+                <NavIcon name={item.icon} />
+                <span>{item.label}</span>
               </Link>
             );
           })}
@@ -144,18 +146,21 @@ export function Header() {
                       role="menuitem"
                       title={item.tip}
                       className={cn(
-                        "flex flex-col rounded-[calc(var(--radius-sm)-2px)] px-2.5 py-2 transition",
+                        "nav-more-item flex items-start gap-2.5 rounded-[calc(var(--radius-sm)-2px)] px-2.5 py-2 transition",
                         active
-                          ? "bg-[var(--accent-soft)] text-[var(--ink)]"
+                          ? "is-active bg-[var(--accent-soft)] text-[var(--ink)]"
                           : "text-[var(--ink-soft)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink)]",
                       )}
                       onClick={() => setMoreOpen(false)}
                     >
-                      <span className="text-[0.8125rem] font-medium">
-                        {item.label}
-                      </span>
-                      <span className="text-[0.65rem] text-[var(--muted)]">
-                        {item.tip}
+                      <NavIcon name={item.icon} className="mt-0.5" />
+                      <span className="min-w-0 flex flex-col">
+                        <span className="text-[0.8125rem] font-medium">
+                          {item.label}
+                        </span>
+                        <span className="text-[0.65rem] text-[var(--muted)]">
+                          {item.tip}
+                        </span>
                       </span>
                     </Link>
                   );
@@ -214,18 +219,21 @@ export function Header() {
                         href={item.href}
                         title={item.tip}
                         className={cn(
-                          "flex items-center justify-between gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 transition",
+                          "nav-drawer-link flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 transition",
                           active
-                            ? "bg-[var(--accent-soft)] text-[var(--ink)]"
+                            ? "is-active bg-[var(--accent-soft)] text-[var(--ink)]"
                             : "text-[var(--ink)] hover:bg-[var(--surface-hover)]",
                         )}
                         onClick={() => setOpen(false)}
                       >
-                        <span className="text-sm font-semibold">
-                          {item.label}
-                        </span>
-                        <span className="truncate text-xs text-[var(--muted)]">
-                          {item.tip}
+                        <NavIcon name={item.icon} className="!h-[1.15rem] !w-[1.15rem]" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold">
+                            {item.label}
+                          </span>
+                          <span className="block truncate text-xs text-[var(--muted)]">
+                            {item.tip}
+                          </span>
                         </span>
                       </Link>
                     </li>
@@ -243,16 +251,21 @@ export function Header() {
                         href={item.href}
                         title={item.tip}
                         className={cn(
-                          "flex items-center justify-between gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 transition",
+                          "nav-drawer-link flex items-center gap-3 rounded-[var(--radius-sm)] px-3 py-2.5 transition",
                           active
-                            ? "bg-[var(--accent-soft)] text-[var(--ink)]"
+                            ? "is-active bg-[var(--accent-soft)] text-[var(--ink)]"
                             : "text-[var(--ink-soft)] hover:bg-[var(--surface-hover)] hover:text-[var(--ink)]",
                         )}
                         onClick={() => setOpen(false)}
                       >
-                        <span className="text-sm font-medium">{item.label}</span>
-                        <span className="truncate text-xs text-[var(--muted)]">
-                          {item.tip}
+                        <NavIcon name={item.icon} className="!h-[1.15rem] !w-[1.15rem]" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-medium">
+                            {item.label}
+                          </span>
+                          <span className="block truncate text-xs text-[var(--muted)]">
+                            {item.tip}
+                          </span>
                         </span>
                       </Link>
                     </li>

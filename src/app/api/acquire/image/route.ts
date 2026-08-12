@@ -6,6 +6,11 @@ import {
   serializeAcquireJob,
   updateJobProgress,
 } from "@/lib/acquire/jobs";
+import {
+  parseLocationIdBody,
+  resolveArchiveRootFromLocationId,
+  runWithArchiveRootAsync,
+} from "@/lib/acquire/paths";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +18,10 @@ export const maxDuration = 180;
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as { prompt?: string };
+    const body = (await req.json()) as {
+      prompt?: string;
+      locationId?: number;
+    };
     const prompt = body.prompt?.trim();
     if (!prompt) {
       return NextResponse.json(
@@ -21,6 +29,9 @@ export async function POST(req: Request) {
         { status: 400 },
       );
     }
+
+    const locationId = parseLocationIdBody(body);
+    const archiveRoot = resolveArchiveRootFromLocationId(locationId);
 
     const job = createAcquireJob("image", prompt.slice(0, 80));
     void runAcquireJob(job, async (report) => {
@@ -41,7 +52,9 @@ export async function POST(req: Request) {
         }
       }, 2000);
       try {
-        const result = await acquireGrokImage(prompt);
+        const result = await runWithArchiveRootAsync(archiveRoot, () =>
+          acquireGrokImage(prompt),
+        );
         report({
           stage: "reindexing",
           percent: 92,

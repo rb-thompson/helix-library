@@ -5,9 +5,9 @@ import {
   Archive,
   Download,
   HardDrive,
-  Loader2,
   Trash2,
 } from "lucide-react";
+import { HelixSpinner } from "@/components/icons/HelixSpinner";
 import { cn } from "@/lib/cn";
 import { formatBytes, formatDate } from "@/lib/format";
 
@@ -177,7 +177,7 @@ export function BackupPanel() {
           onClick={() => void start("catalog")}
         >
           {busy === "catalog" ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <HelixSpinner size="md" decorative />
           ) : (
             <HardDrive className="h-4 w-4" />
           )}
@@ -191,7 +191,7 @@ export function BackupPanel() {
           title="Includes enabled location file trees — may be large"
         >
           {busy === "full" ? (
-            <Loader2 className="h-4 w-4 animate-spin" />
+            <HelixSpinner size="md" decorative />
           ) : (
             <Archive className="h-4 w-4" />
           )}
@@ -294,7 +294,7 @@ export function BackupPanel() {
                     onClick={() => void remove(b.name)}
                   >
                     {deleting === b.name ? (
-                      <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      <HelixSpinner size="sm" decorative />
                     ) : (
                       <Trash2 className="h-3.5 w-3.5" />
                     )}

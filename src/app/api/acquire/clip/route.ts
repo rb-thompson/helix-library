@@ -6,6 +6,11 @@ import {
   runAcquireJob,
   serializeAcquireJob,
 } from "@/lib/acquire/jobs";
+import {
+  parseLocationIdBody,
+  resolveArchiveRootFromLocationId,
+  runWithArchiveRootAsync,
+} from "@/lib/acquire/paths";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +18,7 @@ export const maxDuration = 120;
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as { url?: string };
+    const body = (await req.json()) as { url?: string; locationId?: number };
     const url = body.url?.trim();
     if (!url) {
       return NextResponse.json(
@@ -32,9 +37,14 @@ export async function POST(req: Request) {
       );
     }
 
+    const locationId = parseLocationIdBody(body);
+    const archiveRoot = resolveArchiveRootFromLocationId(locationId);
+
     const job = createAcquireJob("clip", url.slice(0, 100));
     void runAcquireJob(job, async (report) => {
-      const result = await acquireWebClip(url, report, { jobId: job.id });
+      const result = await runWithArchiveRootAsync(archiveRoot, () =>
+        acquireWebClip(url, report, { jobId: job.id }),
+      );
       return { ...result };
     });
 

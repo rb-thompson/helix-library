@@ -21,7 +21,11 @@
     "**/__pycache__/**",
     "**/.venv/**",
     "**/venv/**",
-    "**/README.md"
+    "**/README.md",
+    "**/$RECYCLE.BIN/**",
+    "**/System Volume Information/**",
+    "**/Thumbs.db",
+    "**/desktop.ini"
   ],
   "maxFileBytes": 2147483648,
   "hashFullUnderBytes": 67108864

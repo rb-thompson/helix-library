@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
+import { HelixSpinner } from "@/components/icons/HelixSpinner";
 import { Tooltip } from "@/components/Tooltip";
 import { StatusLine } from "@/components/ui/StatusLine";
 import type { IndexJobStats } from "@/lib/types";
@@ -122,10 +123,11 @@ export function ReindexButton({
           disabled={running}
           className="btn btn-primary"
         >
-          <RefreshCw
-            className={`h-4 w-4 ${running ? "animate-spin" : ""}`}
-            aria-hidden
-          />
+          {running ? (
+            <HelixSpinner size="md" decorative />
+          ) : (
+            <RefreshCw className="h-4 w-4" aria-hidden />
+          )}
           {running ? "Reindexing…" : "Run reindex"}
         </button>
       </Tooltip>

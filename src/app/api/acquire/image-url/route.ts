@@ -6,6 +6,11 @@ import {
   runAcquireJob,
   serializeAcquireJob,
 } from "@/lib/acquire/jobs";
+import {
+  parseLocationIdBody,
+  resolveArchiveRootFromLocationId,
+  runWithArchiveRootAsync,
+} from "@/lib/acquire/paths";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -16,6 +21,7 @@ export async function POST(req: Request) {
     const body = (await req.json()) as {
       url?: string;
       filenameHint?: string;
+      locationId?: number;
     };
     const url = body.url?.trim();
     if (!url) {
@@ -35,12 +41,17 @@ export async function POST(req: Request) {
       );
     }
 
+    const locationId = parseLocationIdBody(body);
+    const archiveRoot = resolveArchiveRootFromLocationId(locationId);
+
     const job = createAcquireJob("image_url", url.slice(0, 100));
     void runAcquireJob(job, async (report) => {
-      const result = await acquireImageUrl(url, report, {
-        jobId: job.id,
-        filenameHint: body.filenameHint,
-      });
+      const result = await runWithArchiveRootAsync(archiveRoot, () =>
+        acquireImageUrl(url, report, {
+          jobId: job.id,
+          filenameHint: body.filenameHint,
+        }),
+      );
       return { ...result };
     });
 

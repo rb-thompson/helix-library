@@ -8,21 +8,23 @@ import {
   FileText,
   Globe,
   ImageIcon,
-  Loader2,
   Search,
   Video,
   XCircle,
 } from "lucide-react";
+import { HelixSpinner } from "@/components/icons/HelixSpinner";
 import {
   AcquireModuleCard,
   type AcquireModuleId,
 } from "@/components/AcquireModuleCard";
 import { cn } from "@/lib/cn";
 import { formatBytes } from "@/lib/format";
+import type { AcquireTarget } from "@/lib/acquire/paths";
 
 type Caps = {
   archiveRoot: string;
   archiveWritable: boolean;
+  targets: AcquireTarget[];
   ytDlp: boolean;
   ytDlpVersion: string | null;
   grokImage: boolean;
@@ -95,6 +97,7 @@ type GrokipediaHit = {
 
 
 const ACQUIRE_OPEN_KEY = "helix-acquire-open-v1";
+const ACQUIRE_LOCATION_KEY = "helix-acquire-location-v1";
 
 const DEFAULT_OPEN: Record<AcquireModuleId, boolean> = {
   arxiv: false,
@@ -126,8 +129,42 @@ function saveOpenModules(state: Record<AcquireModuleId, boolean>) {
   }
 }
 
+function loadStoredLocationId(): number | null {
+  if (typeof window === "undefined") return null;
+  try {
+    const raw = localStorage.getItem(ACQUIRE_LOCATION_KEY);
+    if (!raw) return null;
+    const n = Number(raw);
+    return Number.isInteger(n) && n > 0 ? n : null;
+  } catch {
+    return null;
+  }
+}
+
+function pickLocationId(
+  targets: AcquireTarget[],
+  preferred: number | null,
+): number | null {
+  if (!targets.length) return null;
+  if (preferred != null) {
+    const hit = targets.find((t) => t.locationId === preferred);
+    if (hit) return hit.locationId;
+  }
+  const writable = targets.find((t) => t.writable);
+  if (writable) return writable.locationId;
+  const available = targets.find((t) => t.available);
+  if (available) return available.locationId;
+  return targets[0]?.locationId ?? null;
+}
+
 export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
-  const [caps, setCaps] = useState(initialCaps);
+  const [caps, setCaps] = useState<Caps>({
+    ...initialCaps,
+    targets: initialCaps.targets ?? [],
+  });
+  const [locationId, setLocationId] = useState<number | null>(() =>
+    pickLocationId(initialCaps.targets ?? [], null),
+  );
   const [arxivMode, setArxivMode] = useState<"search" | "id">("search");
   const [arxivIn, setArxivIn] = useState("");
   const [arxivHits, setArxivHits] = useState<ArxivHit[]>([]);
@@ -176,9 +213,13 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
       const res = await fetch("/api/acquire/status");
       const data = await res.json();
       if (data.ok) {
+        const targets = (Array.isArray(data.targets)
+          ? data.targets
+          : []) as AcquireTarget[];
         setCaps({
           archiveRoot: data.archiveRoot,
           archiveWritable: data.archiveWritable,
+          targets,
           ytDlp: data.ytDlp,
           ytDlpVersion: data.ytDlpVersion,
           grokImage: data.grokImage,
@@ -187,6 +228,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
           imageModel: data.imageModel,
           openAlexKey: data.openAlexKey,
         });
+        setLocationId((prev) => pickLocationId(targets, prev));
       }
     } catch {
       // ignore
@@ -200,7 +242,24 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
   useEffect(() => {
     setOpenMods(loadOpenModules());
     setOpenReady(true);
-  }, []);
+    const stored = loadStoredLocationId();
+    setLocationId((prev) =>
+      pickLocationId(caps.targets, stored ?? prev),
+    );
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps -- mount-only hydrate
+
+  useEffect(() => {
+    if (locationId == null) return;
+    try {
+      localStorage.setItem(ACQUIRE_LOCATION_KEY, String(locationId));
+    } catch {
+      /* ignore */
+    }
+  }, [locationId]);
+
+  const selectedTarget =
+    caps.targets.find((t) => t.locationId === locationId) ?? null;
+  const canWrite = Boolean(selectedTarget?.writable);
 
   useEffect(() => {
     if (!openReady) return;
@@ -342,6 +401,15 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
     kind: JobKind,
     setResult: (r: ResultBox | null) => void,
   ) {
+    if (!canWrite || locationId == null) {
+      setResult({
+        ok: false,
+        message: selectedTarget
+          ? `Destination “${selectedTarget.name}” is not writable (unmounted?).`
+          : "Select a writable archive destination first.",
+      });
+      return;
+    }
     setBusy(kind);
     setResult(null);
     setProgress(kind, {
@@ -353,7 +421,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
       const res = await fetch(url, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body),
+        body: JSON.stringify({ ...body, locationId }),
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
@@ -529,45 +597,105 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      <div className="flex flex-wrap gap-1.5 text-xs">
-        <span className="chip chip-stat" title={caps.archiveRoot}>
-          <span className="chip-label">Archive</span>
-          <span className="chip-value max-w-[12rem] truncate font-mono text-[0.65rem]">
-            {caps.archiveRoot}
-          </span>
-        </span>
-        <span
-          className={cn(
-            "chip chip-stat",
-            caps.archiveWritable ? "" : "text-[var(--danger)]",
-          )}
-        >
-          <span className="chip-label">Writable</span>
-          <span className="chip-value">{caps.archiveWritable ? "yes" : "no"}</span>
-        </span>
-        <span className={cn("chip chip-stat", !caps.ytDlp && "opacity-70")}>
-          <span className="chip-label">yt-dlp</span>
-          <span className="chip-value">
-            {caps.ytDlp ? caps.ytDlpVersion ?? "ok" : "missing"}
-          </span>
-        </span>
-        <span
-          className={cn(
-            "chip chip-stat",
-            !caps.openAlexKey && "opacity-70",
-          )}
-          title="Free key from openalex.org/settings/api improves rate limits"
-        >
-          <span className="chip-label">OpenAlex</span>
-          <span className="chip-value">
-            {caps.openAlexKey ? "keyed" : "no key"}
-          </span>
-        </span>
-        <span className={cn("chip chip-stat", !caps.grokImage && "opacity-70")}>
-          <span className="chip-label">Grok image</span>
-          <span className="chip-value">{grokChipLabel}</span>
-        </span>
-      </div>
+      <section className="surface p-3.5 sm:p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
+          <div className="min-w-0 flex-1">
+            <label
+              htmlFor="acquire-destination"
+              className="text-xs font-medium uppercase tracking-wide text-[var(--muted)]"
+            >
+              Destination archive
+            </label>
+            <p className="mt-0.5 text-xs text-[var(--muted-faint)]">
+              Holdings land under this location’s folders (
+              <code className="code-inline">documents/</code>,{" "}
+              <code className="code-inline">video/</code>, …). Removable drives
+              appear when mounted.
+            </p>
+            <select
+              id="acquire-destination"
+              className="input mt-2 w-full max-w-xl font-mono text-sm"
+              value={locationId ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                setLocationId(v ? Number(v) : null);
+              }}
+              disabled={busy != null || caps.targets.length === 0}
+            >
+              {caps.targets.length === 0 ? (
+                <option value="">No enabled locations</option>
+              ) : (
+                caps.targets.map((t) => (
+                  <option
+                    key={t.locationId}
+                    value={t.locationId}
+                    disabled={!t.available}
+                  >
+                    {t.name}
+                    {!t.available
+                      ? " (unmounted)"
+                      : !t.writable
+                        ? " (read-only)"
+                        : ""}
+                    {" — "}
+                    {t.root}
+                  </option>
+                ))
+              )}
+            </select>
+          </div>
+          <div className="flex flex-wrap gap-1.5 text-xs">
+            <span
+              className="chip chip-stat"
+              title={selectedTarget?.root ?? caps.archiveRoot}
+            >
+              <span className="chip-label">Writing to</span>
+              <span className="chip-value max-w-[10rem] truncate font-mono text-[0.65rem]">
+                {selectedTarget?.name ?? "—"}
+              </span>
+            </span>
+            <span
+              className={cn(
+                "chip chip-stat",
+                canWrite ? "" : "text-[var(--danger)]",
+              )}
+            >
+              <span className="chip-label">Writable</span>
+              <span className="chip-value">{canWrite ? "yes" : "no"}</span>
+            </span>
+            <span className={cn("chip chip-stat", !caps.ytDlp && "opacity-70")}>
+              <span className="chip-label">yt-dlp</span>
+              <span className="chip-value">
+                {caps.ytDlp ? caps.ytDlpVersion ?? "ok" : "missing"}
+              </span>
+            </span>
+            <span
+              className={cn("chip chip-stat", !caps.openAlexKey && "opacity-70")}
+              title="Free key from openalex.org/settings/api improves rate limits"
+            >
+              <span className="chip-label">OpenAlex</span>
+              <span className="chip-value">
+                {caps.openAlexKey ? "keyed" : "no key"}
+              </span>
+            </span>
+            <span
+              className={cn("chip chip-stat", !caps.grokImage && "opacity-70")}
+            >
+              <span className="chip-label">Grok image</span>
+              <span className="chip-value">{grokChipLabel}</span>
+            </span>
+          </div>
+        </div>
+        {!canWrite && selectedTarget ? (
+          <p className="mt-2 text-xs text-[var(--danger)]">
+            “{selectedTarget.name}” is not writable right now
+            {!selectedTarget.available
+              ? " (path missing — plug in the drive?)"
+              : ""}
+            . Choose another destination or remount.
+          </p>
+        ) : null}
+      </section>
 
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-[var(--muted)]">
@@ -676,7 +804,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
               onClick={() => void searchArxiv()}
             >
               {busy === "arxiv-search" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <HelixSpinner size="md" decorative />
               ) : (
                 <Search className="h-4 w-4" />
               )}
@@ -692,7 +820,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
               onClick={() => fetchArxivId(arxivIn.trim())}
             >
               {busy === "arxiv" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <HelixSpinner size="md" decorative />
               ) : (
                 <Download className="h-4 w-4" />
               )}
@@ -759,7 +887,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
                           onClick={() => fetchArxivId(hit.id)}
                         >
                           {fetchingId === hit.id && busy === "arxiv" ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            <HelixSpinner size="sm" decorative />
                           ) : (
                             <Download className="h-3.5 w-3.5" />
                           )}
@@ -875,7 +1003,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
               onClick={() => void searchOpenAlex()}
             >
               {busy === "openalex-search" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <HelixSpinner size="md" decorative />
               ) : (
                 <Search className="h-4 w-4" />
               )}
@@ -891,7 +1019,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
               onClick={() => fetchOpenAlex(oaIn.trim())}
             >
               {busy === "openalex" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <HelixSpinner size="md" decorative />
               ) : (
                 <Download className="h-4 w-4" />
               )}
@@ -1004,7 +1132,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
                           >
                             {oaFetchingId === (hit.doi ?? hit.id) &&
                             busy === "openalex" ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                              <HelixSpinner size="sm" decorative />
                             ) : (
                               <Download className="h-3.5 w-3.5" />
                             )}
@@ -1072,7 +1200,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             }
           >
             {busy === "clip" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <HelixSpinner size="md" decorative />
             ) : (
               <Download className="h-4 w-4" />
             )}
@@ -1136,7 +1264,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
               onClick={() => void searchGrokipedia()}
             >
               {busy === "grokipedia-search" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <HelixSpinner size="md" decorative />
               ) : (
                 <Search className="h-4 w-4" />
               )}
@@ -1152,7 +1280,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
               title="Search or fetch: free text searches; exact slugs/URLs fetch directly"
             >
               {busy === "grokipedia" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
+                <HelixSpinner size="md" decorative />
               ) : (
                 <Download className="h-4 w-4" />
               )}
@@ -1195,7 +1323,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
                       onClick={() => fetchGrokipedia(hit.slug)}
                     >
                       {gpFetching === hit.slug && busy === "grokipedia" ? (
-                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                        <HelixSpinner size="sm" decorative />
                       ) : (
                         <Download className="h-3.5 w-3.5" />
                       )}
@@ -1253,7 +1381,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             }
           >
             {busy === "image_url" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <HelixSpinner size="md" decorative />
             ) : (
               <Download className="h-4 w-4" />
             )}
@@ -1340,7 +1468,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             }
           >
             {busy === "youtube" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <HelixSpinner size="md" decorative />
             ) : (
               <Download className="h-4 w-4" />
             )}
@@ -1427,7 +1555,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             }
           >
             {busy === "image" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
+              <HelixSpinner size="md" decorative />
             ) : (
               <ImageIcon className="h-4 w-4" />
             )}
@@ -1469,7 +1597,7 @@ function ProgressPanel({
       <div className="flex items-center justify-between gap-2 text-xs">
         <span className="inline-flex items-center gap-1.5 font-medium capitalize text-[var(--ink)]">
           {active ? (
-            <Loader2 className="h-3.5 w-3.5 animate-spin text-[var(--ok)]" />
+            <HelixSpinner size="sm" decorative className="text-[var(--ok)]" />
           ) : null}
           {progress.stage.replace(/_/g, " ")}
         </span>

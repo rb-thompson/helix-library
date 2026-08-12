@@ -5,6 +5,11 @@ import {
   runAcquireJob,
   serializeAcquireJob,
 } from "@/lib/acquire/jobs";
+import {
+  parseLocationIdBody,
+  resolveArchiveRootFromLocationId,
+  runWithArchiveRootAsync,
+} from "@/lib/acquire/paths";
 import { acquireYoutube, type YoutubeMode } from "@/lib/acquire/youtube";
 
 export const runtime = "nodejs";
@@ -21,6 +26,7 @@ export async function POST(req: Request) {
     const body = (await req.json()) as {
       url?: string;
       mode?: YoutubeMode;
+      locationId?: number;
     };
     const url = body.url?.trim();
     if (!url) {
@@ -41,13 +47,18 @@ export async function POST(req: Request) {
       );
     }
 
+    const locationId = parseLocationIdBody(body);
+    const archiveRoot = resolveArchiveRootFromLocationId(locationId);
+
     const job = createAcquireJob("youtube", url.slice(0, 100));
 
     // Fire-and-forget: do not await (prevents proxy/browser timeout → NetworkError)
     void runAcquireJob(job, async (report) => {
-      const result = await acquireYoutube(url, mode, report, {
-        jobId: job.id,
-      });
+      const result = await runWithArchiveRootAsync(archiveRoot, () =>
+        acquireYoutube(url, mode, report, {
+          jobId: job.id,
+        }),
+      );
       return { ...result };
     });
 

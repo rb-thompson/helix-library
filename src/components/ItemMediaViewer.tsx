@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
-import { Download, Maximize2 } from "lucide-react";
+import { useEffect, useRef, useState } from "react";
+import { Download, Maximize2, PictureInPicture2 } from "lucide-react";
 import { DocumentReadingRoom } from "@/components/DocumentReadingRoom";
 import { MediaLightbox, type LightboxItem } from "@/components/MediaLightbox";
+import { useMiniPlayerOptional } from "@/components/player/MiniPlayerProvider";
 import { Tooltip } from "@/components/Tooltip";
 import type { MediaPreview } from "@/lib/media/preview-types";
 import {
@@ -26,7 +27,21 @@ export function ItemMediaViewer({
   indexedBody?: string | null;
 }) {
   const [open, setOpen] = useState(false);
+  const videoRef = useRef<HTMLVideoElement | null>(null);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const mini = useMiniPlayerOptional();
   const useRoom = supportsReadingRoom(item, preview);
+
+  const miniActive =
+    mini?.isActiveItem(item.id) &&
+    (preview.type === "video" || preview.type === "audio");
+
+  // Pause inline media when mini player takes over this item
+  useEffect(() => {
+    if (!miniActive) return;
+    videoRef.current?.pause();
+    audioRef.current?.pause();
+  }, [miniActive, mini?.playing]);
 
   if (useRoom) {
     const mode = readingRoomMode(item, preview);
@@ -57,10 +72,30 @@ export function ItemMediaViewer({
     preview.type === "video" ||
     preview.type === "audio";
 
+  const canMini =
+    (preview.type === "video" || preview.type === "audio") && mini != null;
+
   const lightboxItems =
     neighbors.length > 0
       ? neighbors
       : [{ id: item.id, name: item.name, kind: item.kind }];
+
+  function popOutMini() {
+    if (!mini || (preview.type !== "video" && preview.type !== "audio")) return;
+    const el =
+      preview.type === "video" ? videoRef.current : audioRef.current;
+    const startAt = el && Number.isFinite(el.currentTime) ? el.currentTime : 0;
+    el?.pause();
+    mini.play(
+      {
+        itemId: item.id,
+        name: item.name,
+        kind: preview.type,
+        mime: preview.mime,
+      },
+      { startAt, autoplay: true },
+    );
+  }
 
   return (
     <>
@@ -68,8 +103,25 @@ export function ItemMediaViewer({
         <div className="media-theater-bar">
           <p className="text-xs font-medium uppercase tracking-wide text-white/45">
             Preview
+            {miniActive ? (
+              <span className="ml-2 normal-case tracking-normal text-white/55">
+                · playing in mini player
+              </span>
+            ) : null}
           </p>
           <div className="flex items-center gap-2">
+            {canMini ? (
+              <Tooltip content="Continue in the docked mini player while you browse the catalog.">
+                <button
+                  type="button"
+                  onClick={popOutMini}
+                  className="media-theater-btn"
+                >
+                  <PictureInPicture2 className="h-3.5 w-3.5" aria-hidden />
+                  Mini player
+                </button>
+              </Tooltip>
+            ) : null}
             {canLightbox ? (
               <Tooltip content="Fullscreen lightbox. Arrow keys move among similar media; Esc closes.">
                 <button
@@ -96,18 +148,22 @@ export function ItemMediaViewer({
 
         <div
           className={`flex min-h-[12rem] items-center justify-center p-3 sm:p-4 ${
-            canLightbox ? "cursor-zoom-in" : ""
+            canLightbox && preview.type === "image" ? "cursor-zoom-in" : ""
           }`}
-          onClick={canLightbox ? () => setOpen(true) : undefined}
+          onClick={
+            canLightbox && preview.type === "image"
+              ? () => setOpen(true)
+              : undefined
+          }
           onKeyDown={
-            canLightbox
+            canLightbox && preview.type === "image"
               ? (e) => {
                   if (e.key === "Enter" || e.key === " ") setOpen(true);
                 }
               : undefined
           }
-          role={canLightbox ? "button" : undefined}
-          tabIndex={canLightbox ? 0 : undefined}
+          role={canLightbox && preview.type === "image" ? "button" : undefined}
+          tabIndex={canLightbox && preview.type === "image" ? 0 : undefined}
         >
           {preview.type === "image" ? (
             // eslint-disable-next-line @next/next/no-img-element
@@ -120,23 +176,45 @@ export function ItemMediaViewer({
           ) : null}
 
           {preview.type === "video" ? (
-            <video
-              controls
-              playsInline
-              preload="metadata"
-              poster={
-                // may 404 if no poster — browser ignores
-                `/api/thumbs/${item.id}`
-              }
-              className="max-h-[70vh] w-full max-w-4xl rounded-md bg-black"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <source
-                src={preview.src}
-                type={preview.mime ?? "video/mp4"}
-              />
-              <a href={preview.src}>Download video</a>
-            </video>
+            miniActive ? (
+              <div className="flex w-full max-w-4xl flex-col items-center gap-3 py-10 text-center">
+                <p className="text-sm text-white/70">
+                  Playing in the mini player at the bottom of the screen.
+                </p>
+                <div className="flex flex-wrap justify-center gap-2">
+                  <button
+                    type="button"
+                    className="media-theater-btn"
+                    onClick={() => mini?.toggle()}
+                  >
+                    {mini?.playing ? "Pause" : "Resume"}
+                  </button>
+                  <button
+                    type="button"
+                    className="media-theater-btn"
+                    onClick={() => mini?.stop()}
+                  >
+                    Return here
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <video
+                ref={videoRef}
+                controls
+                playsInline
+                preload="metadata"
+                poster={`/api/thumbs/${item.id}`}
+                className="max-h-[70vh] w-full max-w-4xl rounded-md bg-black"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <source
+                  src={preview.src}
+                  type={preview.mime ?? "video/mp4"}
+                />
+                <a href={preview.src}>Download video</a>
+              </video>
+            )
           ) : null}
 
           {preview.type === "audio" ? (
@@ -147,18 +225,41 @@ export function ItemMediaViewer({
               <p className="mb-3 text-center text-sm text-white/70">
                 {item.name}
               </p>
-              <audio
-                controls
-                className="w-full"
-                src={preview.src}
-                preload="metadata"
-              >
-                <a href={preview.src}>Download audio</a>
-              </audio>
+              {miniActive ? (
+                <div className="flex flex-col items-center gap-3 text-center">
+                  <p className="text-sm text-white/60">
+                    Playing in the mini player.
+                  </p>
+                  <div className="flex flex-wrap justify-center gap-2">
+                    <button
+                      type="button"
+                      className="media-theater-btn"
+                      onClick={() => mini?.toggle()}
+                    >
+                      {mini?.playing ? "Pause" : "Resume"}
+                    </button>
+                    <button
+                      type="button"
+                      className="media-theater-btn"
+                      onClick={() => mini?.stop()}
+                    >
+                      Return here
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <audio
+                  ref={audioRef}
+                  controls
+                  className="w-full"
+                  src={preview.src}
+                  preload="metadata"
+                >
+                  <a href={preview.src}>Download audio</a>
+                </audio>
+              )}
             </div>
           ) : null}
-
-          {/* PDF + text are handled by DocumentReadingRoom above */}
 
           {preview.type === "none" ? (
             <p className="px-4 py-10 text-center text-sm text-[var(--muted-faint)]">

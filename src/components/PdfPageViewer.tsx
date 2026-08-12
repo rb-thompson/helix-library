@@ -7,12 +7,8 @@ import {
   useState,
   type KeyboardEvent,
 } from "react";
-import {
-  ChevronLeft,
-  ChevronRight,
-  Download,
-  Loader2,
-} from "lucide-react";
+import { ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { HelixSpinner } from "@/components/icons/HelixSpinner";
 import {
   getReadPosition,
   setReadPosition,
@@ -377,7 +373,7 @@ export function PdfPageViewer({
       <div
         className={`flex ${heightClass} flex-col items-center justify-center gap-2 p-6 text-sm text-white/50`}
       >
-        <Loader2 className="h-5 w-5 animate-spin" aria-hidden />
+        <HelixSpinner size="lg" decorative />
         Opening PDF…
       </div>
     );
@@ -459,7 +455,7 @@ export function PdfPageViewer({
         </button>
         {rendering ? (
           <span className="inline-flex items-center gap-1 text-[0.65rem] text-white/40">
-            <Loader2 className="h-3 w-3 animate-spin" aria-hidden />
+            <HelixSpinner size="sm" decorative />
             Render
           </span>
         ) : null}

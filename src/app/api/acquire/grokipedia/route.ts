@@ -6,6 +6,11 @@ import {
   runAcquireJob,
   serializeAcquireJob,
 } from "@/lib/acquire/jobs";
+import {
+  parseLocationIdBody,
+  resolveArchiveRootFromLocationId,
+  runWithArchiveRootAsync,
+} from "@/lib/acquire/paths";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -13,7 +18,11 @@ export const maxDuration = 120;
 
 export async function POST(req: Request) {
   try {
-    const body = (await req.json()) as { titleOrSlug?: string; slug?: string };
+    const body = (await req.json()) as {
+      titleOrSlug?: string;
+      slug?: string;
+      locationId?: number;
+    };
     const titleOrSlug = (body.titleOrSlug ?? body.slug)?.trim();
     if (!titleOrSlug) {
       return NextResponse.json(
@@ -32,11 +41,16 @@ export async function POST(req: Request) {
       );
     }
 
+    const locationId = parseLocationIdBody(body);
+    const archiveRoot = resolveArchiveRootFromLocationId(locationId);
+
     const job = createAcquireJob("grokipedia", titleOrSlug.slice(0, 100));
     void runAcquireJob(job, async (report) => {
-      const result = await acquireGrokipedia(titleOrSlug, report, {
-        jobId: job.id,
-      });
+      const result = await runWithArchiveRootAsync(archiveRoot, () =>
+        acquireGrokipedia(titleOrSlug, report, {
+          jobId: job.id,
+        }),
+      );
       return { ...result };
     });
 

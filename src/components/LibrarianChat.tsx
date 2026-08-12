@@ -4,13 +4,13 @@ import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport, type UIMessage } from "ai";
 import { useEffect, useMemo, useRef, useState } from "react";
 import {
-  Loader2,
   MessageSquare,
   Send,
   Sparkles,
   Trash2,
   X,
 } from "lucide-react";
+import { HelixSpinner } from "@/components/icons/HelixSpinner";
 import { AssistantMarkdown } from "@/components/AssistantMarkdown";
 import { Tooltip } from "@/components/Tooltip";
 import { cn } from "@/lib/cn";
@@ -619,7 +619,7 @@ export function LibrarianChat({
           )}
           {busy ? (
             <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
-              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+              <HelixSpinner size="sm" decorative />
               Librarian is working…
             </div>
           ) : null}

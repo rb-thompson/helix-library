@@ -14,9 +14,9 @@ import {
   Download,
   Maximize2,
   Minimize2,
-  Loader2,
   MessageSquareText,
 } from "lucide-react";
+import { HelixSpinner } from "@/components/icons/HelixSpinner";
 import {
   getReadPosition,
   setReadPosition,
@@ -36,7 +36,7 @@ const PdfPageViewer = dynamic(
     ssr: false,
     loading: () => (
       <div className="flex min-h-[16rem] items-center justify-center gap-2 text-sm text-white/50">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+        <HelixSpinner size="md" decorative />
         Loading PDF reader…
       </div>
     ),
@@ -336,7 +336,7 @@ function TextReadingPane({
   if (loading) {
     return (
       <div className="flex flex-1 items-center justify-center gap-2 text-sm text-white/50">
-        <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+        <HelixSpinner size="md" decorative />
         Loading text…
       </div>
     );

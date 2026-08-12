@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
+import { MiniPlayerProvider } from "@/components/player/MiniPlayerProvider";
 import { SearchHotkey } from "@/components/SearchHotkey";
 import { ThemeScript } from "@/components/ThemeScript";
 import "./globals.css";
@@ -62,16 +63,18 @@ export default function RootLayout({
         >
           Skip to content
         </a>
-        <Header />
-        <SearchHotkey />
-        <main
-          id="main-content"
-          tabIndex={-1}
-          className="shell-x flex-1 py-4 outline-none sm:py-6 lg:py-7"
-        >
-          {children}
-        </main>
-        <Footer />
+        <MiniPlayerProvider>
+          <Header />
+          <SearchHotkey />
+          <main
+            id="main-content"
+            tabIndex={-1}
+            className="shell-x flex-1 py-4 outline-none sm:py-6 lg:py-7"
+          >
+            {children}
+          </main>
+          <Footer />
+        </MiniPlayerProvider>
       </body>
     </html>
   );
