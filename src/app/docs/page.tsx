@@ -377,12 +377,16 @@ export default function DocsPage() {
               <code className="code-inline">library.db</code> file). Holdings
               trees are not overwritten. Localhost only; LAN restore HTTP is
               off unless{" "}
-              <code className="code-inline">NON_OS_RESTORE_OK=1</code>. CLI:{" "}
+              <code className="code-inline">NON_OS_RESTORE_OK=1</code>. CLI:
+              inspect with{" "}
               <code className="code-inline">
                 npm run restore -- --inspect &lt;name&gt;
-              </code>{" "}
-              then{" "}
-              <code className="code-inline">--phrase RESTORE</code>. Manual
+              </code>
+              ; apply with{" "}
+              <code className="code-inline">
+                --name &lt;name&gt; --phrase RESTORE
+              </code>
+              . No-args lists jail archives. Manual
               stop-Helix restore remains in each archive&apos;s{" "}
               <code className="code-inline">RESTORE.md</code>.
             </li>

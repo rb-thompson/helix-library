@@ -83,6 +83,7 @@ describe("createBackup RESTORE.md", () => {
     assert.equal(r.status, 0, r.stderr || r.stdout);
     assert.match(r.stdout, /## Restore \(in-app\)/);
     assert.match(r.stdout, /Services → Restore from snapshot/);
-    assert.match(r.stdout, /npm run restore/);
+    assert.match(r.stdout, /npm run restore -- --inspect <name>/);
+    assert.match(r.stdout, /--name <name> --phrase RESTORE/);
   });
 });

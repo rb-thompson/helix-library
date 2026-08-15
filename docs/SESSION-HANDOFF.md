@@ -147,7 +147,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | `src/components/HoursDesk.tsx` | Home due-slip (“left on the cart”) |
 | `src/lib/backup/*` | Create/list/inspect/apply restore; session + sidecar + LAN gate |
 | `src/components/RestorePanel.tsx` | Services typed-`RESTORE` confirm |
-| `scripts/restore.ts` | `npm run restore` (inspect by default) |
+| `scripts/restore.ts` | `npm run restore` (list by default; `--inspect <name>`; apply with `--name` + `--phrase RESTORE`) |
 
 ---
 

@@ -71,7 +71,7 @@ Personal files under `archive/` are gitignored; `archive/README.md` is tracked.
 | `npm run dev` | UI on http://127.0.0.1:4747 |
 | `npm run reindex` | Index + enrich |
 | `npm run backup` | Catalog snapshot → `data/exports/` (`-- --full` for holdings) |
-| `npm run restore` | Inspect / apply a snapshot (`--inspect <name>` then `--phrase RESTORE`) |
+| `npm run restore` | List exports; `--inspect <name>` preview; `--name <name> --phrase RESTORE` apply |
 | `npm run build` / `npm start` | Production |
 | `npm run typecheck` | Types |
 

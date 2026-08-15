@@ -44,7 +44,7 @@ npm install
 # library.config.json should exist (gitignored); example is committed
 npm run reindex          # index archive/ + other locations
 npm run backup           # catalog → data/exports/ (add -- --full for holdings)
-npm run restore          # inspect / apply a snapshot (--inspect <name>; --phrase RESTORE)
+npm run restore          # list exports; --inspect <name>; apply --name <name> --phrase RESTORE
 npm run dev              # http://127.0.0.1:4747
 npm run typecheck
 npm run test

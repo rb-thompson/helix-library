@@ -152,7 +152,7 @@ function restoreDoc(mode: BackupMode): string {
 2. Inspect the archive, type RESTORE, confirm.
 3. Helix extracts the archive, writes an undo snapshot, then copies the snapshot into the live catalog (same \`library.db\` file).
 
-CLI: \`npm run restore -- --inspect <name>\` then \`--phrase RESTORE\`.
+CLI: inspect with \`npm run restore -- --inspect <name>\`; apply with \`npm run restore -- --name <name> --phrase RESTORE\`. No-args lists jail archives.
 
 Holdings trees are **not** overwritten in-app. Restore HTTP is off on LAN unless \`NON_OS_RESTORE_OK=1\`.
 
