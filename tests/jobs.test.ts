@@ -16,12 +16,18 @@ import {
   failJob,
   getJob,
   importLegacyAcquireJobsFileOnce,
+  isKindBusy,
   listJobs,
   requestCancel,
   resetLegacyImportFlagForTests,
+  toHelixJob,
   updateJobProgress,
 } from "@/lib/jobs/store";
+import { isHelixJobKind } from "@/lib/jobs/types";
 import { getDbPath } from "@/lib/config";
+import { getDb } from "@/lib/db/client";
+import { jobs } from "@/lib/db/schema";
+import { eq } from "drizzle-orm";
 import { createTestEnv, ensureThumbsParent } from "./helpers/harness";
 
 describe("unified jobs store", () => {
@@ -95,6 +101,21 @@ describe("unified jobs store", () => {
     const job = createJob({ kind: "arxiv", label: "to-cancel" });
     const updated = requestCancel(job.id);
     assert.equal(updated?.status, "cancelled");
+  });
+
+  it("isHelixJobKind restore and toHelixJob does not collapse to reindex", () => {
+    assert.equal(isHelixJobKind("restore"), true);
+    assert.equal(isHelixJobKind("nope"), false);
+    assert.equal(isKindBusy("restore"), false);
+
+    const job = createJob({ kind: "restore", label: "Restore snapshot" });
+    assert.equal(job.kind, "restore");
+    assert.equal(getJob(job.id)?.kind, "restore");
+
+    const row = getDb().select().from(jobs).where(eq(jobs.id, job.id)).get();
+    assert.ok(row);
+    assert.equal(row.kind, "restore");
+    assert.equal(toHelixJob(row).kind, "restore");
   });
 
   it("reindex jobs stay separate from getLatestJob", async () => {

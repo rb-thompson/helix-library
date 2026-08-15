@@ -20,6 +20,7 @@ import type {
   HelixJobProgress,
   HelixJobStatus,
 } from "@/lib/jobs/types";
+import { isRestoreSidecarBusy } from "@/lib/backup/progress";
 import { isHelixJobKind } from "@/lib/jobs/types";
 
 const RETENTION = 50;
@@ -499,6 +500,8 @@ export function isCancelRequested(id: number): boolean {
 }
 
 export function isKindBusy(kind: HelixJobKind): boolean {
+  // Snapshot copy replaces the jobs table mid-apply; sidecar is source of truth.
+  if (kind === "restore" && isRestoreSidecarBusy()) return true;
   const sqlite = getSqlite();
   const row = sqlite
     .prepare(

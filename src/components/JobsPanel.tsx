@@ -37,6 +37,8 @@ function kindLabel(kind: string): string {
       return "Reindex";
     case "backup":
       return "Backup";
+    case "restore":
+      return "Restore";
     case "arxiv":
       return "arXiv";
     case "youtube":
