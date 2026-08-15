@@ -1,13 +1,18 @@
 import assert from "node:assert/strict";
-import { describe, it } from "node:test";
+import { spawnSync } from "node:child_process";
+import { after, before, describe, it } from "node:test";
+import { createBackup } from "@/lib/backup/create";
 import {
   BACKUP_NAME_RE,
   buildBackupFilename,
+  exportArchivePath,
   modeFromFilename,
   parseBackupArchiveFilename,
   parseExportFilename,
   stampForFilename,
 } from "@/lib/backup/paths";
+import { getDb } from "@/lib/db/client";
+import { createTestEnv } from "./helpers/harness";
 
 describe("backup paths", () => {
   it("builds standard archive names", () => {
@@ -50,5 +55,34 @@ describe("backup paths", () => {
       () => parseBackupArchiveFilename("notes.json"),
       /tar\.gz/,
     );
+  });
+});
+
+describe("createBackup RESTORE.md", () => {
+  let env: ReturnType<typeof createTestEnv>;
+
+  before(() => {
+    env = createTestEnv();
+    getDb();
+  });
+
+  after(() => {
+    env.cleanup();
+  });
+
+  it("packs the in-app restore path", async () => {
+    const created = await createBackup({
+      mode: "catalog",
+      includeThumbs: false,
+    });
+    const r = spawnSync(
+      "tar",
+      ["-xOf", exportArchivePath(created.name), "RESTORE.md"],
+      { encoding: "utf8" },
+    );
+    assert.equal(r.status, 0, r.stderr || r.stdout);
+    assert.match(r.stdout, /## Restore \(in-app\)/);
+    assert.match(r.stdout, /Services → Restore from snapshot/);
+    assert.match(r.stdout, /npm run restore/);
   });
 });

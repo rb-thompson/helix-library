@@ -20,7 +20,7 @@
 ┌───────────────────────────▼─────────────────────────────────┐
 │  API routes (Node runtime)                                  │
 │  reindex · media · thumbs · locations · collections · tags  │
-│  ask · threads · bulk · acquire · backup · insights · lens  │
+│  ask · threads · bulk · acquire · backup · restore · insights · lens  │
 └───────────────────────────┬─────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
@@ -66,7 +66,7 @@ Client singleton: `src/lib/db/client.ts` (`globalThis` for HMR).
 | `locations` | Scan roots (branches) |
 | `items` | Holdings: path, kind, mime, size, mtimes, hash, title, width/height, duration_ms, is_missing |
 | `item_text` | Extracted text body sample for FTS |
-| `jobs` | Unified job log (reindex, backup, acquire, `lens_analyze`) |
+| `jobs` | Unified job log (reindex, backup, restore, acquire, `lens_analyze`) |
 | `collections` / `collection_items` | Manual shelves + smart shelves (`kind` / `query_json`) |
 | `tags` / `item_tags` | Labels on items (`source`, optional `hidden`) |
 | `chat_threads` / `chat_messages` | Librarian conversations |
@@ -154,7 +154,7 @@ EXIF: `readExif()` via system exiftool when available.
 | `/collections` | Create + list |
 | `/collections/[id]` | Grid/list of shelf items |
 | `/locations` | Admin + ignore display + reindex |
-| `/services` | Reindex, export/backup, machine facts, jobs |
+| `/services` | Reindex, export/backup, restore from snapshot, machine facts, jobs |
 | `/ask` | Chat (optional `?item=` holding context) |
 | `/docs` | End-user getting started |
 | `/lens` / `/lens/[id]` | Deep Lens dossier (kind-object + analysis + Your insights) |
@@ -185,6 +185,15 @@ Responsive: Header client drawer below `lg`; layout `max-w-7xl`.
 | DELETE | `/api/insights/[id]` | Delete one insight |
 | GET/POST | `/api/lens/analyses` | Dossier cache / run analysis |
 | GET | `/api/jobs/[id]` | Poll any job including `lens_analyze` |
+| GET/POST | `/api/backup` | List / create catalog or full export |
+| DELETE | `/api/backup/[name]` | Delete one export |
+| GET | `/api/backup/download/[name]` | Download a jail-safe archive |
+| POST | `/api/restore/inspect` | Preview `helix-backup-v1` + mint confirm token (no live writes) |
+| GET/POST | `/api/restore` | Sidecar status / apply (typed `RESTORE`; sync until COMMIT) |
+| POST | `/api/restore/cancel` | Best-effort cancel before copy-in |
+| DELETE | `/api/restore/session` | Drop the confirm token |
+
+Backup/restore live under `src/lib/backup/*`. In-app restore copies the snapshot into the open `library.db` (same inode); holdings trees are not overwritten. Restore HTTP is refused when LAN mode is on unless `NON_OS_RESTORE_OK=1`. Archives never include `.env` / API keys / SuperGrok credentials.
 
 All data routes: `runtime = "nodejs"`, `dynamic = "force-dynamic"` where used.
 

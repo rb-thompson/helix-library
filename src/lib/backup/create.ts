@@ -136,14 +136,27 @@ function restoreDoc(mode: BackupMode): string {
 - \`library.config.json\` — scan roots and settings (paths may be machine-specific)
 - \`library.db\` — catalog SQLite snapshot (items, tags, collections, FTS, jobs, threads)
 - \`thumbs/\` — optional webp posters (only if packed)
-- \`holdings/\` — enabled location trees (**full** mode only)
+- \`holdings/\` — enabled location trees (**full** mode only; inspect-only in-app)
 - \`MANIFEST.json\` — machine-readable inventory
 
 ## What is NOT included
 
 - \`.env.local\` / \`XAI_API_KEY\` / OpenAlex keys — re-add secrets separately
+- SuperGrok / X Premium credentials — never archived
 - Disabled locations' files
 - The running app source code (use git for that)
+
+## Restore (in-app)
+
+1. Open Services → Restore from snapshot (localhost only).
+2. Inspect the archive, type RESTORE, confirm.
+3. Helix extracts the archive, writes an undo snapshot, then copies the snapshot into the live catalog (same \`library.db\` file).
+
+CLI: \`npm run restore -- --inspect <name>\` then \`--phrase RESTORE\`.
+
+Holdings trees are **not** overwritten in-app. Restore HTTP is off on LAN unless \`NON_OS_RESTORE_OK=1\`.
+
+Manual restore (stop Helix first) remains below.
 
 ## Restore (manual)
 
@@ -161,6 +174,7 @@ function restoreDoc(mode: BackupMode): string {
    \`\`\`
 4. For **full** backups, restore holdings under the roots listed in config
    (see \`holdings/<location-name>/\` in the archive) or re-point config roots.
+   In-app restore never copies holdings onto live stacks.
 5. Start Helix and run **Reindex** if paths changed.
 
 Personal use only. Verify paths before overwriting a live catalog.
@@ -207,7 +221,7 @@ export async function createBackup(
   const includes: string[] = [];
   const notes: string[] = [
     "API keys and .env.local are not included.",
-    "Restore is manual — see RESTORE.md inside the archive.",
+    "In-app restore: Services → Restore from snapshot (type RESTORE). See RESTORE.md.",
   ];
   if (opts.prerestore) {
     notes.push("Automatic pre-restore snapshot");

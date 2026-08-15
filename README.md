@@ -53,7 +53,7 @@ Personal files are gitignored (except `archive/README.md`). Drop files in, then 
 | `/graph` | 2D/3D knowledge graph (holdings + concepts) |
 | `/collections` | Manual + smart shelves |
 | `/locations` | Scan roots + reindex |
-| `/services` | Reindex + machine facts |
+| `/services` | Reindex, backup, restore from snapshot, machine facts |
 | `/ask` | Librarian (Grok when API key set; else local) |
 
 Responsive: primary nav + **More** (Locations/Services/Docs); hamburger below `lg`. Hover tooltips on desktop; `?` help chips on dense forms.
@@ -117,6 +117,8 @@ Tools: `catalog_search`, `catalog_get`, `list_locations`, `list_collections`, `m
 | --- | --- |
 | `npm run dev` | Dev server `127.0.0.1:4747` |
 | `npm run reindex` | Full reindex + enrichment |
+| `npm run backup` | Catalog snapshot → `data/exports/` (`-- --full` for holdings) |
+| `npm run restore` | Inspect / apply a snapshot (`--inspect <name>` then `--phrase RESTORE`) |
 | `npm run build` / `npm start` | Production |
 | `npm run typecheck` | TypeScript |
 | `npm run test` | Unit + fixture integration tests |

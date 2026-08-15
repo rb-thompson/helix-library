@@ -15,7 +15,7 @@ Public library OPAC/services mapped onto personal files and host machine limits.
 | Reading room | Continuous text/code + PDF.js page mode on item detail; position memory |
 | Related holdings | Same folder / shared tags / co-shelved neighbors |
 | Knowledge map | `/graph` — 2D (default mobile) + 3D force graph |
-| Services | Reindex, **export/backup**, machine status |
+| Services | Reindex, **export/backup**, **restore from snapshot**, machine status |
 | Acquisitions / ILL | `/acquire` — arXiv, OpenAlex OA PDFs, web clips, Grokipedia, YT/podcast, Grok + remote images into Archive |
 | Ask a librarian | `/ask` (local or optional xAI); holding-context from reading room |
 | Deep Lens dossier | `/lens/[id]` — kind-object, cached analysis, related, Your insights |
@@ -34,6 +34,7 @@ Public library OPAC/services mapped onto personal files and host machine limits.
 - Acquire desk: arXiv preprints, **OpenAlex** search/DOI → OA PDF only when resolvable, **web clip** URL → Markdown notes, yt-dlp media, Grok Imagine images
 - In-app Getting Started (`/docs`) including agent guide
 - Space UI (dark/light; light brand mark), knowledge graph 2D/3D (`/graph`), kind-tinted cards
+- **Restore from snapshot** on Services (inspect + typed `RESTORE` + undo snapshot); `npm run restore`
 
 ## Non-goals (v1)
 
@@ -42,6 +43,8 @@ Public library OPAC/services mapped onto personal files and host machine limits.
 - Replacing the OS file manager
 - Arbitrary shell / agent-driven filesystem mutation
 - Porting PHP/Laravel from PCPL
+- Overwriting live holdings trees on restore (catalog + optional thumbs only)
+- Archiving `.env` / SuperGrok / API keys (re-add secrets separately)
 
 ## Archive layout
 
@@ -67,6 +70,8 @@ Personal files under `archive/` are gitignored; `archive/README.md` is tracked.
 | --- | --- |
 | `npm run dev` | UI on http://127.0.0.1:4747 |
 | `npm run reindex` | Index + enrich |
+| `npm run backup` | Catalog snapshot → `data/exports/` (`-- --full` for holdings) |
+| `npm run restore` | Inspect / apply a snapshot (`--inspect <name>` then `--phrase RESTORE`) |
 | `npm run build` / `npm start` | Production |
 | `npm run typecheck` | Types |
 

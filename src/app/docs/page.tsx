@@ -364,9 +364,27 @@ export default function DocsPage() {
               trees) as{" "}
               <code className="code-inline">.tar.gz</code> under{" "}
               <code className="code-inline">data/exports/</code>. Does not include
-              API keys. CLI:{" "}
+              API keys, <code className="code-inline">.env</code>, or SuperGrok
+              credentials. CLI:{" "}
               <code className="code-inline">npm run backup</code> (or{" "}
               <code className="code-inline">-- --full</code>).
+            </li>
+            <li>
+              <strong>Restore from snapshot</strong> — inspect a local archive,
+              type{" "}
+              <code className="code-inline">RESTORE</code>, and confirm. Helix
+              writes an undo snapshot, then copies into the live catalog (same{" "}
+              <code className="code-inline">library.db</code> file). Holdings
+              trees are not overwritten. Localhost only; LAN restore HTTP is
+              off unless{" "}
+              <code className="code-inline">NON_OS_RESTORE_OK=1</code>. CLI:{" "}
+              <code className="code-inline">
+                npm run restore -- --inspect &lt;name&gt;
+              </code>{" "}
+              then{" "}
+              <code className="code-inline">--phrase RESTORE</code>. Manual
+              stop-Helix restore remains in each archive&apos;s{" "}
+              <code className="code-inline">RESTORE.md</code>.
             </li>
             <li>
               <strong>Building</strong> shows host facts: CPU, memory, disk,
