@@ -4,7 +4,11 @@ import { after, afterEach, before, beforeEach, describe, it } from "node:test";
 import { POST as cancelRestore } from "@/app/api/restore/cancel/route";
 import { POST as inspectRestore } from "@/app/api/restore/inspect/route";
 import { DELETE as deleteRestoreSession } from "@/app/api/restore/session/route";
-import { GET as getRestore, POST as applyRestoreHttp } from "@/app/api/restore/route";
+import {
+  GET as getRestore,
+  POST as applyRestoreHttp,
+  restoreApplyHttpHooks,
+} from "@/app/api/restore/route";
 import { createBackup } from "@/lib/backup/create";
 import {
   RestoreHttpError,
@@ -16,6 +20,7 @@ import {
   RESTORE_SIDECAR_KEEP_MS,
   clearRestoreProgress,
   initRestoreProgress,
+  isRestoreCancelRequested,
   readRestoreProgress,
   restoreStageProgress,
   writeRestoreProgress,
@@ -143,6 +148,50 @@ describe("restore HTTP caller (LAN / Host)", () => {
     }
   });
 
+  it("refuses a loopback Origin on the wrong port; matching port is allowed", () => {
+    try {
+      assertRestoreHttpCaller(
+        restoreReq("/api/restore", {
+          headers: {
+            host: "127.0.0.1:4747",
+            origin: "http://127.0.0.1:3000",
+          },
+        }),
+      );
+      assert.fail("expected origin port 403");
+    } catch (err) {
+      assert.ok(err instanceof RestoreHttpError);
+      assert.equal(err.status, 403);
+      assert.match(err.message, /origin/i);
+    }
+
+    try {
+      assertRestoreHttpCaller(
+        restoreReq("/api/restore", {
+          headers: {
+            host: "127.0.0.1:4747",
+            origin: "http://127.0.0.1",
+          },
+        }),
+      );
+      assert.fail("expected default-port origin 403");
+    } catch (err) {
+      assert.ok(err instanceof RestoreHttpError);
+      assert.equal(err.status, 403);
+    }
+
+    assert.doesNotThrow(() =>
+      assertRestoreHttpCaller(
+        restoreReq("/api/restore", {
+          headers: {
+            host: "127.0.0.1:4747",
+            origin: "http://127.0.0.1:4747",
+          },
+        }),
+      ),
+    );
+  });
+
   it("refuses a non-loopback Origin and ignores X-Forwarded-For", () => {
     try {
       assertRestoreHttpCaller(
@@ -200,6 +249,7 @@ describe("restore HTTP routes + CLI", () => {
   afterEach(() => {
     restoreEnv(envSnap);
     clearRestoreProgress();
+    restoreApplyHttpHooks.afterInspect = undefined;
   });
 
   after(() => {
@@ -471,6 +521,129 @@ describe("restore HTTP routes + CLI", () => {
     );
     assert.equal(tooLate.status, 409);
     assert.match(String(tooLate.body.error), /too late/i);
+
+    writeRestoreProgress({
+      ...readRestoreProgress()!,
+      status: "running",
+      progress: restoreStageProgress("extract", { detail: "Extracting…" }),
+      cancelRequested: false,
+    });
+    const cancelled = await readJson(
+      await cancelRestore(restoreReq("/api/restore/cancel", { method: "POST" })),
+    );
+    assert.equal(cancelled.status, 200);
+    assert.deepEqual(cancelled.body, { ok: true });
+    assert.equal(isRestoreCancelRequested(), true);
+  });
+
+  it("NON_OS_RESTORE=0 forbids apply but inspect still works", async () => {
+    const created = await createBackup({ mode: "catalog", includeThumbs: false });
+    process.env.NON_OS_RESTORE = "0";
+    const inspected = await readJson(
+      await inspectRestore(
+        restoreReq("/api/restore/inspect", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: created.name }),
+        }),
+      ),
+    );
+    assert.equal(inspected.status, 200);
+    assert.equal(inspected.body.ok, true);
+    assert.match(String(inspected.body.confirmToken), /^[0-9a-f]{64}$/);
+
+    const blocked = await readJson(
+      await applyRestoreHttp(
+        restoreReq("/api/restore", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            name: created.name,
+            confirmToken: inspected.body.confirmToken,
+            phrase: "RESTORE",
+            acknowledge: true,
+            includeThumbs: false,
+          }),
+        }),
+      ),
+    );
+    assert.equal(blocked.status, 403);
+    assert.match(String(blocked.body.error), /NON_OS_RESTORE/i);
+    assert.equal(readRestoreSession()?.consumedAt, null);
+  });
+
+  it("busy after inspect yield does not consume the token", async () => {
+    const created = await createBackup({ mode: "catalog", includeThumbs: false });
+    const inspected = await readJson(
+      await inspectRestore(
+        restoreReq("/api/restore/inspect", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: created.name }),
+        }),
+      ),
+    );
+    assert.equal(inspected.status, 200);
+    restoreApplyHttpHooks.afterInspect = () => {
+      initRestoreProgress({
+        label: "blocker-after-inspect",
+        archiveName: created.name,
+      });
+    };
+    const busy = await readJson(
+      await applyRestoreHttp(
+        restoreReq("/api/restore", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            name: created.name,
+            confirmToken: inspected.body.confirmToken,
+            phrase: "RESTORE",
+            acknowledge: true,
+            includeThumbs: false,
+          }),
+        }),
+      ),
+    );
+    assert.equal(busy.status, 409);
+    assert.equal(readRestoreSession()?.consumedAt, null);
+  });
+
+  it("omitted includeThumbs skips thumbs when the archive has none", async () => {
+    const created = await createBackup({ mode: "catalog", includeThumbs: false });
+    const inspected = await readJson(
+      await inspectRestore(
+        restoreReq("/api/restore/inspect", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({ name: created.name }),
+        }),
+      ),
+    );
+    assert.equal(inspected.status, 200);
+    assert.equal((inspected.body.preview as { hasThumbs?: boolean }).hasThumbs, false);
+
+    const applied = await readJson(
+      await applyRestoreHttp(
+        restoreReq("/api/restore", {
+          method: "POST",
+          headers: { "content-type": "application/json" },
+          body: JSON.stringify({
+            name: created.name,
+            confirmToken: inspected.body.confirmToken,
+            phrase: "RESTORE",
+            acknowledge: true,
+          }),
+        }),
+      ),
+    );
+    assert.equal(applied.status, 200);
+    assert.equal(applied.body.ok, true);
+    assert.equal(
+      (applied.body.result as { appliedThumbs?: boolean }).appliedThumbs,
+      false,
+    );
+    assert.ok(readRestoreSession()?.consumedAt);
   });
 
   it("CLI --inspect exits 0 and mints a session", async () => {

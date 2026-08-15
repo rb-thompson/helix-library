@@ -31,10 +31,16 @@ const LOCATION_ACTIONS = new Set<RestoreLocationAction>([
   "remap",
 ]);
 
+/** Test-only. Cleared by tests after use. */
+export const restoreApplyHttpHooks: {
+  afterInspect?: () => void;
+} = {};
+
 type RestoreApplyBody = {
   name: string;
   confirmToken: string;
-  includeThumbs: boolean;
+  /** undefined = default on if the archive has thumbs. */
+  includeThumbs?: boolean;
   applyLocationRoots: boolean;
   locationActions?: RestoreLocationActionSpec[];
 };
@@ -71,7 +77,8 @@ function parseApplyBody(raw: unknown): RestoreApplyBody {
   return {
     name: body.name.trim(),
     confirmToken: body.confirmToken,
-    includeThumbs: body.includeThumbs === undefined ? true : body.includeThumbs,
+    includeThumbs:
+      body.includeThumbs === undefined ? undefined : body.includeThumbs,
     applyLocationRoots: Boolean(body.applyLocationRoots),
     locationActions: parseLocationActions(body.locationActions),
   };
@@ -157,10 +164,17 @@ export async function POST(req: Request) {
 
     const body = parseApplyBody(await req.json().catch(() => ({})));
 
-    // Busy check before consume so a 409 does not burn the token.
-    assertRestoreApplyAvailable();
-
+    // Inspect first (read-only). Yields here; do not consume until after.
     const preview = await inspectBackup(body.name);
+    restoreApplyHttpHooks.afterInspect?.();
+
+    // Default thumbs on only if the archive actually has them (skip, not 400).
+    const includeThumbs =
+      (body.includeThumbs === undefined ? true : body.includeThumbs) &&
+      preview.hasThumbs;
+
+    // Busy + consume + apply with no await between check and consume.
+    assertRestoreApplyAvailable();
     consumeRestoreSession({
       token: body.confirmToken,
       name: preview.name,
@@ -169,7 +183,7 @@ export async function POST(req: Request) {
 
     const result = await applyRestore({
       name: preview.name,
-      includeThumbs: body.includeThumbs,
+      includeThumbs,
       applyLocationRoots: body.applyLocationRoots,
       locationActions: body.locationActions,
     });

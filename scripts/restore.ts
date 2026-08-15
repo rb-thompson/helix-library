@@ -124,12 +124,13 @@ export async function runRestoreCli(argv: string[]): Promise<number> {
       console.error("pass --phrase RESTORE");
       return 1;
     }
+    const includeThumbs = !args.noThumbs && preview.hasThumbs;
     console.log(
-      `Applying ${preview.name} (thumbs=${!args.noThumbs}, roots=${args.applyRoots})…`,
+      `Applying ${preview.name} (thumbs=${includeThumbs}, roots=${args.applyRoots})…`,
     );
     const result = await applyRestore({
       name: preview.name,
-      includeThumbs: !args.noThumbs,
+      includeThumbs,
       applyLocationRoots: args.applyRoots,
     });
     console.log(`\nOK undo=${result.undoBackup} items=${result.itemCount} job=${result.jobId}`);
