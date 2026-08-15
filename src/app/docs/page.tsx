@@ -29,7 +29,7 @@ const toc = [
   { id: "graph", label: "Knowledge graph" },
   { id: "locations", label: "Locations" },
   { id: "acquire", label: "Acquire (ILL desk)" },
-  { id: "services", label: "Services & reindex" },
+  { id: "services", label: "Services, backup & restore" },
   { id: "librarian", label: "Ask the Librarian" },
   { id: "agent-tasks", label: "Agent tasks & approve" },
   { id: "tips", label: "Tips & troubleshooting" },
@@ -139,8 +139,8 @@ export default function DocsPage() {
             />
             <QuickLink
               href="/services"
-              title="Reindex & machine"
-              body="Refresh the index; see host limits"
+              title="Services"
+              body="Reindex, backup, and restore a snapshot"
             />
             <QuickLink
               href="/ask"
@@ -183,6 +183,13 @@ export default function DocsPage() {
             <Term title="Reindex">
               Walks locations, updates the SQLite catalog, builds thumbs/posters
               when possible.
+            </Term>
+            <Term title="Snapshot">
+              A backup tarball in{" "}
+              <code className="code-inline">data/exports/</code>
+              . Catalog snapshots hold the card catalog (and optional thumbs).
+              Full snapshots also pack holdings trees, but in-app restore does
+              not write those files back onto disk.
             </Term>
             <Term title="Localhost only">
               The app binds to 127.0.0.1. Nothing is shared on the public
@@ -352,53 +359,80 @@ export default function DocsPage() {
 
         {/* Services */}
         <section id="services" className="scroll-mt-28">
-          <SectionTitle icon={<HardDrive className="h-5 w-5" />} title="Services & reindex" />
+          <SectionTitle
+            icon={<HardDrive className="h-5 w-5" />}
+            title="Services, backup & restore"
+          />
+          <p className="prose-body mt-3">
+            Open <DocLink href="/services">Services</DocLink> for stack
+            maintenance: reindex after you add files, export a snapshot, or
+            return one over the live catalog. Same desk, two different jobs —
+            backup makes a tarball; restore puts the <em>catalog</em> back.
+          </p>
           <ul className="mt-4 prose-body list-disc space-y-2 pl-5">
             <li>
-              <strong>Run reindex</strong> refreshes holdings after you add or
-              move files.
+              <strong>Run reindex</strong> walks enabled locations and refreshes
+              the catalog. Unchanged files are skipped. CLI:{" "}
+              <code className="code-inline">npm run reindex</code>.
             </li>
             <li>
-              <strong>Export / backup</strong> — catalog snapshot (config +
-              SQLite + optional thumbs) or full backup (adds enabled location
-              trees) as{" "}
+              <strong>Export / backup</strong> writes a{" "}
               <code className="code-inline">.tar.gz</code> under{" "}
-              <code className="code-inline">data/exports/</code>. Does not include
-              API keys, <code className="code-inline">.env</code>, or SuperGrok
-              credentials. CLI:{" "}
-              <code className="code-inline">npm run backup</code> (or{" "}
-              <code className="code-inline">-- --full</code>).
+              <code className="code-inline">data/exports/</code>. A{" "}
+              <strong>catalog</strong> snapshot is the card catalog (config +
+              SQLite + optional thumbs). A <strong>full</strong> snapshot also
+              packs enabled location trees. API keys,{" "}
+              <code className="code-inline">.env</code>, and SuperGrok
+              credentials are never included. CLI:{" "}
+              <code className="code-inline">npm run backup</code> or{" "}
+              <code className="code-inline">npm run backup -- --full</code>.
             </li>
             <li>
-              <strong>Restore from snapshot</strong> — inspect a local archive,
-              type{" "}
-              <code className="code-inline">RESTORE</code>, and confirm. Helix
-              writes an undo snapshot, then copies into the live catalog (same{" "}
-              <code className="code-inline">library.db</code> file). Holdings
-              trees are not overwritten. Localhost only; LAN restore HTTP is
-              off unless{" "}
-              <code className="code-inline">NON_OS_RESTORE_OK=1</code>. CLI:
-              inspect with{" "}
+              <strong>Restore from snapshot</strong> is how you put a backup
+              back — no stopping Helix, no hand-copying files. Pick an archive
+              already in <code className="code-inline">data/exports/</code>,
+              inspect it (nothing is overwritten yet), type{" "}
+              <code className="code-inline">RESTORE</code>, check the
+              “replaces the live catalog” box, and confirm. Helix first writes
+              an undo snapshot, then copies catalog rows into the live{" "}
+              <code className="code-inline">library.db</code> (the file stays
+              in place).
+            </li>
+            <li>
+              Restore replaces the <strong>card catalog</strong> — titles,
+              tags, shelves, Ask threads, Deep Lens notes, job history, and
+              optional thumbs. It does <strong>not</strong> dump backup files
+              onto <code className="code-inline">archive/</code> or Vault, and
+              it does not restore secrets. Folder roots stay as they are
+              unless you turn on “Apply location roots.”
+            </li>
+            <li>
+              Every apply leaves a{" "}
+              <code className="code-inline">-prerestore-</code> undo tarball
+              (kept about 7 days). If the restore is wrong, restore that undo
+              the same way. This browser’s recent-opens and reading positions
+              may not match the restored catalog — they are not wiped.
+            </li>
+            <li>
+              Restore is localhost only. On LAN preview it stays off unless
+              you set{" "}
+              <code className="code-inline">NON_OS_RESTORE_OK=1</code> on the
+              host. The librarian will not restore from chat. CLI:{" "}
+              <code className="code-inline">npm run restore</code> lists
+              archives;{" "}
               <code className="code-inline">
                 npm run restore -- --inspect &lt;name&gt;
-              </code>
-              ; apply with{" "}
+              </code>{" "}
+              looks;{" "}
               <code className="code-inline">
-                --name &lt;name&gt; --phrase RESTORE
-              </code>
-              . No-args lists jail archives. Manual
-              stop-Helix restore remains in each archive&apos;s{" "}
+                npm run restore -- --name &lt;name&gt; --phrase RESTORE
+              </code>{" "}
+              applies. Manual stop-Helix steps remain in each archive’s{" "}
               <code className="code-inline">RESTORE.md</code>.
             </li>
             <li>
               <strong>Building</strong> shows host facts: CPU, memory, disk,
               bind address, and optional tools (ffprobe, ffmpeg, exiftool).
-            </li>
-            <li>
-              CLI alternative:{" "}
-              <code className="code-inline">
-                npm run reindex
-              </code>
             </li>
           </ul>
         </section>
@@ -629,6 +663,7 @@ export default function DocsPage() {
             <li>Run shell commands or install packages</li>
             <li>Delete your personal files on disk</li>
             <li>Wipe the app or database</li>
+            <li>Restore a backup — use Services, not chat</li>
             <li>Apply tags/shelves/reindex without your approval</li>
           </ul>
           <p className="prose-body mt-3 text-[var(--muted)]">
@@ -645,6 +680,12 @@ export default function DocsPage() {
             <li>
               New files not showing? Reindex. Confirm the folder is under an
               enabled location.
+            </li>
+            <li>
+              Restored the wrong snapshot? Restore the automatic{" "}
+              <code className="code-inline">-prerestore-</code> undo from
+              Services the same way. Inspect first — apply only after you type{" "}
+              <code className="code-inline">RESTORE</code>.
             </li>
             <li>
               Agent says it can’t evaluate a PDF? Reindex so text is extracted;
