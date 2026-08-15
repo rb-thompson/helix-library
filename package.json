@@ -12,6 +12,7 @@
     "lint": "eslint",
     "reindex": "tsx scripts/reindex.ts",
     "backup": "tsx scripts/backup.ts",
+    "restore": "tsx scripts/restore.ts",
     "watch": "tsx scripts/watch-reindex.ts",
     "sync:pdfjs": "cp -f node_modules/pdfjs-dist/build/pdf.min.mjs public/pdf.min.mjs && cp -f node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/pdf.worker.min.mjs",
     "typecheck": "tsc --noEmit",

@@ -152,7 +152,8 @@ function report(stage: RestoreSidecarStage, detail?: string): void {
   }
 }
 
-function assertNotBusy(): void {
+/** Busy locks — call before consuming the confirm token so a 409 does not burn it. */
+export function assertRestoreApplyAvailable(): void {
   if (isRestoreSidecarBusy()) {
     throw new RestoreApplyError("Restore already in progress", 409);
   }
@@ -792,7 +793,7 @@ export async function applyRestore(
     throw new RestoreApplyError("Backup archive not found", 404);
   }
 
-  assertNotBusy();
+  assertRestoreApplyAvailable();
   try {
     initRestoreProgress({
       label: `Restore ${name}`,
