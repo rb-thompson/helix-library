@@ -221,6 +221,10 @@ export function initRestoreProgress(opts: {
   archiveName: string;
   now?: number;
 }): RestoreSidecar {
+  // Do not hide an in-flight apply; stale completed/failed sidecars may rotate.
+  if (isRestoreSidecarBusy()) {
+    throw new RestoreProgressError("Restore already in progress", 409);
+  }
   const now = opts.now ?? Date.now();
   return writeRestoreProgress({
     v: 1,

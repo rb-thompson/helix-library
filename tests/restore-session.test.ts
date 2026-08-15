@@ -5,6 +5,7 @@ import { after, before, describe, it } from "node:test";
 import { exportsRoot } from "@/lib/backup/paths";
 import {
   RESTORE_STAGE_BANDS,
+  RestoreProgressError,
   clearRestoreProgress,
   initRestoreProgress,
   isRestoreCancelRequested,
@@ -246,6 +247,65 @@ describe("restore confirm session", () => {
     });
     assert.ok(used.consumedAt);
   });
+
+  it("rejects traversal and non-tar.gz names as 400", () => {
+    const token = "a".repeat(64);
+    for (const name of ["../x.tar.gz", "a/b.tar.gz", "foo.json"]) {
+      assertSessionError(
+        () => mintRestoreSession({ name, previewHash: HASH }),
+        400,
+        /invalid export filename|only \.tar\.gz/i,
+      );
+      assertSessionError(
+        () => verifyRestoreSession({ token, name, previewHash: HASH }),
+        400,
+        /invalid export filename|only \.tar\.gz/i,
+      );
+      assertSessionError(
+        () => consumeRestoreSession({ token, name, previewHash: HASH }),
+        400,
+        /invalid export filename|only \.tar\.gz/i,
+      );
+    }
+  });
+
+  it("consumed token stays 409 after TTL", () => {
+    const now = 3_000_000_000_000;
+    const session = mintRestoreSession({
+      name: ARCHIVE,
+      previewHash: HASH,
+      now,
+    });
+    consumeRestoreSession({
+      token: session.token,
+      name: ARCHIVE,
+      previewHash: HASH,
+      now: now + 1000,
+    });
+    const late = now + RESTORE_SESSION_TTL_MS + 1;
+    assertSessionError(
+      () =>
+        verifyRestoreSession({
+          token: session.token,
+          name: ARCHIVE,
+          previewHash: HASH,
+          now: late,
+        }),
+      409,
+      /already used/i,
+    );
+    assertSessionError(
+      () =>
+        consumeRestoreSession({
+          token: session.token,
+          name: ARCHIVE,
+          previewHash: HASH,
+          now: late,
+        }),
+      409,
+      /already used/i,
+    );
+  });
 });
 
 describe("restore sidecar progress", () => {
@@ -279,8 +339,20 @@ describe("restore sidecar progress", () => {
     assert.equal(sidecar.progress.percent, 0);
     assert.equal(sidecar.cancelRequested, false);
     assert.equal(sidecar.jobIdHint, null);
+    assert.equal(statSync(dest).mode & 0o777, 0o600);
     assert.equal(isRestoreSidecarBusy(), true);
     assert.equal(isKindBusy("restore"), true);
+
+    try {
+      initRestoreProgress({
+        label: "clobber",
+        archiveName: ARCHIVE,
+      });
+      assert.fail("expected RestoreProgressError 409");
+    } catch (err) {
+      assert.ok(err instanceof RestoreProgressError);
+      assert.equal(err.status, 409);
+    }
 
     const extract = patchRestoreProgress({
       status: "running",
@@ -311,6 +383,19 @@ describe("restore sidecar progress", () => {
     assert.equal(done.status, "completed");
     assert.equal(isRestoreSidecarBusy(), false);
     assert.equal(isKindBusy("restore"), false);
+
+    const rotated = initRestoreProgress({
+      label: "Restore again",
+      archiveName: ARCHIVE,
+    });
+    assert.equal(rotated.status, "pending");
+    assert.equal(rotated.cancelRequested, false);
+    writeRestoreProgress({
+      ...rotated,
+      status: "completed",
+      finishedAt: Date.now(),
+    });
+    assert.equal(isRestoreSidecarBusy(), false);
 
     const job = createJob({ kind: "restore", label: "Restore snapshot" });
     assert.equal(isKindBusy("restore"), true);

@@ -41,6 +41,15 @@ export function restoreSessionPath(): string {
   return path.join(exportsRoot(), SESSION_FILE);
 }
 
+function jailedArchiveName(name: string): string {
+  try {
+    return parseBackupArchiveFilename(name);
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    throw new RestoreSessionError(message, 400);
+  }
+}
+
 function writeJsonAtomic(dest: string, value: RestoreSession): void {
   const tmp = path.join(
     path.dirname(dest),
@@ -126,7 +135,7 @@ export function mintRestoreSession(opts: {
   previewHash: string;
   now?: number;
 }): RestoreSession {
-  const name = parseBackupArchiveFilename(opts.name);
+  const name = jailedArchiveName(opts.name);
   const previewHash = opts.previewHash.trim();
   if (!previewHash) {
     throw new RestoreSessionError("previewHash is required", 400);
@@ -176,7 +185,7 @@ export function verifyRestoreSession(opts: {
   previewHash: string;
   now?: number;
 }): RestoreSession {
-  const name = parseBackupArchiveFilename(opts.name);
+  const name = jailedArchiveName(opts.name);
   return assertSessionMatch(readRestoreSession(), {
     token: opts.token,
     name,
@@ -192,7 +201,7 @@ export function consumeRestoreSession(opts: {
   previewHash: string;
   now?: number;
 }): RestoreSession {
-  const name = parseBackupArchiveFilename(opts.name);
+  const name = jailedArchiveName(opts.name);
   const now = opts.now ?? Date.now();
   const current = assertSessionMatch(readRestoreSession(), {
     token: opts.token,
