@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { spawnSync } from "node:child_process";
 import {
   cpSync,
@@ -31,6 +32,9 @@ import {
 import { readRestoreProgress } from "@/lib/backup/progress";
 import {
   applyRestore,
+  CATALOG_PRECHECK_CEILING_BYTES,
+  DISK_SLACK_BYTES,
+  preExtractDiskNeed,
   RestoreApplyError,
   restoreTestHooks,
   rewriteItemPaths,
@@ -59,6 +63,7 @@ function clearRestoreHooks(): void {
   restoreTestHooks.afterSidecarClaim = undefined;
   restoreTestHooks.injectBeginBusy = undefined;
   restoreTestHooks.duringBeginRetry = undefined;
+  restoreTestHooks.freeBytesOverride = undefined;
 }
 
 function cwdThumbsListing(): string[] {
@@ -178,6 +183,18 @@ describe("restore tables + filenames + prune helpers", () => {
       modeFromFilename("helix-backup-full-prerestore-2026-08-15T12-00-00Z.tar.gz"),
       "full",
     );
+  });
+
+  it("preExtractDiskNeed does not charge holdings bytes", () => {
+    const sixGiB = 6 * 1024 * 1024 * 1024;
+    const naive = 2 * sixGiB + DISK_SLACK_BYTES;
+    assert.equal(preExtractDiskNeed(sixGiB, { hasHoldings: true }), null);
+    const catalogNeed = preExtractDiskNeed(2 * 1024 * 1024, { hasHoldings: false });
+    assert.equal(catalogNeed, 2 * 2 * 1024 * 1024 + DISK_SLACK_BYTES);
+    assert.ok(catalogNeed! < naive);
+    const capped = preExtractDiskNeed(sixGiB, { hasHoldings: false });
+    assert.equal(capped, 2 * CATALOG_PRECHECK_CEILING_BYTES + DISK_SLACK_BYTES);
+    assert.ok(capped! < naive);
   });
 
   it("isProtectedExport keeps source name and young prerestore", () => {
@@ -513,6 +530,55 @@ describe("applyRestore copy-in", () => {
         false,
       );
     } finally {
+      rmSync(staging, { recursive: true, force: true });
+    }
+  });
+
+  it("full archive with large holdings does not 507 on catalog-only apply", async () => {
+    const created = await createBackup({ mode: "catalog", includeThumbs: false });
+    const staging = mkdtempSync(path.join(tmpdir(), "helix-hold-big-"));
+    try {
+      const r0 = spawnSync(
+        "tar",
+        ["-xzf", exportArchivePath(created.name), "-C", staging],
+        { encoding: "utf8" },
+      );
+      assert.equal(r0.status, 0, r0.stderr);
+      mkdirSync(path.join(staging, "holdings", "Archive"), { recursive: true });
+      writeFileSync(
+        path.join(staging, "holdings", "Archive", "pad.bin"),
+        randomBytes(8 * 1024 * 1024),
+      );
+      const manifest = JSON.parse(
+        readFileSync(path.join(staging, "MANIFEST.json"), "utf8"),
+      ) as Record<string, unknown>;
+      manifest.mode = "full";
+      (manifest.includes as string[]).push("holdings/Archive/");
+      writeFileSync(
+        path.join(staging, "MANIFEST.json"),
+        `${JSON.stringify(manifest, null, 2)}\n`,
+      );
+      const packed = "helix-backup-full-holdings-pad.tar.gz";
+      const r1 = spawnSync(
+        "tar",
+        ["-czf", exportArchivePath(packed), "-C", staging, ...readdirSync(staging)],
+        { encoding: "utf8" },
+      );
+      assert.equal(r1.status, 0, r1.stderr);
+      const archiveBytes = statSync(exportArchivePath(packed)).size;
+      const naiveNeed = 2 * archiveBytes + DISK_SLACK_BYTES;
+      const catalogNeed = preExtractDiskNeed(archiveBytes, { hasHoldings: true });
+      assert.equal(catalogNeed, null);
+      // Enough for catalog extract + post-check, not for 2 × full archive.
+      restoreTestHooks.freeBytesOverride = DISK_SLACK_BYTES + 8 * 1024 * 1024;
+      assert.ok(restoreTestHooks.freeBytesOverride < naiveNeed);
+      await applyRestore({ name: packed, includeThumbs: false });
+      assert.equal(
+        existsSync(path.join(env.dir, "holdings", "Archive", "pad.bin")),
+        false,
+      );
+    } finally {
+      restoreTestHooks.freeBytesOverride = undefined;
       rmSync(staging, { recursive: true, force: true });
     }
   });

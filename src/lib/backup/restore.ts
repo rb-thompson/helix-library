@@ -59,8 +59,10 @@ import { completeJob, createJob, isKindBusy } from "@/lib/jobs/store";
 import { syncLocationsFromConfig } from "@/lib/locations/sync";
 import { thumbsDir } from "@/lib/media/thumbs";
 
-const DISK_SLACK_BYTES = 64 * 1024 * 1024;
+export const DISK_SLACK_BYTES = 64 * 1024 * 1024;
 const EXTRACT_MAX_BYTES = 2 * 1024 * 1024 * 1024;
+/** Catalog payload ceiling for the pre-extract free-space guess (holdings are never extracted). */
+export const CATALOG_PRECHECK_CEILING_BYTES = 512 * 1024 * 1024;
 const BEGIN_RETRIES = 5;
 const BEGIN_RETRY_MS = 200;
 
@@ -112,6 +114,8 @@ export const restoreTestHooks: {
   afterSidecarClaim?: () => void | Promise<void>;
   injectBeginBusy?: number;
   duringBeginRetry?: () => void;
+  /** When set, both volume free-space reads return this value. */
+  freeBytesOverride?: number;
 } = {};
 
 export function restoreApplyAllowed(): boolean {
@@ -305,12 +309,31 @@ function dirBytes(dir: string): number {
 }
 
 function freeBytes(dir: string): number {
+  if (restoreTestHooks.freeBytesOverride != null) {
+    return restoreTestHooks.freeBytesOverride;
+  }
   try {
     const s = statfsSync(dir);
     return s.bsize * s.bavail;
   } catch {
     throw new RestoreApplyError("Cannot measure free disk space", 507);
   }
+}
+
+/**
+ * Pre-extract free-space need. `null` means skip (holdings-sized archive;
+ * apply never extracts holdings/ — post-extract db+thumbs check is enough).
+ */
+export function preExtractDiskNeed(
+  archiveBytes: number,
+  opts: { hasHoldings: boolean },
+): number | null {
+  if (opts.hasHoldings) return null;
+  const catalogBytes = Math.min(
+    Math.max(0, archiveBytes),
+    CATALOG_PRECHECK_CEILING_BYTES,
+  );
+  return 2 * catalogBytes + DISK_SLACK_BYTES;
 }
 
 function assertDiskBudget(need: number): void {
@@ -831,7 +854,10 @@ export async function applyRestore(
     validateLocationActions(preview.locations, opts);
 
     const archiveBytes = statSync(abs).size;
-    assertDiskBudget(2 * archiveBytes + DISK_SLACK_BYTES);
+    const preNeed = preExtractDiskNeed(archiveBytes, {
+      hasHoldings: preview.hasHoldings,
+    });
+    if (preNeed != null) assertDiskBudget(preNeed);
 
     const stagingParent = path.join(exportsRoot(), ".restore-staging");
     mkdirSync(stagingParent, { recursive: true });
