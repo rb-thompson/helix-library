@@ -12,11 +12,13 @@ import {
   RefreshCw,
   Search,
 } from "lucide-react";
+import { HoursDesk } from "@/components/HoursDesk";
 import { ItemRow } from "@/components/ItemRow";
 import { RecentOpens } from "@/components/RecentOpens";
 import { RescuePanel } from "@/components/RescuePanel";
 import { SearchForm } from "@/components/SearchForm";
 import { StatusLine } from "@/components/ui/StatusLine";
+import { displayTitle } from "@/lib/catalog/display";
 import { getRescueSnapshot } from "@/lib/catalog/rescue";
 import {
   catalogStats,
@@ -116,6 +118,13 @@ export default function HomePage() {
               </Link>
             ) : null}
           </div>
+          <HoursDesk
+            holdings={recent.map((item) => ({
+              id: item.id,
+              title: displayTitle(item),
+              kind: item.kind,
+            }))}
+          />
           {reindexRunning || (latestJob && latestJob.status === "failed") ? (
             <div className="mt-4">
               {reindexRunning ? (

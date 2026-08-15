@@ -441,6 +441,123 @@ html[data-theme="light"] .hero-frame > img {
   z-index: 2;
 }
 
+/* Early hours: warm the hero a little, like reading lamps. */
+.hero-frame.hero-dawn > img {
+  filter: sepia(0.22) saturate(1.12) hue-rotate(-8deg);
+}
+
+.due-slip {
+  position: relative;
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.7rem 2.6rem 0.7rem 0.85rem;
+  border: 1px dashed color-mix(in srgb, var(--accent) 35%, var(--line));
+  border-radius: 2px;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent,
+      transparent 6px,
+      color-mix(in srgb, var(--line) 55%, transparent) 6px,
+      color-mix(in srgb, var(--line) 55%, transparent) 7px
+    )
+    0 0 / 100% 7px no-repeat,
+    color-mix(in srgb, var(--paper-deep) 88%, var(--accent));
+  color: inherit;
+  transition: border-color 0.15s ease, transform 0.15s ease;
+}
+
+.due-slip:hover {
+  border-color: var(--accent);
+  transform: rotate(-0.25deg);
+}
+
+.due-slip-kicker {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.due-slip-title {
+  font-size: 0.92rem;
+  font-weight: 600;
+  color: var(--ink);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.due-slip-line {
+  font-size: 0.78rem;
+  color: var(--muted);
+}
+
+.due-slip-stamp {
+  position: absolute;
+  right: 0.45rem;
+  top: 50%;
+  transform: translateY(-50%) rotate(12deg);
+  border: 2px solid color-mix(in srgb, var(--danger) 70%, var(--accent));
+  color: color-mix(in srgb, var(--danger) 75%, var(--accent));
+  font-size: 0.58rem;
+  font-weight: 800;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  padding: 0.18rem 0.28rem;
+  border-radius: 2px;
+  opacity: 0.85;
+  pointer-events: none;
+}
+
+.due-stamp-overlay {
+  pointer-events: none;
+  position: absolute;
+  inset: auto 12% 14%;
+  display: grid;
+  place-items: center;
+  text-align: center;
+  padding: 0.55rem 0.7rem;
+  border: 3px double color-mix(in srgb, var(--danger) 65%, #c45);
+  color: color-mix(in srgb, var(--danger) 70%, #c45);
+  font-weight: 800;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  transform: rotate(-8deg);
+  background: color-mix(in srgb, var(--surface) 55%, transparent);
+  animation: due-stamp-in 0.35s ease-out;
+}
+
+.due-stamp-overlay small {
+  display: block;
+  margin-top: 0.2rem;
+  font-size: 0.62rem;
+  letter-spacing: 0.06em;
+  font-weight: 600;
+  text-transform: none;
+}
+
+@keyframes due-stamp-in {
+  from {
+    opacity: 0;
+    transform: rotate(-8deg) scale(1.2);
+  }
+  to {
+    opacity: 1;
+    transform: rotate(-8deg) scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .due-stamp-overlay {
+    animation: none;
+  }
+  .due-slip:hover {
+    transform: none;
+  }
+}
+
 .surface-flat {
   background: var(--surface);
   border: 1px solid var(--line);

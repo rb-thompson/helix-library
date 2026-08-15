@@ -1,8 +1,9 @@
 # Session handoff — Helix Library
 
-**Last updated:** 2026-08-15  
+**Last updated:** 2026-08-15 (morning land + handoff)  
 **Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`)  
-**Status:** Daily-usable OPAC. **Curation & intake shipped.** **Discovery season shipped.** **Acquire depth shipped** (including Grokipedia). **Export/backup shipped.** **Deep Lens v1 + S2 dossier shipped** (`/lens`, 3D kind-objects, `lens_analyses` cache, local/xAI analyze, vision stretch). Optional Discovery **PR6** open events, Gutenberg, and one-click restore UI remain stretch.
+**Tip:** `origin/main` — Deep Lens S2 is **committed and pushed**. Working tree should be clean after the hours-desk follow-up.  
+**Status:** Daily-usable OPAC. **Curation, Discovery, Acquire (incl. Grokipedia), export/backup, Deep Lens S2** shipped. Next product: restore UI or Discovery PR6.
 
 Read [AGENTS.md](../AGENTS.md) first, then this file.
 
@@ -49,7 +50,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | **Acquire `/acquire`** | arXiv; OpenAlex OA PDF; web clip; **Grokipedia**; **image URL**; YT/podcast; Grok image; Ask propose+approve for all acquire kinds; SSRF outbound; jobs + auto-tags |
 | Theme / nav | Dark/light; **light helix mark** swap; Primary + More (Locations, **Acquire**, Services, Docs) |
 | Shell | `.shell-x`, `--shell-max` wider at 2xl |
-| Tests | `npm test` — **179 pass** |
+| Tests | `npm test` — **183 pass** (incl. library-hours desk) |
 | Docs | In-app `/docs` includes Acquire, reading room, smart shelves, graph |
 | **Reading room (PR1a+1b)** | Text/code continuous + PDF.js page mode (canvas + text layer); `helix-read-position` scroll/page; `?room=1`; public unbundled pdf.min.mjs |
 | **Read → act (PR2)** | Selection toolbar Tag/Ask/Copy; `/ask?item=`; transport `holdingItemId` + quote; system appendix; local summarize → indexed body |
@@ -63,11 +64,10 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 ## Git baseline
 
-**Baseline:** `ba23e55` — Ship Helix Library (graph, Ask, space UI, brand).
+**Tip on origin:** Deep Lens `1aae6bc` plus hours-desk follow-up on `main`.  
+**Older landmark:** `ba23e55` — first daily Helix ship.
 
-**Sliced commits on main (2026-08-06+):** curation season + Discovery PR1a–PR5 in working tree (check `git log` / status).
-
-**Do not commit:** `.env.local`, `library.config.json`, `data/` (includes `acquire-jobs.json`, thumbs, db), personal `archive/**`, `scripts/__pycache__/`.  
+**Do not commit:** `.env.local`, `library.config.json`, `data/` (db, thumbs, exports), personal `archive/**`, `scripts/__pycache__/`.  
 
 ---
 
@@ -142,6 +142,8 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | `src/components/lens/*` | Dossier shell, KindObject, analysis panel, Your insights |
 | `src/app/api/insights/**` | Human insight create/list/delete |
 | `src/app/api/lens/analyses/**` | Machine dossier GET/POST |
+| `src/lib/client/library-hours.ts` | Time-of-day phase + hourly cart pick |
+| `src/components/HoursDesk.tsx` | Home due-slip (“left on the cart”) |
 
 ---
 
@@ -159,18 +161,24 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | RSC → client | No functions as props; graph is client-only loaded |
 | PDF.js + Next | Never static/webpack-bundle `pdfjs-dist` (SSR/client both break). Serve from `public/` + `webpackIgnore` dynamic import; worker + main pin **5.4.296**. |
 | Build + dev | Don’t run `npm run build` while `npm run dev` shares `.next` — wipe `.next` if modules go missing. |
-| Smart shelves | Resolution facade must stay wired in catalog/graph/counts; never lazy-cycle `require` against resolve. |
+| Smart shelves | Resolution facade must stay wired in catalog/graph/counts. Lazy `require()` of `resolveCollectionItemIds` is intentional; put `eslint-disable-next-line no-require-imports` **on the `require(` line**, not the destructure. |
+| ESLint build | `next build` fails on `@typescript-eslint/no-require-imports` even when `tsc` is clean. |
 
 ---
 
 ## Known gaps / natural next work
 
-1. **Optional Discovery PR6** — server `item_events` open tracking (stretch). See discovery design.  
-2. yt-dlp JS runtime (optional deno) for more formats  
-3. **Gutenberg / Standard Ebooks** stretch book intake  
-4. Automated **restore** UI (export is manual-restore via RESTORE.md for now)  
-5. Embeddings / semantic search (explicit non-goal)  
-6. Lens leftovers (optional): DELETE analyses API, agent `lens_analyze` tool, Services analysis counts
+**Best next (pick one):**
+
+1. **Restore UI** — export exists; restore is still `RESTORE.md` in the tarball. Needs hard confirm (overwrites live `library.db` / optional holdings). Design first.  
+2. **Discovery PR6** — server `item_events` dual-write with `helix-open-history`. Spec already in discovery design.
+
+**Stretch / later:**
+
+3. Gutenberg / Standard Ebooks (known-host EPUB only)  
+4. yt-dlp JS runtime (optional deno)  
+5. Lens leftovers: DELETE analyses API, agent `lens_analyze` tool  
+6. Embeddings / semantic search — **explicit non-goal**
 
 **Season “Curation & intake” (2026-08):** PR1–PR7 landed — see [designs/2026-08-curation-intake.md](./designs/2026-08-curation-intake.md).  
 
@@ -208,8 +216,18 @@ npm run dev    # http://127.0.0.1:4747
 
 ## Session wrap (2026-08-13–15) — Deep Lens S2 dossier
 
-**Shipped:** `/lens` + `/lens/[id]` dossier (3D kind-objects + KindPoster fallback), `insights` + `lens_analyses`, Run analysis (local extractive / xAI `generateObject`), vision stretch for image/video, jobs `lens_analyze` with durable `progress.itemId`, suggested-tag apply. Tests **179**. Design: [2026-08-deep-lens-dossier.md](./designs/2026-08-deep-lens-dossier.md).
+**Shipped:** `/lens` + `/lens/[id]` dossier (3D kind-objects + KindPoster fallback), `insights` + `lens_analyses`, Run analysis (local extractive / xAI `generateObject`), vision stretch for image/video, jobs `lens_analyze` with durable `progress.itemId`, suggested-tag apply. Design: [2026-08-deep-lens-dossier.md](./designs/2026-08-deep-lens-dossier.md).
 
-**Also on main since last wrap:** Grokipedia + image URL + Ask acquire parity; multi-location acquire; mini player; `/design` lab; rescue dismiss; lightbox zoom.
+**Also on main since prior wrap:** Grokipedia + image URL + Ask acquire parity; multi-location acquire; mini player; `/design` lab; rescue dismiss; lightbox zoom.
 
-**Still optional:** Discovery PR6 open events; Gutenberg; one-click restore UI.
+## Session wrap (2026-08-15 morning) — land + handoff
+
+**This session:** reviewed gaps; found Deep Lens fully built but **uncommitted**; verified (`tsc`, tests, `next build`); fixed pre-existing `require()` ESLint; committed **`1aae6bc`** and **pushed** to `origin/main`. Tests now **183**.
+
+**Docs:** SESSION-HANDOFF, ARCHITECTURE, AGENTS test count, Acquire design status (Grokipedia is shipped).
+
+**Delight (not a product season):** home **Hours desk** — time-of-day line + one hourly “left on the cart” due-slip (`src/lib/client/library-hours.ts`, `HoursDesk`). Deep Lens: tap the kind-object **three times** for a “Date due / never” stamp.
+
+**Still optional:** restore UI; Discovery PR6; Gutenberg.
+
+**Do not start:** embeddings, batch-analyze, auto-apply AI tags.

@@ -157,11 +157,11 @@ npm run build            # before calling a slice “done”
 - **`/graph`** 2D + 3D map (`force-graph` / `3d-force-graph`); `totalItems` cap UX; mobile defaults 2D
 - **`/ask`** viewport chat; holding-context bridge; Grok when keyed; server-side approve
 - Responsive shell; space UI; H+helix mark (dark + light) + favicon
-- Tests: `npm test` — **179 pass** (Deep Lens S2 dossier + vision included)
+- Tests: `npm test` — **183 pass** (Deep Lens S2 + library-hours desk)
 
 **Shipped:** daily OPAC + Curation + Discovery + Acquire depth + **export/backup** + **Deep Lens S2 dossier** (3D kind-objects, `lens_analyses`, Run analysis). Designs: [discovery](./docs/designs/2026-08-discovery-reading.md), [acquire depth](./docs/designs/2026-08-acquire-depth.md), [deep lens dossier](./docs/designs/2026-08-deep-lens-dossier.md).
 
-**Next work:** SESSION-HANDOFF “Known gaps” (PR6 open events, Gutenberg, restore UI); Lens vision stretch optional.
+**Next work:** SESSION-HANDOFF — restore UI or Discovery PR6 `item_events`. Lens vision already shipped. Do not start embeddings.
 
 ## Safety for future agent features
 

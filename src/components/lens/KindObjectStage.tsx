@@ -39,6 +39,8 @@ export function KindObjectStage({
 }) {
   const [mode, setMode] = useState<LensObjectMode>("static");
   const [failed, setFailed] = useState(false);
+  const [taps, setTaps] = useState(0);
+  const [stamped, setStamped] = useState(false);
   const thumbUrl = hasThumb ? `/api/thumbs/${itemId}` : null;
   const spec = kindObjectSpec(kind);
 
@@ -60,18 +62,33 @@ export function KindObjectStage({
 
   const useSpin = mode === "spin" && !failed;
 
+  function tapObject() {
+    if (stamped) return;
+    const next = taps + 1;
+    setTaps(next);
+    if (next >= 3) setStamped(true);
+  }
+
   return (
     <section className="space-y-2" aria-label={`${spec.label} stage`}>
-      {useSpin ? (
-        <KindObjectScene
-          kind={kind}
-          title={title}
-          thumbUrl={thumbUrl}
-          onFailure={onFailure}
-        />
-      ) : (
-        <KindPoster kind={kind} title={title} thumbUrl={thumbUrl} />
-      )}
+      <div className="relative" onClick={tapObject}>
+        {useSpin ? (
+          <KindObjectScene
+            kind={kind}
+            title={title}
+            thumbUrl={thumbUrl}
+            onFailure={onFailure}
+          />
+        ) : (
+          <KindPoster kind={kind} title={title} thumbUrl={thumbUrl} />
+        )}
+        {stamped ? (
+          <div className="due-stamp-overlay" role="status">
+            Date due
+            <small>Never — keep it as long as you like</small>
+          </div>
+        ) : null}
+      </div>
       <div className="flex flex-wrap items-center justify-between gap-2">
         <p className="text-xs text-[var(--muted)]">{spec.description}</p>
         <button
