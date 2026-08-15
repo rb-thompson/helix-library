@@ -40,6 +40,18 @@ export function parseExportFilename(name: string): string {
   return base;
 }
 
+/**
+ * Inspect/apply jail: same basename rules as parseExportFilename, but
+ * only compressed archives. parseExportFilename also allows *.json.
+ */
+export function parseBackupArchiveFilename(name: string): string {
+  const base = parseExportFilename(name);
+  if (!base.endsWith(".tar.gz")) {
+    throw new Error("Only .tar.gz backup archives can be inspected");
+  }
+  return base;
+}
+
 export function exportArchivePath(filename: string): string {
   const base = parseExportFilename(filename);
   return assertUnderExports(path.join(exportsRoot(), base));

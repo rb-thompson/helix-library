@@ -4,6 +4,7 @@ import {
   BACKUP_NAME_RE,
   buildBackupFilename,
   modeFromFilename,
+  parseBackupArchiveFilename,
   parseExportFilename,
   stampForFilename,
 } from "@/lib/backup/paths";
@@ -32,6 +33,22 @@ describe("backup paths", () => {
     assert.equal(
       parseExportFilename("helix-backup-catalog-2026-08-08T12-00-00Z.tar.gz"),
       "helix-backup-catalog-2026-08-08T12-00-00Z.tar.gz",
+    );
+  });
+
+  it("jails millis stamps via parseExportFilename (BACKUP_NAME_RE is a hint)", () => {
+    const millis = "helix-backup-catalog-2026-08-08T13-34-08-337Z.tar.gz";
+    assert.equal(parseExportFilename(millis), millis);
+    assert.equal(parseBackupArchiveFilename(millis), millis);
+    assert.equal(modeFromFilename(millis), "unknown");
+    assert.equal(BACKUP_NAME_RE.test(millis), false);
+  });
+
+  it("inspect jail rejects .json dumps that parseExportFilename allows", () => {
+    assert.equal(parseExportFilename("notes.json"), "notes.json");
+    assert.throws(
+      () => parseBackupArchiveFilename("notes.json"),
+      /tar\.gz/,
     );
   });
 });
