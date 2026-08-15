@@ -40,6 +40,7 @@ import {
 } from "@/lib/acquire/youtube";
 import { hasXaiApiKey } from "@/lib/agent/mode";
 import { getItemById, listLocationsWithCounts } from "@/lib/catalog/query";
+import { assertCatalogWritable } from "@/lib/db/client";
 import {
   addLocation,
   removeLocation,
@@ -368,6 +369,7 @@ function clampIds(ids: number[], max = 100): number[] {
 /** Execute a single confirmed action. Never runs shell or deletes project files. */
 export function executeLibrarianAction(action: LibrarianAction): ActionResult {
   try {
+    assertCatalogWritable();
     switch (action.type) {
       case "reindex": {
         const { jobId, alreadyRunning } = startReindexAsync();

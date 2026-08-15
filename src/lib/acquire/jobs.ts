@@ -15,6 +15,7 @@ import {
   requestCancel,
   updateJobProgress as updateJobProgressStore,
 } from "@/lib/jobs/store";
+import { assertCatalogWritable } from "@/lib/db/client";
 import type {
   AcquireJobKind,
   HelixJob,
@@ -83,6 +84,7 @@ export async function runAcquireJob(
     report: (p: Partial<AcquireProgress>) => void,
   ) => Promise<Record<string, unknown>>,
 ): Promise<AcquireJob> {
+  assertCatalogWritable();
   markJobRunning(job.id);
   job.status = "running";
   job.startedAt = Date.now();

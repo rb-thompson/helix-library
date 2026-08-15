@@ -55,7 +55,7 @@ function liveSqlite(): Database.Database | undefined {
   return undefined;
 }
 
-function looksLikeSqlite(filePath: string): boolean {
+export function looksLikeSqlite(filePath: string): boolean {
   try {
     const fd = openSync(filePath, "r");
     try {

@@ -11,6 +11,7 @@ import {
   mkdirSync,
   mkdtempSync,
   readdirSync,
+  realpathSync,
   renameSync,
   rmSync,
   statSync,
@@ -39,6 +40,7 @@ import {
   isRestoreCancelRequested,
   isRestoreSidecarBusy,
   patchRestoreProgress,
+  RestoreProgressError,
   restoreStageProgress,
   type RestoreSidecarStage,
 } from "@/lib/backup/progress";
@@ -47,6 +49,7 @@ import type { RestoreLocationAction } from "@/lib/backup/types";
 import { getDbPath, saveLocationsToConfig } from "@/lib/config";
 import {
   getSqlite,
+  looksLikeSqlite,
   RestoreBusyError,
   setRestoreGate,
 } from "@/lib/db/client";
@@ -60,6 +63,16 @@ const DISK_SLACK_BYTES = 64 * 1024 * 1024;
 const EXTRACT_MAX_BYTES = 2 * 1024 * 1024 * 1024;
 const BEGIN_RETRIES = 5;
 const BEGIN_RETRY_MS = 200;
+
+const APPLY_EXTRACT_ALLOW = [
+  /^MANIFEST\.json$/,
+  /^library\.config\.json$/,
+  /^library\.db$/,
+  /^library\.db-wal$/,
+  /^library\.db-shm$/,
+  /^thumbs\/?$/,
+  /^thumbs\/[^/]+\.webp$/,
+];
 
 export type RestoreLocationActionSpec = {
   name: string;
@@ -93,9 +106,12 @@ export class RestoreApplyError extends Error {
   }
 }
 
-/** Test-only hook. Cleared by tests after use. */
+/** Test-only hooks. Cleared by tests after use. */
 export const restoreTestHooks: {
   afterForeignKeysOff?: () => void;
+  afterSidecarClaim?: () => void | Promise<void>;
+  injectBeginBusy?: number;
+  duringBeginRetry?: () => void;
 } = {};
 
 export function restoreApplyAllowed(): boolean {
@@ -205,6 +221,7 @@ function extractMembers(archive: string, dest: string, members: string[]): void 
       dest,
       "--no-same-owner",
       "--no-overwrite-dir",
+      "--anchored",
       ...members,
     ],
     { encoding: "utf8", maxBuffer: 32 * 1024 * 1024 },
@@ -216,8 +233,18 @@ function extractMembers(archive: string, dest: string, members: string[]): void 
   }
 }
 
-function walkRejectSymlinksAndHoldings(root: string): void {
-  const stack = [root];
+function posixRel(from: string, to: string): string {
+  return path.relative(from, to).split(path.sep).join("/");
+}
+
+function pathIsUnder(root: string, abs: string): boolean {
+  const rel = path.relative(root, abs);
+  return rel === "" || (!rel.startsWith("..") && !path.isAbsolute(rel));
+}
+
+function walkExtractedTree(staging: string): void {
+  const stagingReal = realpathSync(staging);
+  const stack = [staging];
   while (stack.length) {
     const cur = stack.pop()!;
     for (const name of readdirSync(cur)) {
@@ -226,11 +253,37 @@ function walkRejectSymlinksAndHoldings(root: string): void {
       if (st.isSymbolicLink()) {
         throw new RestoreApplyError(`Refusing symlink in extract: ${name}`);
       }
-      const rel = path.relative(root, p);
-      if (rel === "holdings" || rel.startsWith(`holdings${path.sep}`)) {
+      if (st.isFile() && st.nlink > 1) {
+        throw new RestoreApplyError(`Refusing hardlink in extract: ${name}`);
+      }
+      let physical: string;
+      try {
+        physical = realpathSync(p);
+      } catch {
+        throw new RestoreApplyError(`Unreadable extract path: ${name}`);
+      }
+      if (!pathIsUnder(stagingReal, physical)) {
+        throw new RestoreApplyError("Extracted file escaped staging");
+      }
+      const rel = posixRel(staging, p);
+      if (rel === "holdings" || rel.startsWith("holdings/")) {
         throw new RestoreApplyError("Holdings members must not be extracted");
       }
-      if (st.isDirectory()) stack.push(p);
+      if (st.isDirectory()) {
+        if (rel !== "" && rel !== "thumbs") {
+          throw new RestoreApplyError(`Unexpected directory in extract: ${rel}`);
+        }
+        stack.push(p);
+        continue;
+      }
+      if (!st.isFile()) {
+        throw new RestoreApplyError(`Unsupported extract entry: ${rel}`);
+      }
+      if (!APPLY_EXTRACT_ALLOW.some((re) => re.test(rel))) {
+        throw new RestoreApplyError(
+          `Extracted member not on apply allowlist: ${rel}`,
+        );
+      }
     }
   }
 }
@@ -251,29 +304,25 @@ function dirBytes(dir: string): number {
   return total;
 }
 
-function freeBytes(dir: string): number | null {
+function freeBytes(dir: string): number {
   try {
     const s = statfsSync(dir);
     return s.bsize * s.bavail;
   } catch {
-    return null;
+    throw new RestoreApplyError("Cannot measure free disk space", 507);
   }
 }
 
-function assertDiskBudget(dbBytes: number, thumbsBytes: number): void {
-  if (dbBytes + thumbsBytes > EXTRACT_MAX_BYTES) {
-    throw new RestoreApplyError("Extracted catalog exceeds 2 GiB");
-  }
-  const need = 2 * (dbBytes + thumbsBytes) + DISK_SLACK_BYTES;
+function assertDiskBudget(need: number): void {
   const dbFree = freeBytes(path.dirname(getDbPath()));
   const expFree = freeBytes(exportsRoot());
-  if (dbFree != null && dbFree < need) {
+  if (dbFree < need) {
     throw new RestoreApplyError(
       "Not enough free disk space on the catalog volume",
       507,
     );
   }
-  if (expFree != null && expFree < need) {
+  if (expFree < need) {
     throw new RestoreApplyError(
       "Not enough free disk space on the exports volume",
       507,
@@ -281,12 +330,35 @@ function assertDiskBudget(dbBytes: number, thumbsBytes: number): void {
   }
 }
 
+function checkpointBusy(raw: unknown): number {
+  if (Array.isArray(raw) && raw[0] && typeof raw[0] === "object") {
+    const b = (raw[0] as { busy?: unknown }).busy;
+    return typeof b === "number" ? b : 1;
+  }
+  return 1;
+}
+
+function assertSnapshotCatalogFile(stagingDb: string): void {
+  if (!existsSync(stagingDb) || !statSync(stagingDb).isFile()) {
+    throw new RestoreApplyError("Archive is missing library.db");
+  }
+  if (statSync(stagingDb).size < 16 || !looksLikeSqlite(stagingDb)) {
+    throw new RestoreApplyError("Snapshot library.db is not a SQLite catalog");
+  }
+}
+
 function applyPackedWal(stagingDb: string): void {
   const wal = `${stagingDb}-wal`;
   if (!existsSync(wal)) return;
-  const db = new Database(stagingDb);
+  assertSnapshotCatalogFile(stagingDb);
+  const db = new Database(stagingDb, { fileMustExist: true });
   try {
-    db.pragma("wal_checkpoint(TRUNCATE)");
+    const raw = db.pragma("wal_checkpoint(TRUNCATE)");
+    if (checkpointBusy(raw) !== 0) {
+      throw new RestoreApplyError(
+        "Could not apply packed WAL (checkpoint busy)",
+      );
+    }
   } finally {
     db.close();
   }
@@ -303,19 +375,27 @@ function applyPackedWal(stagingDb: string): void {
 }
 
 function migrateStagingCopy(stagingDb: string): string {
+  assertSnapshotCatalogFile(stagingDb);
   const migrated = `${stagingDb}.migrated`;
   cpSync(stagingDb, migrated);
   const db = new Database(migrated, { fileMustExist: true });
   try {
-    migrate(db);
-    const row = db
+    const items = db
       .prepare(
         `SELECT name FROM sqlite_master WHERE type='table' AND name='items'`,
       )
-      .get() as { name: string } | undefined;
-    if (!row) {
-      throw new RestoreApplyError("Snapshot is missing required table items");
+      .get();
+    const locations = db
+      .prepare(
+        `SELECT name FROM sqlite_master WHERE type='table' AND name='locations'`,
+      )
+      .get();
+    if (!items || !locations) {
+      throw new RestoreApplyError(
+        "Snapshot is missing required table items or locations",
+      );
     }
+    migrate(db);
   } finally {
     db.close();
   }
@@ -349,20 +429,32 @@ function tableColumns(
   );
 }
 
-async function beginImmediate(sqlite: Database.Database): Promise<void> {
-  let last: unknown;
+function isBusyError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err);
+  return /busy|locked/i.test(msg);
+}
+
+/** FK off + BEGIN as one non-yielding pair. Restore FK before any await. */
+async function beginImmediateWithFkOff(sqlite: Database.Database): Promise<void> {
   for (let i = 0; i < BEGIN_RETRIES; i++) {
+    sqlite.pragma("foreign_keys = OFF");
     try {
+      if (
+        restoreTestHooks.injectBeginBusy != null &&
+        restoreTestHooks.injectBeginBusy > 0
+      ) {
+        restoreTestHooks.injectBeginBusy -= 1;
+        throw new Error("database is locked");
+      }
       sqlite.exec("BEGIN IMMEDIATE");
       return;
     } catch (e) {
-      last = e;
-      const msg = e instanceof Error ? e.message : String(e);
-      if (!/busy/i.test(msg)) throw e;
+      sqlite.pragma("foreign_keys = ON");
+      if (!isBusyError(e)) throw e;
+      restoreTestHooks.duringBeginRetry?.();
       await sleep(BEGIN_RETRY_MS);
     }
   }
-  void last;
   throw new RestoreApplyError(
     "another process has the catalog open (stop `npm run watch`)",
     409,
@@ -385,7 +477,20 @@ export function rewriteItemPaths(
     ),
   );
   for (const row of rows) {
+    if (
+      path.isAbsolute(row.rel_path) ||
+      row.rel_path.split(/[/\\]/).some((seg) => seg === "..")
+    ) {
+      throw new RestoreApplyError(
+        `items.rel_path escapes location root: ${row.rel_path}`,
+      );
+    }
     const abs = path.resolve(root, row.rel_path);
+    if (!pathIsUnder(root, abs)) {
+      throw new RestoreApplyError(
+        `items.rel_path escapes location root: ${row.rel_path}`,
+      );
+    }
     if (taken.has(abs) && abs !== row.path) {
       throw new RestoreApplyError(`items.path collision after remap: ${abs}`);
     }
@@ -627,8 +732,7 @@ async function copySnapshotIntoLive(
   opts: ApplyRestoreOpts,
 ): Promise<boolean> {
   sqlite.pragma("busy_timeout = 60000");
-  sqlite.pragma("foreign_keys = OFF");
-  await beginImmediate(sqlite);
+  await beginImmediateWithFkOff(sqlite);
   sqlite.prepare("ATTACH ? AS snap").run(migrated);
   try {
     restoreTestHooks.afterForeignKeysOff?.();
@@ -666,33 +770,19 @@ export async function applyRestore(
   }
 
   assertNotBusy();
-
-  const preview = await inspectBackup(name);
-  if (!preview.hasDb) {
-    throw new RestoreApplyError("Archive is missing library.db");
-  }
-  const includeThumbs = Boolean(opts.includeThumbs);
-  if (includeThumbs && !preview.hasThumbs) {
-    throw new RestoreApplyError("Archive has no thumbs to restore");
-  }
-  validateLocationActions(preview.locations, opts);
-
-  if (!isRestoreSidecarBusy()) {
+  try {
     initRestoreProgress({
       label: `Restore ${name}`,
       archiveName: name,
     });
+  } catch (err) {
+    if (err instanceof RestoreProgressError) {
+      throw new RestoreApplyError(err.message, err.status);
+    }
+    throw err;
   }
-  patchRestoreProgress({
-    status: "running",
-    startedAt: Date.now(),
-    progress: restoreStageProgress("extract", { detail: "Extracting archive…" }),
-  });
 
-  const stagingParent = path.join(exportsRoot(), ".restore-staging");
-  mkdirSync(stagingParent, { recursive: true });
-  const staging = mkdtempSync(path.join(stagingParent, "r-"));
-
+  let staging: string | undefined;
   let committed = false;
   let undoBackup = "";
   let appliedThumbs = false;
@@ -700,7 +790,6 @@ export async function applyRestore(
   let itemCount = 0;
   let thumbsError: string | undefined;
   let sqlite: Database.Database | undefined;
-  let attached = false;
 
   const failSidecar = (error: string, extra?: { partial?: boolean }) => {
     try {
@@ -722,6 +811,32 @@ export async function applyRestore(
   };
 
   try {
+    await restoreTestHooks.afterSidecarClaim?.();
+    patchRestoreProgress({
+      status: "running",
+      startedAt: Date.now(),
+      progress: restoreStageProgress("extract", {
+        detail: "Extracting archive…",
+      }),
+    });
+
+    const preview = await inspectBackup(name);
+    if (!preview.hasDb) {
+      throw new RestoreApplyError("Archive is missing library.db");
+    }
+    const includeThumbs = Boolean(opts.includeThumbs);
+    if (includeThumbs && !preview.hasThumbs) {
+      throw new RestoreApplyError("Archive has no thumbs to restore");
+    }
+    validateLocationActions(preview.locations, opts);
+
+    const archiveBytes = statSync(abs).size;
+    assertDiskBudget(2 * archiveBytes + DISK_SLACK_BYTES);
+
+    const stagingParent = path.join(exportsRoot(), ".restore-staging");
+    mkdirSync(stagingParent, { recursive: true });
+    staging = mkdtempSync(path.join(stagingParent, "r-"));
+
     report("extract", "Extracting catalog members…");
     const found: string[] = [];
     for (const member of [
@@ -740,7 +855,7 @@ export async function applyRestore(
       throw new RestoreApplyError("Archive is missing library.db");
     }
     extractMembers(abs, staging, found);
-    walkRejectSymlinksAndHoldings(staging);
+    walkExtractedTree(staging);
     if (existsSync(path.join(staging, "holdings"))) {
       throw new RestoreApplyError("Holdings members must not be extracted");
     }
@@ -748,9 +863,7 @@ export async function applyRestore(
     throwIfCancelled();
     report("validate", "Validating snapshot…");
     const stagingDb = path.join(staging, "library.db");
-    if (!existsSync(stagingDb)) {
-      throw new RestoreApplyError("Archive is missing library.db");
-    }
+    assertSnapshotCatalogFile(stagingDb);
     applyPackedWal(stagingDb);
     const migrated = migrateStagingCopy(stagingDb);
 
@@ -758,7 +871,10 @@ export async function applyRestore(
     const extractedThumbs = path.join(staging, "thumbs");
     const thumbsBytes =
       includeThumbs && existsSync(extractedThumbs) ? dirBytes(extractedThumbs) : 0;
-    assertDiskBudget(dbBytes, thumbsBytes);
+    if (dbBytes + thumbsBytes > EXTRACT_MAX_BYTES) {
+      throw new RestoreApplyError("Extracted catalog exceeds 2 GiB");
+    }
+    assertDiskBudget(2 * (dbBytes + thumbsBytes) + DISK_SLACK_BYTES);
 
     throwIfCancelled();
     report("prerestore", "Writing undo snapshot…");
@@ -782,7 +898,6 @@ export async function applyRestore(
     try {
       writeRestoreLock();
       remapped = await copySnapshotIntoLive(sqlite, migrated, liveBefore, opts);
-      attached = true;
       committed = true;
 
       report("finalize", "Finalizing…");
@@ -815,7 +930,6 @@ export async function applyRestore(
         } catch {
           /* not attached */
         }
-        void attached;
         sqlite.pragma("foreign_keys = ON");
         sqlite.pragma("busy_timeout = 5000");
       }
@@ -871,10 +985,12 @@ export async function applyRestore(
     }
     throw new RestoreApplyError(message);
   } finally {
-    try {
-      rmSync(staging, { recursive: true, force: true });
-    } catch {
-      /* ignore */
+    if (staging) {
+      try {
+        rmSync(staging, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
     }
   }
 }

@@ -28,7 +28,7 @@ import {
   projectRoot,
   toConfigPath,
 } from "@/lib/config";
-import { getSqlite } from "@/lib/db/client";
+import { assertCatalogWritable, getSqlite } from "@/lib/db/client";
 import { thumbsDir } from "@/lib/media/thumbs";
 import {
   buildBackupFilename,
@@ -173,6 +173,7 @@ Personal use only. Verify paths before overwriting a live catalog.
 export async function createBackup(
   opts: BackupCreateOpts,
 ): Promise<BackupCreateResult> {
+  assertCatalogWritable();
   if (!tarAvailable()) {
     throw new Error(
       "tar is required for backups (GNU tar / bsdtar on PATH).",

@@ -3,7 +3,7 @@ import path from "node:path";
 import mime from "mime";
 import { eq } from "drizzle-orm";
 import { loadConfig } from "@/lib/config";
-import { getDb, getSqlite } from "@/lib/db/client";
+import { assertCatalogWritable, getDb, getSqlite } from "@/lib/db/client";
 import { itemText, items, jobs, locations } from "@/lib/db/schema";
 import { classifyKind, extensionOf } from "@/lib/indexer/classify";
 import { enrichFile, hasThumb } from "@/lib/indexer/enrich";
@@ -138,6 +138,7 @@ export function startReindexAsync(): {
   alreadyRunning: boolean;
   promise: Promise<{ jobId: number; stats: IndexJobStats }>;
 } {
+  assertCatalogWritable();
   if (inflight) {
     return {
       jobId: inflight.jobId,

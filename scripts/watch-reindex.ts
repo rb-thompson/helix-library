@@ -18,6 +18,7 @@ let pending = false;
 
 async function triggerReindex(reason: string) {
   if (isRestoreLockHeld()) {
+    // Do not queue catch-up; the next FS event after unlock will schedule.
     console.log(`[watch] restore lock present; skip reindex (${reason})`);
     return;
   }

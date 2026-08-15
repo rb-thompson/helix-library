@@ -6,7 +6,7 @@ import {
   saveLocationsToConfig,
   toConfigPath,
 } from "@/lib/config";
-import { getDb } from "@/lib/db/client";
+import { assertCatalogWritable, getDb } from "@/lib/db/client";
 import { locations } from "@/lib/db/schema";
 import { syncLocationsFromConfig } from "@/lib/locations/sync";
 
@@ -39,6 +39,7 @@ export function addLocation(input: {
   root: string;
   enabled?: boolean;
 }): { id: number } {
+  assertCatalogWritable();
   const name = input.name.trim();
   if (!name) throw new Error("Name is required");
 
@@ -80,6 +81,7 @@ export function updateLocation(
   id: number,
   input: { name?: string; root?: string; enabled?: boolean },
 ): void {
+  assertCatalogWritable();
   const db = getDb();
   const row = db.select().from(locations).where(eq(locations.id, id)).get();
   if (!row) throw new Error("Location not found");
@@ -111,6 +113,7 @@ export function setLocationEnabled(id: number, enabled: boolean): void {
 }
 
 export function removeLocation(id: number): void {
+  assertCatalogWritable();
   const db = getDb();
   const row = db.select().from(locations).where(eq(locations.id, id)).get();
   if (!row) throw new Error("Location not found");

@@ -1,7 +1,7 @@
 import { inArray } from "drizzle-orm";
 import { existsSync, unlinkSync } from "node:fs";
 import path from "node:path";
-import { getDb } from "@/lib/db/client";
+import { assertCatalogWritable, getDb } from "@/lib/db/client";
 import { items } from "@/lib/db/schema";
 
 /**
@@ -13,6 +13,7 @@ export function purgeMissingItems(itemIds: number[]): {
   purged: number;
   skipped: number;
 } {
+  assertCatalogWritable();
   const ids = [
     ...new Set(
       itemIds.map(Number).filter((n) => Number.isFinite(n) && n > 0),

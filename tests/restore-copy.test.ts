@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
+  cpSync,
   existsSync,
   mkdirSync,
   mkdtempSync,
@@ -27,14 +28,17 @@ import {
   modeFromFilename,
   restoreLockPath,
 } from "@/lib/backup/paths";
+import { readRestoreProgress } from "@/lib/backup/progress";
 import {
   applyRestore,
   RestoreApplyError,
   restoreTestHooks,
+  rewriteItemPaths,
 } from "@/lib/backup/restore";
 import { RESTORE_TABLES } from "@/lib/backup/tables";
 import { getDbPath } from "@/lib/config";
 import {
+  assertCatalogWritable,
   getSqlite,
   resetDbConnection,
   RestoreBusyError,
@@ -49,6 +53,13 @@ import { createTestEnv, fixtureRoot } from "./helpers/harness";
 
 const CWD_LOCK = path.join(process.cwd(), "data", "library.restore.lock");
 const CWD_THUMBS = path.join(process.cwd(), "data", "thumbs");
+
+function clearRestoreHooks(): void {
+  restoreTestHooks.afterForeignKeysOff = undefined;
+  restoreTestHooks.afterSidecarClaim = undefined;
+  restoreTestHooks.injectBeginBusy = undefined;
+  restoreTestHooks.duringBeginRetry = undefined;
+}
 
 function cwdThumbsListing(): string[] {
   if (!existsSync(CWD_THUMBS)) return [];
@@ -131,7 +142,7 @@ describe("restore tables + filenames + prune helpers", () => {
 
   after(() => {
     setRestoreGate("idle");
-    restoreTestHooks.afterForeignKeysOff = undefined;
+    clearRestoreHooks();
     env.cleanup();
   });
 
@@ -205,6 +216,33 @@ describe("restore tables + filenames + prune helpers", () => {
     assert.ok(t.startsWith(env.dir));
   });
 
+  it("rewriteItemPaths rejects rel_path that escapes the location root", () => {
+    const db = new Database(":memory:");
+    db.exec(`
+      CREATE TABLE items (
+        id INTEGER PRIMARY KEY,
+        location_id INTEGER,
+        path TEXT,
+        rel_path TEXT
+      );
+    `);
+    db.prepare(
+      `INSERT INTO items (id, location_id, path, rel_path) VALUES (1, 1, '/old/a.txt', '../outside.txt')`,
+    ).run();
+    assert.throws(
+      () => rewriteItemPaths(db, 1, "/old"),
+      /escapes location root/,
+    );
+    db.prepare(
+      `UPDATE items SET rel_path = '/abs/outside.txt' WHERE id = 1`,
+    ).run();
+    assert.throws(
+      () => rewriteItemPaths(db, 1, "/old"),
+      /escapes location root/,
+    );
+    db.close();
+  });
+
   it("stale restore lock pid is unlinked; live pid is held", () => {
     const p = restoreLockPath();
     writeFileSync(p, `${JSON.stringify({ pid: 999999, startedAt: Date.now() })}\n`);
@@ -235,6 +273,17 @@ describe("restoreGate (no spin)", () => {
 
   afterEach(() => {
     setRestoreGate("idle");
+    clearRestoreHooks();
+  });
+
+  it("writers throw RestoreBusyError while gate busy", async () => {
+    getSqlite();
+    setRestoreGate("busy");
+    assert.throws(() => assertCatalogWritable(), RestoreBusyError);
+    await assert.rejects(
+      () => createBackup({ mode: "catalog", includeThumbs: false }),
+      RestoreBusyError,
+    );
   });
 
   it("already-open singleton returns while busy", () => {
@@ -268,7 +317,7 @@ describe("applyRestore copy-in", () => {
 
   after(() => {
     setRestoreGate("idle");
-    restoreTestHooks.afterForeignKeysOff = undefined;
+    clearRestoreHooks();
     env.cleanup();
     assert.deepEqual(cwdThumbsListing(), thumbsBefore);
     assert.equal(existsSync(CWD_LOCK), false);
@@ -276,7 +325,7 @@ describe("applyRestore copy-in", () => {
 
   afterEach(() => {
     setRestoreGate("idle");
-    restoreTestHooks.afterForeignKeysOff = undefined;
+    clearRestoreHooks();
     try {
       if (existsSync(restoreLockPath())) unlinkSync(restoreLockPath());
     } catch {
@@ -291,6 +340,15 @@ describe("applyRestore copy-in", () => {
         .run(Date.now());
     } catch {
       /* db closed */
+    }
+    try {
+      for (const f of readdirSync(exportsRoot())) {
+        if (f.startsWith("dummy-")) {
+          unlinkSync(path.join(exportsRoot(), f));
+        }
+      }
+    } catch {
+      /* none */
     }
   });
 
@@ -480,6 +538,82 @@ describe("applyRestore copy-in", () => {
     );
   });
 
+  it("concurrent applyRestore is 409 and does not fail the winner sidecar", async () => {
+    const created = await createBackup({ mode: "catalog", includeThumbs: false });
+    let bErr: unknown;
+    restoreTestHooks.afterSidecarClaim = async () => {
+      restoreTestHooks.afterSidecarClaim = undefined;
+      try {
+        await applyRestore({ name: created.name, includeThumbs: false });
+      } catch (e) {
+        bErr = e;
+      }
+    };
+    const a = await applyRestore({ name: created.name, includeThumbs: false });
+    assert.ok(a.jobId > 0);
+    assert.ok(bErr instanceof RestoreApplyError);
+    assert.equal((bErr as RestoreApplyError).status, 409);
+    const side = readRestoreProgress();
+    assert.ok(side);
+    assert.notEqual(side.status, "failed");
+    assert.equal(side.status, "completed");
+  });
+
+  it("failed inspect marks sidecar failed, not pending", async () => {
+    packIntoExports("helix-backup-catalog-badinspect.tar.gz", {
+      "MANIFEST.json": validManifest({ format: "helix-backup-v2" }),
+      "library.db": "not-a-db",
+    });
+    await assert.rejects(
+      () =>
+        applyRestore({
+          name: "helix-backup-catalog-badinspect.tar.gz",
+          includeThumbs: false,
+        }),
+      /unknown|manifest/i,
+    );
+    const side = readRestoreProgress();
+    assert.ok(side);
+    assert.equal(side.status, "failed");
+  });
+
+  it("0-byte library.db fails apply; live item set unchanged", async () => {
+    const before = getSqlite()
+      .prepare(`SELECT id, title FROM items ORDER BY id`)
+      .all() as Array<{ id: number; title: string }>;
+    assert.ok(before.length >= 1);
+    packIntoExports("helix-backup-catalog-emptydb.tar.gz", {
+      "MANIFEST.json": validManifest(),
+      "library.db": Buffer.alloc(0),
+    });
+    await assert.rejects(
+      () =>
+        applyRestore({
+          name: "helix-backup-catalog-emptydb.tar.gz",
+          includeThumbs: false,
+        }),
+      /not a SQLite catalog|library\.db/i,
+    );
+    const after = getSqlite()
+      .prepare(`SELECT id, title FROM items ORDER BY id`)
+      .all() as Array<{ id: number; title: string }>;
+    assert.deepEqual(after, before);
+  });
+
+  it("does not leave foreign_keys off during BEGIN IMMEDIATE retry", async () => {
+    const created = await createBackup({ mode: "catalog", includeThumbs: false });
+    let sawFkOn = false;
+    restoreTestHooks.injectBeginBusy = 1;
+    restoreTestHooks.duringBeginRetry = () => {
+      const sqlite = getSqlite();
+      assert.equal(sqlite.pragma("foreign_keys", { simple: true }), 1);
+      sawFkOn = true;
+    };
+    await applyRestore({ name: created.name, includeThumbs: false });
+    assert.equal(sawFkOn, true);
+    assert.equal(getSqlite().pragma("foreign_keys", { simple: true }), 1);
+  });
+
   it("NON_OS_RESTORE=0 refuses apply", async () => {
     process.env.NON_OS_RESTORE = "0";
     try {
@@ -588,6 +722,7 @@ describe("applyRestore packed WAL", () => {
       const dbFile = path.join(work, "library.db");
       const db = new Database(dbFile);
       db.pragma("journal_mode = WAL");
+      db.pragma("wal_autocheckpoint = 0");
       migrate(db);
       const root = fixtureRoot();
       db.prepare(
@@ -604,25 +739,59 @@ describe("applyRestore packed WAL", () => {
          ) VALUES (?, ?, 'wal-only.txt', 'wal-only.txt', 'txt', 'text',
                    1, 0, 0, 'wal-only', 0)`,
       ).run(loc.id, abs);
+
+      const snapDir = path.join(work, "snap");
+      mkdirSync(snapDir);
+      cpSync(dbFile, path.join(snapDir, "library.db"));
+      assert.ok(
+        existsSync(`${dbFile}-wal`) && statSync(`${dbFile}-wal`).size > 0,
+        "expected a dirty WAL while the writer is still open",
+      );
+      cpSync(`${dbFile}-wal`, path.join(snapDir, "library.db-wal"));
+      if (existsSync(`${dbFile}-shm`)) {
+        cpSync(`${dbFile}-shm`, path.join(snapDir, "library.db-shm"));
+      }
+
+      const isolated = path.join(work, "main-only", "library.db");
+      mkdirSync(path.dirname(isolated), { recursive: true });
+      cpSync(path.join(snapDir, "library.db"), isolated);
+      const probe = new Database(isolated, {
+        readonly: true,
+        fileMustExist: true,
+      });
+      const itemsTable = probe
+        .prepare(
+          `SELECT name FROM sqlite_master WHERE type='table' AND name='items'`,
+        )
+        .get();
+      const onlyInWal = itemsTable
+        ? probe
+            .prepare(`SELECT name FROM items WHERE name = 'wal-only.txt'`)
+            .get()
+        : undefined;
+      probe.close();
+      assert.equal(
+        onlyInWal,
+        undefined,
+        "packed main file must not already contain the WAL-only row",
+      );
+
+      db.close();
       const pack: Record<string, string | Buffer> = {
         "MANIFEST.json": validManifest({
           includes: ["library.db", "library.db-wal", "MANIFEST.json"],
         }),
         "library.config.json": readFileSync(env.configPath),
-        "library.db": readFileSync(dbFile),
+        "library.db": readFileSync(path.join(snapDir, "library.db")),
+        "library.db-wal": readFileSync(path.join(snapDir, "library.db-wal")),
       };
-      if (existsSync(`${dbFile}-wal`)) {
-        pack["library.db-wal"] = readFileSync(`${dbFile}-wal`);
-      }
-      db.close();
-      // If close checkpointed, the row is still in the main file — still a valid restore.
       const name = "helix-backup-catalog-wal-fallback.tar.gz";
       packIntoExports(name, pack);
       await applyRestore({ name, includeThumbs: false });
       const row = getSqlite()
         .prepare(`SELECT name FROM items WHERE name = 'wal-only.txt'`)
         .get() as { name: string } | undefined;
-      assert.ok(row, "WAL (or checkpointed) snapshot row must be restored");
+      assert.ok(row, "WAL-only snapshot row must be restored");
     } finally {
       rmSync(work, { recursive: true, force: true });
     }
