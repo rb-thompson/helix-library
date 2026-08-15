@@ -71,6 +71,84 @@ const LOCATION_ACTIONS: Array<{
   { value: "remap", label: "Remap…" },
 ];
 
+function samePath(a: string, b: string): boolean {
+  return a.replace(/\/+$/, "") === b.replace(/\/+$/, "");
+}
+
+function collectMissingRoots(
+  preview: RestorePreview,
+  applyLocationRoots: boolean,
+  locationActions: LocationDraft[],
+): string[] {
+  return preview.locations
+    .filter((loc) => {
+      if (!applyLocationRoots) {
+        return Boolean(loc.liveRoot) && !loc.liveExists;
+      }
+      const draft = locationActions.find((a) => a.name === loc.name);
+      const action = draft?.action ?? loc.defaultAction;
+      if (action === "disable") return false;
+      if (action === "use-archived") return !loc.archivedRootExists;
+      if (action === "keep-live") return !loc.liveExists;
+      // remap: empty or not an already-existing live root → treat as missing
+      const target = (draft?.remapTo ?? "").trim();
+      if (!target) return true;
+      return !(
+        loc.liveExists &&
+        loc.liveRoot &&
+        samePath(loc.liveRoot, target)
+      );
+    })
+    .map((loc) => loc.name);
+}
+
+function missingRootsFromPreview(preview: RestorePreview): string[] {
+  return preview.locations
+    .filter((loc) => Boolean(loc.liveRoot) && !loc.liveExists)
+    .map((loc) => loc.name);
+}
+
+function remapsComplete(
+  applyLocationRoots: boolean,
+  locationActions: LocationDraft[],
+): boolean {
+  if (!applyLocationRoots) return true;
+  return locationActions.every(
+    (row) => row.action !== "remap" || row.remapTo.trim().length > 0,
+  );
+}
+
+function clearRestoreQuery(): void {
+  if (typeof window === "undefined") return;
+  const url = new URL(window.location.href);
+  if (!url.searchParams.has("restore") && url.hash !== "#restore-panel") return;
+  url.searchParams.delete("restore");
+  url.hash = "";
+  const qs = url.searchParams.toString();
+  window.history.replaceState(
+    null,
+    "",
+    `${url.pathname}${qs ? `?${qs}` : ""}`,
+  );
+}
+
+function successFromSidecar(
+  snap: SidecarView,
+  missingRoots: string[],
+): SuccessView | null {
+  if (snap.status !== "completed" || !snap.result?.undoBackup) return null;
+  return {
+    name: snap.archiveName,
+    undoBackup: snap.result.undoBackup,
+    itemCount: snap.result.itemCount,
+    appliedThumbs: snap.result.appliedThumbs,
+    remapped: snap.result.remapped,
+    partial: snap.result.partial,
+    error: snap.error,
+    missingRoots,
+  };
+}
+
 /** Scroll to the restore desk and (re)inspect this archive. */
 export function requestRestore(name: string): void {
   if (typeof window === "undefined") return;
@@ -91,6 +169,7 @@ export function RestorePanel() {
   const router = useRouter();
   const inspectGen = useRef(0);
   const applyingRef = useRef(false);
+  const postInFlightRef = useRef(false);
 
   const [backups, setBackups] = useState<BackupRow[]>([]);
   const [selectedName, setSelectedName] = useState("");
@@ -150,59 +229,114 @@ export function RestorePanel() {
     };
   }, []);
 
-  const inspectArchive = useCallback(async (name: string) => {
-    const trimmed = name.trim();
-    if (!trimmed || applyingRef.current) return;
-    const gen = ++inspectGen.current;
-    setInspecting(true);
-    setError(null);
-    setSuccess(null);
-    setBannerDismissed(false);
-    setSelectedName(trimmed);
+  const peekPreview = useCallback(async (name: string): Promise<RestorePreview | null> => {
     try {
       const res = await fetch("/api/restore/inspect", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: trimmed }),
+        body: JSON.stringify({ name }),
       });
       const data = await res.json();
-      if (gen !== inspectGen.current) return;
-      if (res.status === 403) {
-        setGateError(data.error ?? "Restore is not available from this connection.");
-        return;
-      }
-      if (!res.ok || !data.ok) {
-        setError(data.error ?? "Inspect failed");
-        setPreview(null);
-        setConfirmToken(null);
-        return;
-      }
-      const next = data.preview as RestorePreview;
-      setPreview(next);
-      setLive((data.live as RestoreLiveStats) ?? null);
-      setConfirmToken(
-        typeof data.confirmToken === "string" ? data.confirmToken : null,
-      );
-      setIncludeThumbs(Boolean(next.hasThumbs));
-      setApplyLocationRoots(false);
-      setLocationActions(
-        next.locations.map((loc) => ({
-          name: loc.name,
-          action: loc.defaultAction,
-          remapTo: "",
-        })),
-      );
-      setAcknowledge(false);
-      setPhrase("");
-    } catch (e) {
-      if (gen !== inspectGen.current) return;
-      setError(e instanceof Error ? e.message : "Inspect failed");
-      setPreview(null);
-      setConfirmToken(null);
-    } finally {
-      if (gen === inspectGen.current) setInspecting(false);
+      if (!res.ok || !data.ok) return null;
+      return data.preview as RestorePreview;
+    } catch {
+      return null;
     }
   }, []);
+
+  const inspectArchive = useCallback(
+    async (name: string, opts?: { keepError?: boolean }) => {
+      const trimmed = name.trim();
+      if (!trimmed || applyingRef.current || postInFlightRef.current) return;
+      const gen = ++inspectGen.current;
+      setInspecting(true);
+      if (!opts?.keepError) setError(null);
+      setSuccess(null);
+      setBannerDismissed(false);
+      setSelectedName(trimmed);
+      try {
+        const res = await fetch("/api/restore/inspect", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ name: trimmed }),
+        });
+        const data = await res.json();
+        if (gen !== inspectGen.current) return;
+        if (res.status === 403) {
+          setGateError(
+            data.error ?? "Restore is not available from this connection.",
+          );
+          return;
+        }
+        if (!res.ok || !data.ok) {
+          if (!opts?.keepError) setError(data.error ?? "Inspect failed");
+          setPreview(null);
+          setConfirmToken(null);
+          return;
+        }
+        const next = data.preview as RestorePreview;
+        setPreview(next);
+        setLive((data.live as RestoreLiveStats) ?? null);
+        setConfirmToken(
+          typeof data.confirmToken === "string" ? data.confirmToken : null,
+        );
+        setIncludeThumbs(Boolean(next.hasThumbs));
+        setApplyLocationRoots(false);
+        setLocationActions(
+          next.locations.map((loc) => ({
+            name: loc.name,
+            action: loc.defaultAction,
+            remapTo: "",
+          })),
+        );
+        setAcknowledge(false);
+        setPhrase("");
+      } catch (e) {
+        if (gen !== inspectGen.current) return;
+        if (!opts?.keepError) {
+          setError(e instanceof Error ? e.message : "Inspect failed");
+        }
+        setPreview(null);
+        setConfirmToken(null);
+      } finally {
+        if (gen === inspectGen.current) setInspecting(false);
+      }
+    },
+    [],
+  );
+
+  const showSuccess = useCallback(
+    async (
+      snap: SidecarView,
+      opts?: { missingRoots?: string[]; hydrateMissing?: boolean },
+    ) => {
+      const view = successFromSidecar(snap, opts?.missingRoots ?? []);
+      if (!view) return;
+      setSuccess(view);
+      setPreview(null);
+      setLive(null);
+      setConfirmToken(null);
+      setAcknowledge(false);
+      setPhrase("");
+      setApplying(false);
+      applyingRef.current = false;
+      clearRestoreQuery();
+      if (opts?.hydrateMissing) {
+        const gen = inspectGen.current;
+        const peeked = await peekPreview(snap.archiveName);
+        if (gen === inspectGen.current && peeked) {
+          setSuccess((prev) =>
+            prev && prev.name === snap.archiveName
+              ? { ...prev, missingRoots: missingRootsFromPreview(peeked) }
+              : prev,
+          );
+        }
+      }
+      await refreshBackups();
+      router.refresh();
+    },
+    [peekPreview, refreshBackups, router],
+  );
 
   useEffect(() => {
     applyingRef.current = applying;
@@ -229,26 +363,22 @@ export function RestorePanel() {
       }
       if (cancelled) return;
       if (snap && (snap.status === "running" || snap.status === "pending")) {
+        applyingRef.current = true;
         setApplying(true);
         setSidecar(snap);
         return;
       }
       const q = new URLSearchParams(window.location.search).get("restore");
-      if (q) {
-        void inspectArchive(q);
+      if (snap?.status === "completed" && snap.result?.undoBackup) {
+        if (q && q !== snap.archiveName) {
+          void inspectArchive(q);
+          return;
+        }
+        await showSuccess(snap, { hydrateMissing: true });
         return;
       }
-      if (snap?.status === "completed" && snap.result?.undoBackup) {
-        setSuccess({
-          name: snap.archiveName,
-          undoBackup: snap.result.undoBackup,
-          itemCount: snap.result.itemCount,
-          appliedThumbs: snap.result.appliedThumbs,
-          remapped: snap.result.remapped,
-          partial: snap.result.partial,
-          error: snap.error,
-          missingRoots: [],
-        });
+      if (q) {
+        void inspectArchive(q);
         return;
       }
       if (snap?.status === "failed") {
@@ -260,7 +390,7 @@ export function RestorePanel() {
       cancelled = true;
       window.removeEventListener(RESTORE_SELECT_EVENT, onSelect);
     };
-  }, [inspectArchive, readSidecar]);
+  }, [inspectArchive, readSidecar, showSuccess]);
 
   useEffect(() => {
     if (!applying) return;
@@ -270,13 +400,20 @@ export function RestorePanel() {
         const snap = await readSidecar();
         if (cancelled || !snap) return;
         setSidecar(snap);
-        if (
+        const terminal =
           snap.status === "completed" ||
           snap.status === "failed" ||
-          snap.status === "cancelled"
-        ) {
-          setApplying(false);
+          snap.status === "cancelled";
+        if (!terminal) return;
+        // Local POST still owns applying — do not re-enable the danger button.
+        if (postInFlightRef.current) return;
+        if (snap.status === "completed" && snap.result?.undoBackup) {
+          await showSuccess(snap, { hydrateMissing: true });
+          return;
         }
+        setError(snap.error ?? "Restore failed");
+        applyingRef.current = false;
+        setApplying(false);
       } catch {
         /* keep waiting on the apply POST */
       }
@@ -289,32 +426,36 @@ export function RestorePanel() {
       cancelled = true;
       clearInterval(t);
     };
-  }, [applying, readSidecar]);
+  }, [applying, readSidecar, showSuccess]);
 
-  const missingRoots = useMemo(() => {
-    if (!preview) return [];
-    return preview.locations
-      .filter((loc) => {
-        if (!applyLocationRoots) {
-          return Boolean(loc.liveRoot) && !loc.liveExists;
-        }
-        const draft =
-          locationActions.find((a) => a.name === loc.name)?.action ??
-          loc.defaultAction;
-        if (draft === "disable") return false;
-        if (draft === "use-archived") return !loc.archivedRootExists;
-        if (draft === "keep-live") return !loc.liveExists;
-        return false;
-      })
-      .map((loc) => loc.name);
-  }, [applyLocationRoots, locationActions, preview]);
+  const missingRoots = useMemo(
+    () =>
+      preview
+        ? collectMissingRoots(preview, applyLocationRoots, locationActions)
+        : [],
+    [applyLocationRoots, locationActions, preview],
+  );
+
+  const remapsReady = remapsComplete(applyLocationRoots, locationActions);
+  const phraseWrong = phrase.length > 0 && phrase !== "RESTORE";
 
   const canApply =
     Boolean(preview && confirmToken) &&
     acknowledge &&
     phrase === "RESTORE" &&
+    remapsReady &&
     !applying &&
     !inspecting;
+
+  const applyHint = applying
+    ? null
+    : phraseWrong
+      ? "Phrase must be RESTORE (exact, case-sensitive)."
+      : !remapsReady
+        ? "Enter a new root for every remapped location."
+        : !canApply
+          ? "Check the confirmation box and type RESTORE to enable return."
+          : null;
 
   async function cancelPreview() {
     setError(null);
@@ -331,15 +472,19 @@ export function RestorePanel() {
     setPhrase("");
     setApplyLocationRoots(false);
     setLocationActions([]);
+    clearRestoreQuery();
   }
 
   async function apply() {
+    if (applyingRef.current || postInFlightRef.current) return;
     if (!preview || !confirmToken || !canApply) return;
     applyingRef.current = true;
+    postInFlightRef.current = true;
     setApplying(true);
     setError(null);
     setSuccess(null);
     setBannerDismissed(false);
+    const appliedMissing = missingRoots;
     try {
       const res = await fetch("/api/restore", {
         method: "POST",
@@ -364,14 +509,21 @@ export function RestorePanel() {
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
-        setError(data.error ?? "Restore failed");
+        const snap = await readSidecar().catch(() => null);
+        if (snap?.status === "completed" && snap.result?.undoBackup) {
+          await showSuccess(snap, { missingRoots: appliedMissing });
+          return;
+        }
+        const message = data.error ?? "Restore failed";
+        setError(message);
         setConfirmToken(null);
         setPhrase("");
         setAcknowledge(false);
         applyingRef.current = false;
+        postInFlightRef.current = false;
         setApplying(false);
-        // Token is single-use — remint so retry is possible.
-        void inspectArchive(preview.name);
+        await inspectArchive(preview.name, { keepError: true });
+        setError(message);
         return;
       }
       const result = (data.result ?? {}) as SuccessView;
@@ -383,7 +535,7 @@ export function RestorePanel() {
         remapped: result.remapped,
         partial: result.partial,
         error: result.error,
-        missingRoots,
+        missingRoots: appliedMissing,
       });
       setPreview(null);
       setLive(null);
@@ -391,17 +543,27 @@ export function RestorePanel() {
       setAcknowledge(false);
       setPhrase("");
       setSidecar(null);
+      clearRestoreQuery();
       await refreshBackups();
       router.refresh();
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Restore failed");
+      const snap = await readSidecar().catch(() => null);
+      if (snap?.status === "completed" && snap.result?.undoBackup) {
+        await showSuccess(snap, { missingRoots: appliedMissing });
+        return;
+      }
+      const message = e instanceof Error ? e.message : "Restore failed";
+      setError(message);
       setConfirmToken(null);
       setPhrase("");
       setAcknowledge(false);
       applyingRef.current = false;
+      postInFlightRef.current = false;
       setApplying(false);
-      if (preview) void inspectArchive(preview.name);
+      await inspectArchive(preview.name, { keepError: true });
+      setError(message);
     } finally {
+      postInFlightRef.current = false;
       applyingRef.current = false;
       setApplying(false);
     }
@@ -419,8 +581,20 @@ export function RestorePanel() {
     );
   }
 
+  function onPickArchive(name: string) {
+    setSelectedName(name);
+    if (!name) {
+      if (preview) void cancelPreview();
+      return;
+    }
+    if (preview && name !== preview.name) {
+      void inspectArchive(name);
+    }
+  }
+
   const busy = inspecting || applying;
   const progress = sidecar?.progress ?? null;
+  const selectValue = preview?.name ?? selectedName;
 
   return (
     <section id="restore-panel" className="surface p-4 sm:p-5">
@@ -457,6 +631,7 @@ export function RestorePanel() {
             setBannerDismissed(false);
             setError(null);
             setSidecar(null);
+            clearRestoreQuery();
           }}
         />
       ) : (
@@ -466,9 +641,9 @@ export function RestorePanel() {
               <span className="label-quiet">Local snapshot</span>
               <select
                 className="field font-mono text-xs"
-                value={selectedName}
+                value={selectValue}
                 disabled={busy || backups.length === 0}
-                onChange={(e) => setSelectedName(e.target.value)}
+                onChange={(e) => onPickArchive(e.target.value)}
               >
                 <option value="">
                   {backups.length === 0
@@ -485,8 +660,8 @@ export function RestorePanel() {
             <button
               type="button"
               className="btn btn-secondary min-h-11"
-              disabled={busy || !selectedName}
-              onClick={() => void inspectArchive(selectedName)}
+              disabled={busy || !selectValue}
+              onClick={() => void inspectArchive(selectValue)}
             >
               {inspecting ? (
                 <HelixSpinner size="md" decorative />
@@ -515,6 +690,8 @@ export function RestorePanel() {
               locationActions={locationActions}
               acknowledge={acknowledge}
               phrase={phrase}
+              phraseWrong={phraseWrong}
+              applyHint={applyHint}
               canApply={canApply}
               busy={busy}
               applying={applying}
@@ -585,6 +762,8 @@ function PreviewForm({
   locationActions,
   acknowledge,
   phrase,
+  phraseWrong,
+  applyHint,
   canApply,
   busy,
   applying,
@@ -604,6 +783,8 @@ function PreviewForm({
   locationActions: LocationDraft[];
   acknowledge: boolean;
   phrase: string;
+  phraseWrong: boolean;
+  applyHint: string | null;
   canApply: boolean;
   busy: boolean;
   applying: boolean;
@@ -664,15 +845,6 @@ function PreviewForm({
         ) : null}
       </div>
 
-      <LocationTable
-        preview={preview}
-        applyLocationRoots={applyLocationRoots}
-        locationActions={locationActions}
-        disabled={busy}
-        onAction={onAction}
-        onRemapTo={onRemapTo}
-      />
-
       <div className="space-y-2">
         <label className="flex items-start gap-2 text-sm text-[var(--ink-soft)]">
           <input
@@ -724,7 +896,18 @@ function PreviewForm({
           />
           <span>Apply location roots from snapshot</span>
         </label>
+      </div>
 
+      <LocationTable
+        preview={preview}
+        applyLocationRoots={applyLocationRoots}
+        locationActions={locationActions}
+        disabled={busy}
+        onAction={onAction}
+        onRemapTo={onRemapTo}
+      />
+
+      <div className="space-y-2">
         <Tooltip content={HOLDINGS_TIP} className="block w-full">
           <label
             className="flex cursor-not-allowed items-start gap-2 text-sm text-[var(--muted)] opacity-70"
@@ -736,10 +919,14 @@ function PreviewForm({
               checked={false}
               disabled
               readOnly
+              aria-describedby="restore-holdings-reason"
             />
             <span>Restore holdings onto live stacks</span>
           </label>
         </Tooltip>
+        <p id="restore-holdings-reason" className="pl-6 text-xs text-[var(--muted)]">
+          {HOLDINGS_TIP}
+        </p>
         {preview.hasHoldings ? (
           <p className="pl-6 text-xs text-[var(--muted)]">
             This snapshot includes holdings trees (
@@ -753,10 +940,13 @@ function PreviewForm({
 
       <label className="flex items-start gap-2 text-sm text-[var(--ink-soft)]">
         <input
+          id="restore-ack"
           type="checkbox"
           className="mt-0.5 rounded border-[var(--line)]"
           checked={acknowledge}
           disabled={busy}
+          aria-required
+          aria-describedby="restore-apply-hint"
           onChange={(e) => onAcknowledge(e.target.checked)}
         />
         <span>{ACK_LABEL}</span>
@@ -765,6 +955,7 @@ function PreviewForm({
       <label className="block">
         <span className="label-quiet">Confirm phrase</span>
         <input
+          id="restore-phrase"
           type="text"
           className="field font-mono"
           value={phrase}
@@ -774,15 +965,46 @@ function PreviewForm({
           autoCapitalize="off"
           autoCorrect="off"
           spellCheck={false}
+          aria-required
+          aria-invalid={phraseWrong}
+          aria-describedby={
+            phraseWrong
+              ? "restore-phrase-hint restore-apply-hint"
+              : "restore-apply-hint"
+          }
           onChange={(e) => onPhrase(e.target.value)}
         />
       </label>
+      {phraseWrong ? (
+        <p
+          id="restore-phrase-hint"
+          className="text-xs text-[var(--danger)]"
+          role="status"
+        >
+          Phrase must be RESTORE (exact, case-sensitive).
+        </p>
+      ) : null}
+
+      {applyHint ? (
+        <p
+          id="restore-apply-hint"
+          className="text-xs text-[var(--muted)]"
+          role="status"
+        >
+          {applyHint}
+        </p>
+      ) : (
+        <span id="restore-apply-hint" className="sr-only">
+          Ready to return this snapshot.
+        </span>
+      )}
 
       <div className="flex flex-wrap gap-2">
         <button
           type="button"
           className="btn btn-danger min-h-11"
           disabled={!canApply}
+          aria-describedby="restore-apply-hint"
           onClick={onApply}
         >
           {applying ? (
@@ -874,6 +1096,7 @@ function LocationTable({
                         className="field py-1 text-xs"
                         value={action}
                         disabled={disabled}
+                        aria-label={`Action for ${loc.name}`}
                         onChange={(e) =>
                           onAction(
                             loc.name,
@@ -892,14 +1115,20 @@ function LocationTable({
                         ))}
                       </select>
                       {action === "remap" ? (
-                        <input
-                          type="text"
-                          className="field py-1 font-mono text-[0.65rem]"
-                          placeholder="Absolute path"
-                          value={draft?.remapTo ?? ""}
-                          disabled={disabled}
-                          onChange={(e) => onRemapTo(loc.name, e.target.value)}
-                        />
+                        <label className="block">
+                          <span className="label-quiet">
+                            New root for {loc.name}
+                          </span>
+                          <input
+                            type="text"
+                            className="field py-1 font-mono text-[0.65rem]"
+                            placeholder="Absolute path"
+                            value={draft?.remapTo ?? ""}
+                            disabled={disabled}
+                            aria-required
+                            onChange={(e) => onRemapTo(loc.name, e.target.value)}
+                          />
+                        </label>
                       ) : null}
                     </div>
                   ) : (

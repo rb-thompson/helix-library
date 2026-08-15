@@ -156,7 +156,6 @@ export function BackupPanel() {
             <strong className="font-medium text-[var(--ink-soft)]">not</strong>{" "}
             include API keys. Inspect a local snapshot and return it over the
             live catalog (typed confirm). Holdings trees are not overwritten.
-            Secrets are never in the archive.
           </p>
         </div>
       </div>
