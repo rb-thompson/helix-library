@@ -6,7 +6,7 @@
 
 import { spawn, spawnSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { existsSync, statSync } from "node:fs";
+import { existsSync, realpathSync, statSync } from "node:fs";
 import { homedir, hostname } from "node:os";
 import path from "node:path";
 import { createInterface } from "node:readline";
@@ -28,7 +28,19 @@ export const RESTORE_ARCHIVE_MAX_BYTES = 32 * 1024 * 1024 * 1024;
 
 const MANIFEST_MAX_BYTES = 1024 * 1024;
 const TAR_LIST_TIMEOUT_MS = 60_000;
-const TAR_EXTRACT_TIMEOUT_MS = 30_000;
+const TAR_EXTRACT_MIN_MS = 30_000;
+const TAR_EXTRACT_MAX_MS = 20 * 60_000;
+/** Conservative gzip sequential-scan rate for timeout scaling. */
+const TAR_SCAN_BYTES_PER_SEC = 32 * 1024 * 1024;
+
+function extractTimeoutMs(archiveBytes: number): number {
+  // tar -xOf still walks members packed before the target (holdings-first full).
+  const scanMs = Math.ceil(archiveBytes / TAR_SCAN_BYTES_PER_SEC) * 1000;
+  return Math.min(
+    TAR_EXTRACT_MAX_MS,
+    Math.max(TAR_EXTRACT_MIN_MS, scanMs + TAR_EXTRACT_MIN_MS),
+  );
+}
 
 /** Directory prefixes listed so createBackup's thumbs/ / holdings/ entries pass. */
 export const RESTORE_MEMBER_ALLOWLIST = [
@@ -161,12 +173,38 @@ function isOrUnder(abs: string, root: string): boolean {
 }
 
 function liveConfiguredRoots(): Set<string> {
-  return new Set(loadConfig().locations.map((l) => path.resolve(l.root)));
+  const out = new Set<string>();
+  for (const l of loadConfig().locations) {
+    const resolved = path.resolve(l.root);
+    out.add(resolved);
+    try {
+      if (existsSync(resolved)) out.add(realpathSync(resolved));
+    } catch {
+      /* unreadable */
+    }
+  }
+  return out;
 }
 
-/** Jail-only: does not require the path to exist. */
-export function forbiddenRestoreRootReason(abs: string): string | null {
-  const resolved = path.resolve(abs);
+function expandHomePrefixed(raw: string): string | null {
+  const home = thisHomedir();
+  if (!home) return null;
+  if (raw === "~") return home;
+  if (raw.startsWith("~/") || raw.startsWith("~\\")) {
+    return path.join(home, raw.slice(2));
+  }
+  if (raw === "$HOME" || raw === "${HOME}") return home;
+  if (raw.startsWith("$HOME/") || raw.startsWith("$HOME\\")) {
+    return path.join(home, raw.slice(6));
+  }
+  if (raw.startsWith("${HOME}/") || raw.startsWith("${HOME}\\")) {
+    return path.join(home, raw.slice(8));
+  }
+  return null;
+}
+
+/** Jail a path that is already lexical-resolved (no symlink follow). */
+function jailReasonForResolved(resolved: string): string | null {
   if (SYSTEM_EXACT.has(resolved)) {
     return `Refusing system path: ${resolved}`;
   }
@@ -197,9 +235,36 @@ export function forbiddenRestoreRootReason(abs: string): string | null {
   return null;
 }
 
+/** Jail-only: does not require the path to exist. Checks lexical, ~/$HOME, and realpath. */
+export function forbiddenRestoreRootReason(abs: string): string | null {
+  const expanded = expandHomePrefixed(abs);
+  if (expanded) {
+    const homeReason = jailReasonForResolved(path.resolve(expanded));
+    if (homeReason) return homeReason;
+  }
+
+  const resolved = path.resolve(abs);
+  const lexical = jailReasonForResolved(resolved);
+  if (lexical) return lexical;
+
+  try {
+    if (existsSync(resolved)) {
+      const physical = realpathSync(resolved);
+      if (physical !== resolved) {
+        const phys = jailReasonForResolved(physical);
+        if (phys) return phys;
+      }
+    }
+  } catch {
+    /* dangling / unreadable — lexical result stands */
+  }
+  return null;
+}
+
 /**
  * Shared by inspect flags, apply use-archived, and remapTo.
- * Must exist, be a directory, and pass the restore-root jail.
+ * Must exist, be a directory, and pass the restore-root jail
+ * (lexical path and physical path after realpath).
  */
 export function assertRestorableRoot(abs: string): void {
   const resolved = path.resolve(abs);
@@ -358,6 +423,7 @@ async function streamTarMembers(
 async function readTarMemberStdout(
   archivePath: string,
   member: string,
+  timeoutMs: number,
 ): Promise<string> {
   return new Promise((resolve, reject) => {
     const child = spawn("tar", ["-xOf", archivePath, member], {
@@ -384,7 +450,7 @@ async function readTarMemberStdout(
         /* ignore */
       }
       finish(new Error(`Timed out reading ${member} from archive`));
-    }, TAR_EXTRACT_TIMEOUT_MS);
+    }, timeoutMs);
 
     child.stdout?.on("data", (c: Buffer) => {
       bytes += c.length;
@@ -444,6 +510,73 @@ function matchLiveLocation(
   return live.find((l) => l.root === resolved) ?? null;
 }
 
+function nameIsThumbs(n: string): boolean {
+  return n === "thumbs" || n === "thumbs/" || n.startsWith("thumbs/");
+}
+
+function nameIsHoldings(n: string): boolean {
+  return n === "holdings" || n === "holdings/" || n.startsWith("holdings/");
+}
+
+/**
+ * Targeted list of catalog members (never holdings/). Used when the 5k
+ * prefix is truncated so library.db / config / thumbs after holdings still count.
+ */
+async function probeCatalogMembers(
+  archivePath: string,
+  want: string[],
+  timeoutMs: number,
+): Promise<Array<{ name: string; kind: TarMemberKind }>> {
+  if (want.length === 0) return [];
+  return new Promise((resolve, reject) => {
+    const child = spawn("tar", ["-tvzf", archivePath, ...want], {
+      stdio: ["ignore", "pipe", "pipe"],
+    });
+    const members: Array<{ name: string; kind: TarMemberKind }> = [];
+    let settled = false;
+
+    const finish = (
+      err: Error | null,
+      result?: Array<{ name: string; kind: TarMemberKind }>,
+    ) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      try {
+        rl.close();
+      } catch {
+        /* already closed */
+      }
+      if (err) reject(err);
+      else resolve(result!);
+    };
+
+    const timer = setTimeout(() => {
+      try {
+        child.kill("SIGKILL");
+      } catch {
+        /* ignore */
+      }
+      finish(new Error("tar member probe timed out"));
+    }, timeoutMs);
+
+    child.on("error", (e) => finish(e));
+
+    const rl = createInterface({ input: child.stdout! });
+    rl.on("line", (line) => {
+      if (settled) return;
+      const parsed = parseTarVerboseLine(line);
+      if (!parsed || parsed.skip) return;
+      members.push({ name: parsed.name, kind: parsed.kind });
+    });
+
+    child.on("close", () => {
+      // Non-zero is normal when some requested names are absent.
+      finish(null, members);
+    });
+  });
+}
+
 export async function inspectBackup(name: string): Promise<RestorePreview> {
   if (!tarAvailable()) {
     throw new Error("tar is required to inspect backups (GNU tar / bsdtar on PATH).");
@@ -469,26 +602,22 @@ export async function inspectBackup(name: string): Promise<RestorePreview> {
   }
 
   const memberNames = audit.members.map((m) => normalizeMemberName(m.name));
-  const hasManifest = memberNames.some((n) => n === "MANIFEST.json");
-  const hasDb = memberNames.some((n) => n === "library.db");
-  const hasConfig = memberNames.some((n) => n === "library.config.json");
-  const hasThumbs = memberNames.some(
-    (n) => n === "thumbs" || n === "thumbs/" || n.startsWith("thumbs/"),
-  );
-  const hasHoldings = memberNames.some(
-    (n) => n === "holdings" || n === "holdings/" || n.startsWith("holdings/"),
-  );
+  let hasManifest = memberNames.some((n) => n === "MANIFEST.json");
+  let hasDb = memberNames.some((n) => n === "library.db");
+  let hasConfig = memberNames.some((n) => n === "library.config.json");
+  let hasThumbs = memberNames.some(nameIsThumbs);
+  let hasHoldings = memberNames.some(nameIsHoldings);
 
   if (!hasManifest && !listed.truncated) {
     throw new Error("Archive is missing MANIFEST.json");
   }
-  if (!hasDb && !listed.truncated) {
-    throw new Error("Archive is missing library.db");
-  }
+
+  const memberTimeoutMs = extractTimeoutMs(st.size);
 
   let manifestRaw: string;
   try {
-    manifestRaw = await readTarMemberStdout(abs, "MANIFEST.json");
+    manifestRaw = await readTarMemberStdout(abs, "MANIFEST.json", memberTimeoutMs);
+    hasManifest = true;
   } catch (e) {
     throw new Error(
       e instanceof Error
@@ -508,6 +637,42 @@ export async function inspectBackup(name: string): Promise<RestorePreview> {
     throw new Error("Invalid or unknown backup manifest");
   }
   const manifest = parsed.data;
+
+  // A truncated 5k prefix is not an inventory of catalog members (holdings-first).
+  if (listed.truncated && (!hasDb || !hasConfig || !hasThumbs)) {
+    const want: string[] = [];
+    if (!hasDb) want.push("library.db");
+    if (!hasConfig) want.push("library.config.json");
+    if (!hasThumbs) want.push("thumbs", "thumbs/");
+    const probed = await probeCatalogMembers(abs, want, memberTimeoutMs);
+    const probeAudit = auditTarMembers(probed);
+    if (!probeAudit.ok) {
+      throw new Error(`Unsafe archive members: ${probeAudit.errors.join("; ")}`);
+    }
+    for (const m of probeAudit.members) {
+      const n = normalizeMemberName(m.name);
+      if (n === "library.db") hasDb = true;
+      if (n === "library.config.json") hasConfig = true;
+      if (nameIsThumbs(n)) hasThumbs = true;
+    }
+  }
+
+  if (listed.truncated) {
+    const inc = manifest.includes;
+    if (!hasConfig && inc.some((i) => i.includes("library.config.json"))) {
+      hasConfig = true;
+    }
+    if (!hasThumbs && inc.some((i) => i.startsWith("thumbs"))) {
+      hasThumbs = true;
+    }
+    if (
+      !hasHoldings &&
+      (inc.some((i) => i.startsWith("holdings")) ||
+        manifest.locations.some((l) => l.included))
+    ) {
+      hasHoldings = true;
+    }
+  }
 
   if (!hasDb) {
     throw new Error("Archive is missing library.db");

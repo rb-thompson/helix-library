@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { spawnSync } from "node:child_process";
 import {
   existsSync,
+  mkdirSync,
   mkdtempSync,
   readdirSync,
   rmSync,
@@ -13,8 +14,10 @@ import path from "node:path";
 import { after, before, describe, it } from "node:test";
 import { createBackup } from "@/lib/backup/create";
 import {
+  RESTORE_LIST_MEMBER_CAP,
   assertRestorableRoot,
   auditTarMembers,
+  forbiddenRestoreRootReason,
   inspectBackup,
   parseTarVerboseLine,
   restoreLiveStats,
@@ -95,6 +98,14 @@ describe("auditTarMembers", () => {
     const env = auditTarMembers([".env.local"]);
     assert.equal(env.ok, false);
     assert.ok(env.errors.some((e) => /allowlist/i.test(e)));
+
+    const tilde = auditTarMembers(["~/Documents"]);
+    assert.equal(tilde.ok, false);
+    assert.ok(tilde.errors.some((e) => /home-relative/i.test(e)));
+
+    const tildeOnly = auditTarMembers(["~"]);
+    assert.equal(tildeOnly.ok, false);
+    assert.ok(tildeOnly.errors.some((e) => /home-relative/i.test(e)));
   });
 
   it("rejects symlink / hardlink members", () => {
@@ -170,6 +181,13 @@ describe("inspectBackup + restorable roots", () => {
 
   it("allows an already-configured live location root", () => {
     assert.doesNotThrow(() => assertRestorableRoot(fixtureRoot()));
+  });
+
+  it("jails a symlink whose physical path is under $HOME", () => {
+    const link = path.join(env.dir, "docs-link");
+    symlinkSync(homedir(), link);
+    assert.ok(forbiddenRestoreRootReason(link));
+    assert.throws(() => assertRestorableRoot(link), /home/i);
   });
 
   it("previews a harness catalog backup (mode catalog, keep-live)", async () => {
@@ -266,6 +284,79 @@ describe("inspectBackup + restorable roots", () => {
     assert.equal(documents?.forbidden, true);
     assert.notEqual(documents?.defaultAction, "use-archived");
     assert.equal(preview.hostnameMismatch, true);
+  });
+
+  it("probes catalog members when holdings listing is truncated", async () => {
+    const staging = mkdtempSync(path.join(tmpdir(), "helix-inspect-holdings-"));
+    try {
+      const holdingsA = path.join(staging, "holdings", "A");
+      mkdirSync(holdingsA, { recursive: true });
+      mkdirSync(path.join(staging, "thumbs"));
+      const nFiles = RESTORE_LIST_MEMBER_CAP + 2;
+      for (let i = 0; i < nFiles; i++) {
+        writeFileSync(path.join(holdingsA, `f${i}`), "");
+      }
+      writeFileSync(path.join(staging, "library.db"), "db");
+      writeFileSync(
+        path.join(staging, "MANIFEST.json"),
+        validManifest({
+          mode: "full",
+          includeThumbs: true,
+          includes: [
+            "library.db",
+            "library.config.json",
+            "thumbs/ (1 files)",
+            "holdings/A/",
+          ],
+          locations: [
+            {
+              name: "Fixtures",
+              root: fixtureRoot(),
+              enabled: true,
+              included: true,
+            },
+          ],
+        }),
+      );
+      writeFileSync(path.join(staging, "library.config.json"), "{}\n");
+      writeFileSync(path.join(staging, "thumbs", "x.webp"), "w");
+
+      const outName = "helix-backup-full-truncated.tar.gz";
+      const out = exportArchivePath(outName);
+      // holdings first so the 5k list cap never reaches catalog members
+      const r = spawnSync(
+        "tar",
+        [
+          "-czf",
+          out,
+          "-C",
+          staging,
+          "holdings",
+          "library.db",
+          "MANIFEST.json",
+          "library.config.json",
+          "thumbs",
+        ],
+        { encoding: "utf8" },
+      );
+      if (r.status !== 0) {
+        throw new Error(`pack failed: ${r.stderr || r.stdout}`);
+      }
+
+      const preview = await inspectBackup(outName);
+      assert.equal(preview.memberListTruncated, true);
+      assert.equal(preview.mode, "full");
+      assert.equal(preview.hasDb, true);
+      assert.equal(preview.hasConfig, true);
+      assert.equal(preview.hasThumbs, true);
+      assert.equal(preview.hasHoldings, true);
+    } finally {
+      try {
+        rmSync(staging, { recursive: true, force: true });
+      } catch {
+        /* ignore */
+      }
+    }
   });
 
   it("does not mint a restore session or write the live catalog path", () => {
