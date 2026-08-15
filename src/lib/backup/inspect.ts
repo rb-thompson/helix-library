@@ -274,7 +274,8 @@ export function assertRestorableRoot(abs: string): void {
   if (!statSync(resolved).isDirectory()) {
     throw new Error(`Not a directory: ${resolved}`);
   }
-  const reason = forbiddenRestoreRootReason(resolved);
+  // Raw string so ~ / $HOME expand; resolve is only for exist/dir above.
+  const reason = forbiddenRestoreRootReason(abs);
   if (reason) throw new Error(reason);
 }
 
@@ -707,7 +708,7 @@ export async function inspectBackup(name: string): Promise<RestorePreview> {
         liveRoot,
         liveExists: liveRoot ? dirExists(liveRoot) : false,
         archivedRootExists: dirExists(resolvedArchived),
-        forbidden: forbiddenRestoreRootReason(resolvedArchived) !== null,
+        forbidden: forbiddenRestoreRootReason(archivedRoot) !== null,
         defaultAction,
       };
     },

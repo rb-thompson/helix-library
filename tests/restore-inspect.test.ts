@@ -183,6 +183,14 @@ describe("inspectBackup + restorable roots", () => {
     assert.doesNotThrow(() => assertRestorableRoot(fixtureRoot()));
   });
 
+  it("flags raw ~/ and $HOME roots without path.resolve first", () => {
+    assert.ok(forbiddenRestoreRootReason("~/Documents"));
+    assert.ok(forbiddenRestoreRootReason("$HOME/Documents"));
+    assert.ok(forbiddenRestoreRootReason("${HOME}/Documents"));
+    assert.ok(forbiddenRestoreRootReason("~"));
+    assert.ok(forbiddenRestoreRootReason("$HOME"));
+  });
+
   it("jails a symlink whose physical path is under $HOME", () => {
     const link = path.join(env.dir, "docs-link");
     symlinkSync(homedir(), link);
@@ -271,6 +279,18 @@ describe("inspectBackup + restorable roots", () => {
             enabled: true,
             included: false,
           },
+          {
+            name: "TildeDocs",
+            root: "~/Documents",
+            enabled: true,
+            included: false,
+          },
+          {
+            name: "HomeDocs",
+            root: "$HOME/Documents",
+            enabled: true,
+            included: false,
+          },
         ],
       }),
       "library.db": "x",
@@ -279,9 +299,13 @@ describe("inspectBackup + restorable roots", () => {
     assert.equal(preview.mode, "catalog");
     const fixtures = preview.locations.find((l) => l.name === "Fixtures");
     const documents = preview.locations.find((l) => l.name === "Documents");
+    const tildeDocs = preview.locations.find((l) => l.name === "TildeDocs");
+    const homeDocs = preview.locations.find((l) => l.name === "HomeDocs");
     assert.equal(fixtures?.defaultAction, "keep-live");
     assert.equal(documents?.defaultAction, "disable");
     assert.equal(documents?.forbidden, true);
+    assert.equal(tildeDocs?.forbidden, true);
+    assert.equal(homeDocs?.forbidden, true);
     assert.notEqual(documents?.defaultAction, "use-archived");
     assert.equal(preview.hostnameMismatch, true);
   });
