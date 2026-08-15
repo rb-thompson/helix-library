@@ -6,6 +6,7 @@
  */
 import { watch, type FSWatcher } from "node:fs";
 import path from "node:path";
+import { isRestoreLockHeld } from "../src/lib/backup/paths";
 import { loadConfig, clearConfigCache } from "../src/lib/config";
 import { isReindexRunning, runReindex } from "../src/lib/indexer/run";
 
@@ -16,6 +17,10 @@ let running = false;
 let pending = false;
 
 async function triggerReindex(reason: string) {
+  if (isRestoreLockHeld()) {
+    console.log(`[watch] restore lock present; skip reindex (${reason})`);
+    return;
+  }
   if (running || isReindexRunning()) {
     pending = true;
     console.log(`[watch] reindex already running; will re-run after (${reason})`);

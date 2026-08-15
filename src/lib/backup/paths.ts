@@ -2,13 +2,20 @@
  * Safe paths for Helix export/backup archives under data/exports/.
  */
 
-import { existsSync, mkdirSync, readdirSync, statSync } from "node:fs";
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  statSync,
+  unlinkSync,
+} from "node:fs";
 import path from "node:path";
 import { getDbPath, projectRoot } from "@/lib/config";
 
 export const EXPORT_DIR_NAME = "exports";
 export const BACKUP_NAME_RE =
-  /^helix-backup-(catalog|full)-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})Z\.tar\.gz$/;
+  /^helix-backup-(catalog|full)(?:-prerestore)?-(\d{4}-\d{2}-\d{2}T\d{2}-\d{2}-\d{2})Z\.tar\.gz$/;
 
 export function exportsRoot(): string {
   // Prefer sibling of DB so backups live with library data
@@ -68,9 +75,46 @@ export function stampForFilename(d = new Date()): string {
 export function buildBackupFilename(
   mode: "catalog" | "full",
   stamp?: string,
+  opts?: { prerestore?: boolean },
 ): string {
   const s = stamp ?? stampForFilename();
-  return `helix-backup-${mode}-${s}.tar.gz`;
+  const infix = opts?.prerestore ? "-prerestore" : "";
+  return `helix-backup-${mode}${infix}-${s}.tar.gz`;
+}
+
+/** Sibling of the live catalog — never cwd/data/. */
+export function restoreLockPath(): string {
+  return path.join(path.dirname(getDbPath()), "library.restore.lock");
+}
+
+/**
+ * True when a restore lock exists and its pid is alive.
+ * Stale pid (ESRCH) → unlink and return false.
+ */
+export function isRestoreLockHeld(): boolean {
+  const p = restoreLockPath();
+  if (!existsSync(p)) return false;
+  try {
+    const raw = JSON.parse(readFileSync(p, "utf8")) as { pid?: unknown };
+    const pid = typeof raw.pid === "number" ? raw.pid : Number(raw.pid);
+    if (!Number.isFinite(pid) || pid <= 0) {
+      unlinkSync(p);
+      return false;
+    }
+    try {
+      process.kill(pid, 0);
+      return true;
+    } catch (e) {
+      const code = (e as NodeJS.ErrnoException).code;
+      if (code === "ESRCH") {
+        unlinkSync(p);
+        return false;
+      }
+      return true;
+    }
+  } catch {
+    return true;
+  }
 }
 
 export function configWritePath(): string | null {

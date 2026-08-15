@@ -52,6 +52,10 @@ export type BackupCreateOpts = {
   /** Default true for catalog, false for full (thumbs already optional) */
   includeThumbs?: boolean;
   jobId?: number;
+  /** Undo snapshot: helix-backup-catalog-prerestore-{stamp}.tar.gz */
+  prerestore?: boolean;
+  extraNotes?: string[];
+  extraProtect?: string[];
   onProgress?: (p: {
     stage: string;
     percent: number | null;
@@ -190,7 +194,9 @@ export async function createBackup(
 
   const config = loadConfig(true);
   const stamp = new Date();
-  const fname = buildBackupFilename(mode, stampForFilename(stamp));
+  const fname = buildBackupFilename(mode, stampForFilename(stamp), {
+    prerestore: Boolean(opts.prerestore),
+  });
   const outPath = exportArchivePath(fname);
 
   const stagingParent = path.join(exportsRoot(), ".staging");
@@ -202,6 +208,12 @@ export async function createBackup(
     "API keys and .env.local are not included.",
     "Restore is manual — see RESTORE.md inside the archive.",
   ];
+  if (opts.prerestore) {
+    notes.push("Automatic pre-restore snapshot");
+  }
+  if (opts.extraNotes?.length) {
+    notes.push(...opts.extraNotes);
+  }
 
   try {
     checkCancel(jobId);
@@ -377,7 +389,7 @@ export async function createBackup(
       detail: `Wrote ${fname} (${bytes} bytes)`,
     });
 
-    pruneOldExports(RETAIN);
+    pruneOldExports(RETAIN, opts.extraProtect ?? []);
 
     return {
       name: fname,
@@ -403,15 +415,47 @@ export async function createBackup(
   }
 }
 
-export function pruneOldExports(keep: number): void {
+const PRERESTORE_PROTECT_MS = 7 * 24 * 60 * 60 * 1000;
+
+export function isProtectedExport(
+  name: string,
+  mtimeMs: number,
+  extraProtect: string[] = [],
+): boolean {
+  if (extraProtect.includes(name)) return true;
+  if (!name.includes("-prerestore-")) return false;
+  return Date.now() - mtimeMs < PRERESTORE_PROTECT_MS;
+}
+
+export function pruneOldExports(
+  keep: number,
+  extraProtect: string[] = [],
+): void {
   const files = listExportFiles();
-  for (const f of files.slice(Math.max(0, keep))) {
+  const candidates = files.filter(
+    (f) => !isProtectedExport(f.name, f.mtimeMs, extraProtect),
+  );
+  for (const f of candidates.slice(Math.max(0, keep))) {
     try {
       rmSync(f.path, { force: true });
     } catch {
       /* ignore */
     }
   }
+}
+
+/** Catalog undo snapshot. Protects `protectNames` (source archive) from prune. */
+export async function createPreRestoreBackup(opts: {
+  protectNames: string[];
+  onProgress?: BackupCreateOpts["onProgress"];
+}): Promise<BackupCreateResult> {
+  return createBackup({
+    mode: "catalog",
+    includeThumbs: true,
+    prerestore: true,
+    extraProtect: opts.protectNames,
+    onProgress: opts.onProgress,
+  });
 }
 
 export function readManifestHint(archivePath: string): BackupMode | "unknown" {

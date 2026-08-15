@@ -6,10 +6,11 @@
 
 import { existsSync, mkdirSync } from "node:fs";
 import path from "node:path";
-import { projectRoot } from "@/lib/config";
+import { getDbPath } from "@/lib/config";
 
 export function thumbsDir(): string {
-  const dir = path.join(projectRoot(), "data", "thumbs");
+  // Sibling of the catalog (same as exportsRoot) so harness DBs stay isolated.
+  const dir = path.join(path.dirname(getDbPath()), "thumbs");
   mkdirSync(dir, { recursive: true });
   return dir;
 }
