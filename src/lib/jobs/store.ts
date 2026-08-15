@@ -90,12 +90,23 @@ function defaultProgress(status: HelixJobStatus): HelixJobProgress {
 
 type JobRow = typeof jobs.$inferSelect;
 
+function carryItemId(
+  from: HelixJobProgress | Record<string, unknown> | null | undefined,
+): number | undefined {
+  if (!from || typeof from !== "object") return undefined;
+  const raw = (from as { itemId?: unknown }).itemId;
+  const n = typeof raw === "number" ? raw : Number(raw);
+  if (!Number.isFinite(n) || n <= 0) return undefined;
+  return Math.floor(n);
+}
+
 export function toHelixJob(row: JobRow): HelixJob {
   const kind = isHelixJobKind(row.kind ?? "reindex")
     ? (row.kind as HelixJobKind)
     : "reindex";
   const status = (row.status as HelixJobStatus) || "pending";
   const progressParsed = parseJson(row.progressJson) as HelixJobProgress | null;
+  const itemId = carryItemId(progressParsed);
   const progress: HelixJobProgress = progressParsed?.stage
     ? {
         stage: String(progressParsed.stage),
@@ -109,6 +120,7 @@ export function toHelixJob(row: JobRow): HelixJob {
           progressParsed.detail != null
             ? String(progressParsed.detail)
             : undefined,
+        ...(itemId != null ? { itemId } : {}),
       }
     : defaultProgress(status);
 
@@ -269,6 +281,8 @@ export function updateJobProgress(
 
 export function markJobRunning(id: number): void {
   const db = getDb();
+  const row = db.select().from(jobs).where(eq(jobs.id, id)).get();
+  const prevItemId = row ? carryItemId(toHelixJob(row).progress) : undefined;
   db.update(jobs)
     .set({
       status: "running",
@@ -279,9 +293,34 @@ export function markJobRunning(id: number): void {
     .run();
   updateJobProgress(
     id,
-    { stage: "starting", percent: 1, detail: "Starting…" },
+    {
+      stage: "starting",
+      percent: 1,
+      detail: "Starting…",
+      ...(prevItemId != null ? { itemId: prevItemId } : {}),
+    },
     { force: true },
   );
+}
+
+/**
+ * Early dual-binding for lens_analyze: merge itemId into result_json
+ * so findActiveLensJob can match even if progress is briefly incomplete.
+ */
+export function seedJobResult(
+  id: number,
+  seed: Record<string, unknown>,
+): HelixJob | null {
+  const db = getDb();
+  const row = db.select().from(jobs).where(eq(jobs.id, id)).get();
+  if (!row) return null;
+  const prev = parseJson(row.resultJson) ?? {};
+  const next = { ...prev, ...seed };
+  db.update(jobs)
+    .set({ resultJson: JSON.stringify(next) })
+    .where(eq(jobs.id, id))
+    .run();
+  return getJob(id);
 }
 
 export function completeJob(
@@ -293,6 +332,7 @@ export function completeJob(
   const row = db.select().from(jobs).where(eq(jobs.id, id)).get();
   if (!row) return;
   const kind = row.kind ?? "reindex";
+  const prevItemId = carryItemId(toHelixJob(row).progress);
   db.update(jobs)
     .set({
       status: "completed",
@@ -309,6 +349,7 @@ export function completeJob(
         stage: "done",
         percent: 100,
         detail: "Complete",
+        ...(prevItemId != null ? { itemId: prevItemId } : {}),
       }),
     })
     .where(eq(jobs.id, id))
@@ -322,6 +363,7 @@ export function failJob(id: number, error: string): void {
   const row = db.select().from(jobs).where(eq(jobs.id, id)).get();
   if (!row) return;
   const prev = toHelixJob(row);
+  const prevItemId = carryItemId(prev.progress);
   db.update(jobs)
     .set({
       status: "failed",
@@ -331,6 +373,7 @@ export function failJob(id: number, error: string): void {
         stage: "failed",
         percent: prev.progress.percent,
         detail: error,
+        ...(prevItemId != null ? { itemId: prevItemId } : {}),
       }),
     })
     .where(eq(jobs.id, id))
@@ -430,6 +473,7 @@ export function requestCancel(id: number): HelixJob | null {
   killJobProcess(id);
   // Soft-cancel pending immediately; running jobs check flag / process death
   if (row.status === "pending") {
+    const prevItemId = carryItemId(toHelixJob(row).progress);
     db.update(jobs)
       .set({
         status: "cancelled",
@@ -439,6 +483,7 @@ export function requestCancel(id: number): HelixJob | null {
           stage: "cancelled",
           percent: null,
           detail: "Cancelled",
+          ...(prevItemId != null ? { itemId: prevItemId } : {}),
         }),
       })
       .where(eq(jobs.id, id))

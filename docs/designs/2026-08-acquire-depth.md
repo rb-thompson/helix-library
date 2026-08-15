@@ -5,7 +5,7 @@
 | **Document** | Season design — Acquire depth & accuracy |
 | **Author** | Helix owner + design loop |
 | **Date** | 2026-08-07 |
-| **Status** | **Implemented** (Tier 1 on main, 2026-08-07) — rev 2; Tier 2 Grokipedia optional |
+| **Status** | **Implemented** (Tier 1 + Grokipedia + image URL + Ask acquire parity on main) — Gutenberg stretch remains |
 | **Approval** | Owner directed design + Tier 1 implement |
 | **Workspace** | `/home/brandon/Projects/non-os` (package `helix-library`) |
 | **Baseline tip** | `413a70a` on `main` (Discovery season shipped; 121 tests) |

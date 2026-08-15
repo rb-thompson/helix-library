@@ -18,6 +18,7 @@ Public library OPAC/services mapped onto personal files and host machine limits.
 | Services | Reindex, **export/backup**, machine status |
 | Acquisitions / ILL | `/acquire` — arXiv, OpenAlex OA PDFs, web clips, Grokipedia, YT/podcast, Grok + remote images into Archive |
 | Ask a librarian | `/ask` (local or optional xAI); holding-context from reading room |
+| Deep Lens dossier | `/lens/[id]` — kind-object, cached analysis, related, Your insights |
 | Building | Host CPU/RAM/disk/tools |
 
 ## Scope (current)

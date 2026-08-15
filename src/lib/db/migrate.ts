@@ -247,4 +247,40 @@ export function migrate(sqlite: Database.Database): void {
     "TEXT NOT NULL DEFAULT 'manual'",
   );
   ensureColumn(sqlite, "collections", "query_json", "TEXT");
+
+  // Deep Lens: durable insights bound to holdings
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS insights (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+      quote_text TEXT NOT NULL,
+      body TEXT,
+      source TEXT,
+      start_offset INTEGER,
+      end_offset INTEGER,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS insights_item_idx ON insights(item_id);
+  `);
+
+  // Deep Lens S2: machine dossier analyses (separate from human insights)
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS lens_analyses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+      content_hash TEXT,
+      fingerprint TEXT NOT NULL,
+      mode TEXT NOT NULL,
+      model TEXT,
+      status TEXT NOT NULL DEFAULT 'completed',
+      payload_json TEXT,
+      error TEXT,
+      schema_version INTEGER NOT NULL DEFAULT 1,
+      created_at INTEGER NOT NULL,
+      updated_at INTEGER NOT NULL
+    );
+    CREATE UNIQUE INDEX IF NOT EXISTS lens_analyses_item_uq ON lens_analyses(item_id);
+    CREATE INDEX IF NOT EXISTS lens_analyses_fp_idx ON lens_analyses(fingerprint);
+  `);
 }

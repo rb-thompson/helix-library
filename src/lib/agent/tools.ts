@@ -18,8 +18,10 @@ import { probeMachine } from "@/lib/machine/probe";
 import { ITEM_KINDS } from "@/lib/types";
 import { formatBytes } from "@/lib/format";
 
-/** Cap body size returned to the model (tokens / latency). */
-const BODY_MAX_CHARS = 24_000;
+/** Cap body size returned to the model (tokens / latency). Shared with Deep Lens. */
+export const CATALOG_READ_BODY_MAX = 24_000;
+/** @deprecated use CATALOG_READ_BODY_MAX */
+const BODY_MAX_CHARS = CATALOG_READ_BODY_MAX;
 const PREVIEW_CHARS = 400;
 
 function summarizeItem(item: NonNullable<ReturnType<typeof getItemById>>) {

@@ -51,6 +51,8 @@ function kindLabel(kind: string): string {
       return "Grokipedia";
     case "image_url":
       return "Image URL";
+    case "lens_analyze":
+      return "Deep Lens";
     default:
       return kind;
   }

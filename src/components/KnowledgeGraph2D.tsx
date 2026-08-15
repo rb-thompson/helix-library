@@ -340,7 +340,6 @@ export function KnowledgeGraph2DView({ data }: { data: KnowledgeGraph }) {
       if (el) el.replaceChildren();
     };
     // Remount on theme/data structure change
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [themeDark, viewData.nodes, viewData.links]);
 
   const resetView = useCallback(() => {

@@ -180,6 +180,54 @@ export const chatMessages = sqliteTable(
   (t) => [index("chat_messages_thread_idx").on(t.threadId)],
 );
 
+/** Durable Deep Lens insights bound to a catalog holding. */
+export const insights = sqliteTable(
+  "insights",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    itemId: integer("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    /** Selected quote / highlight text (required). */
+    quoteText: text("quote_text").notNull(),
+    /** Optional freeform note body. */
+    body: text("body"),
+    /** Optional source label (e.g. selection, manual). */
+    source: text("source"),
+    /** Optional character offsets into source text (best-effort). */
+    startOffset: integer("start_offset"),
+    endOffset: integer("end_offset"),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [index("insights_item_idx").on(t.itemId)],
+);
+
+/** Machine-generated Deep Lens dossier analyses (not human insights). */
+export const lensAnalyses = sqliteTable(
+  "lens_analyses",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    itemId: integer("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    contentHash: text("content_hash"),
+    fingerprint: text("fingerprint").notNull(),
+    mode: text("mode").notNull(),
+    model: text("model"),
+    status: text("status").notNull().default("completed"),
+    payloadJson: text("payload_json"),
+    error: text("error"),
+    schemaVersion: integer("schema_version").notNull().default(1),
+    createdAt: integer("created_at").notNull(),
+    updatedAt: integer("updated_at").notNull(),
+  },
+  (t) => [
+    uniqueIndex("lens_analyses_item_uq").on(t.itemId),
+    index("lens_analyses_fp_idx").on(t.fingerprint),
+  ],
+);
+
 export type LocationRow = typeof locations.$inferSelect;
 export type ItemRow = typeof items.$inferSelect;
 export type JobRow = typeof jobs.$inferSelect;
@@ -187,3 +235,5 @@ export type CollectionRow = typeof collections.$inferSelect;
 export type TagRow = typeof tags.$inferSelect;
 export type ChatThreadRow = typeof chatThreads.$inferSelect;
 export type ChatMessageRow = typeof chatMessages.$inferSelect;
+export type InsightRow = typeof insights.$inferSelect;
+export type LensAnalysisRow = typeof lensAnalyses.$inferSelect;

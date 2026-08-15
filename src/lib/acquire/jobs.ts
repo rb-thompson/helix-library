@@ -20,7 +20,7 @@ import type {
   HelixJob,
   HelixJobProgress,
 } from "@/lib/jobs/types";
-import { ACQUIRE_JOB_KINDS } from "@/lib/jobs/types";
+import { ACQUIRE_JOB_KINDS, isAcquireJobKind } from "@/lib/jobs/types";
 
 export type { AcquireJobKind } from "@/lib/jobs/types";
 export type AcquireJobStatus = HelixJob["status"];
@@ -41,7 +41,7 @@ export function getAcquireJob(id: string | number): AcquireJob | null {
   if (!Number.isFinite(n) || n <= 0) return null;
   const job = getJob(n);
   if (!job) return null;
-  if (job.kind === "reindex") return null;
+  if (!isAcquireJobKind(job.kind)) return null;
   return job;
 }
 
@@ -59,7 +59,7 @@ export function isAcquireBusy(kind?: AcquireJobKind): boolean {
 
 export function cancelAcquireJob(id: number): AcquireJob | null {
   const job = getJob(id);
-  if (!job || job.kind === "reindex") return null;
+  if (!job || !isAcquireJobKind(job.kind)) return null;
   return requestCancel(id);
 }
 

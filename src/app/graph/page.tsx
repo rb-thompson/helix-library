@@ -3,7 +3,6 @@ import Link from "next/link";
 import { KnowledgeGraphLoader } from "@/components/KnowledgeGraphLoader";
 import {
   buildKnowledgeGraph,
-  DEFAULT_MAX_ITEMS,
   graphHrefFromFilters,
   HARD_MAX_ITEMS,
   isItemKind,

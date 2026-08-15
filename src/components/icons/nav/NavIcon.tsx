@@ -1,5 +1,6 @@
 import type { CSSProperties, ReactElement } from "react";
 import {
+  Aperture,
   BookOpen,
   Download,
   FolderOpen,
@@ -25,6 +26,7 @@ const ICONS: Record<NavIconName, LucideIcon> = {
   graph: Network,
   collections: Layers,
   ask: MessageCircle,
+  lens: Aperture,
   locations: FolderOpen,
   acquire: Download,
   services: HardDrive,

@@ -4,6 +4,7 @@ export type NavIconName =
   | "graph"
   | "collections"
   | "ask"
+  | "lens"
   | "locations"
   | "acquire"
   | "services"
@@ -16,6 +17,7 @@ export const NAV_ICON_NAMES: readonly NavIconName[] = [
   "graph",
   "collections",
   "ask",
+  "lens",
   "locations",
   "acquire",
   "services",
@@ -57,6 +59,12 @@ export const PRIMARY_NAV: readonly NavItem[] = [
     label: "Ask",
     tip: "Talk to the Librarian",
     icon: "ask",
+  },
+  {
+    href: "/lens",
+    label: "Deep Lens",
+    tip: "Active knowledge surface for one holding",
+    icon: "lens",
   },
 ] as const;
 

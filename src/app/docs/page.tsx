@@ -1,6 +1,7 @@
 import Link from "next/link";
 import type { Metadata } from "next";
 import {
+  Aperture,
   BookOpen,
   Download,
   FolderOpen,
@@ -23,6 +24,7 @@ const toc = [
   { id: "concepts", label: "Core concepts" },
   { id: "catalog", label: "Catalog & media" },
   { id: "reading-room", label: "Reading room" },
+  { id: "deep-lens", label: "Deep Lens" },
   { id: "collections", label: "Collections & tags" },
   { id: "graph", label: "Knowledge graph" },
   { id: "locations", label: "Locations" },
@@ -173,6 +175,11 @@ export default function DocsPage() {
               Continuous text/code reader and PDF page viewer on item detail,
               with local position memory so you can resume where you left off.
             </Term>
+            <Term title="Deep Lens">
+              One-surface workspace for a holding: content, structural
+              connections, Ask with holding context, and durable insights
+              (quotes/notes).
+            </Term>
             <Term title="Reindex">
               Walks locations, updates the SQLite catalog, builds thumbs/posters
               when possible.
@@ -253,6 +260,40 @@ export default function DocsPage() {
             <li>
               Binary or unsupported types stay on the normal media preview;
               they are not forced into the room.
+            </li>
+          </ul>
+        </section>
+
+        {/* Deep Lens */}
+        <section id="deep-lens" className="scroll-mt-28">
+          <SectionTitle
+            icon={<Aperture className="h-5 w-5" />}
+            title="Deep Lens"
+          />
+          <p className="prose-body mt-3">
+            <DocLink href="/lens">Deep Lens</DocLink> is an encyclopedia
+            terminal for one holding — a compiled article, the source itself,
+            structural neighbors, and your notes. Open{" "}
+            <code className="code-inline">/lens/{"{id}"}</code> or the{" "}
+            <strong>Deep Lens</strong> button on any catalog item. Keys{" "}
+            <strong>1–4</strong> switch panes.
+          </p>
+          <ul className="mt-4 prose-body list-disc space-y-2 pl-5">
+            <li>
+              <strong>Article</strong> — <strong>Compile entry</strong> builds a
+              cached encyclopedia-style overview from indexed text + metadata.
+              Local is extractive; with an xAI key it can use Grok.{" "}
+              <strong>Images</strong> send the picture; <strong>videos</strong>{" "}
+              send a few still frames (not the whole clip). Cache refreshes
+              when the file fingerprint changes.
+            </li>
+            <li>
+              <strong>Source / Neighbors / Notes</strong> — media or reading
+              room, structural neighbors, and quotes you save yourself.
+            </li>
+            <li>
+              <strong>Infobox</strong> — call number, size, branch, and jumps
+              to Ask or the reading room.
             </li>
           </ul>
         </section>

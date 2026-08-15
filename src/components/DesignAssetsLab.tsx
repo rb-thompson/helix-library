@@ -33,6 +33,7 @@ const ICON_NOTES: Record<NavIconName, string> = {
   graph: "Lucide Network — home Graph tile",
   collections: "Lucide Layers — home Collections tile",
   ask: "Lucide MessageCircle — home Ask tile",
+  lens: "Lucide Aperture — home Deep Lens tile",
   locations: "Lucide FolderOpen — home Locations tile",
   acquire: "Lucide Download — home Acquire tile",
   services: "Lucide HardDrive — home Services tile",

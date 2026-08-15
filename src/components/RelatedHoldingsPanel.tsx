@@ -14,18 +14,28 @@ const ICONS = {
  */
 export function RelatedHoldingsPanel({
   groups,
+  bare = false,
 }: {
   groups: RelatedGroup[];
+  /** Skip surface chrome (Deep Lens terminal already frames the pane). */
+  bare?: boolean;
 }) {
   if (!groups.length) return null;
 
   return (
-    <section className="surface p-4 sm:p-5" aria-label="Related holdings">
-      <h2 className="label-quiet !mb-0">Related holdings</h2>
-      <p className="mt-1 text-xs text-[var(--muted)]">
-        Same folder, shared tags, or co-shelved — structural only, not “similar
-        content.”
-      </p>
+    <section
+      className={bare ? "" : "surface p-4 sm:p-5"}
+      aria-label="Related holdings"
+    >
+      {bare ? null : (
+        <>
+          <h2 className="label-quiet !mb-0">Related holdings</h2>
+          <p className="mt-1 text-xs text-[var(--muted)]">
+            Same folder, shared tags, or co-shelved — structural only, not
+            “similar content.”
+          </p>
+        </>
+      )}
 
       <div className="mt-4 space-y-5">
         {groups.map((g) => {

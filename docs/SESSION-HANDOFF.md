@@ -1,8 +1,8 @@
 # Session handoff — Helix Library
 
-**Last updated:** 2026-08-07  
+**Last updated:** 2026-08-15  
 **Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`)  
-**Status:** Daily-usable OPAC. **Curation & intake shipped.** **Discovery season shipped.** **Acquire depth shipped.** **Export/backup shipped** (catalog + full tar.gz on Services / `npm run backup`). Optional Discovery **PR6** open events, Gutenberg remain stretch.
+**Status:** Daily-usable OPAC. **Curation & intake shipped.** **Discovery season shipped.** **Acquire depth shipped** (including Grokipedia). **Export/backup shipped.** **Deep Lens v1 + S2 dossier shipped** (`/lens`, 3D kind-objects, `lens_analyses` cache, local/xAI analyze, vision stretch). Optional Discovery **PR6** open events, Gutenberg, and one-click restore UI remain stretch.
 
 Read [AGENTS.md](../AGENTS.md) first, then this file.
 
@@ -49,7 +49,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | **Acquire `/acquire`** | arXiv; OpenAlex OA PDF; web clip; **Grokipedia**; **image URL**; YT/podcast; Grok image; Ask propose+approve for all acquire kinds; SSRF outbound; jobs + auto-tags |
 | Theme / nav | Dark/light; **light helix mark** swap; Primary + More (Locations, **Acquire**, Services, Docs) |
 | Shell | `.shell-x`, `--shell-max` wider at 2xl |
-| Tests | `npm test` — **155 pass** |
+| Tests | `npm test` — **179 pass** |
 | Docs | In-app `/docs` includes Acquire, reading room, smart shelves, graph |
 | **Reading room (PR1a+1b)** | Text/code continuous + PDF.js page mode (canvas + text layer); `helix-read-position` scroll/page; `?room=1`; public unbundled pdf.min.mjs |
 | **Read → act (PR2)** | Selection toolbar Tag/Ask/Copy; `/ask?item=`; transport `holdingItemId` + quote; system appendix; local summarize → indexed body |
@@ -57,6 +57,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | **Smart shelves (PR4)** | `collections.kind` + `query_json`; resolve facade; catalog/graph expand ≤2000; hard-fail add; detail `?page=` |
 | **Graph scale (PR5)** | `meta.totalItems` / `maxItems`; 2D `force-graph` + 3D toggle (`helix-graph-mode`); cap chips 200/400/600 |
 | **Brand + docs (PR7)** | `helix-mark-light.png`; HelixMark CSS theme swap; PRODUCT / `/docs` / AGENTS / design status |
+| **Deep Lens** | `/lens` + `/lens/[id]` dossier: 3D kind-object, `lens_analyses` cache, Run analysis (local/xAI), related, Your insights, Ask |
 
 ---
 
@@ -136,6 +137,11 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | `next.config.ts` | `transpilePackages` for three / 3d-force-graph / force-graph |
 | `src/components/HelixMark.tsx` | Dark + light mark; CSS theme swap |
 | `public/helix-mark.png` / `helix-mark-light.png` | Brand assets |
+| `src/lib/lens/*` | Focus, human insights, dossier analyses, kind-object specs, run-analyze |
+| `src/app/lens/**` | Deep Lens routes |
+| `src/components/lens/*` | Dossier shell, KindObject, analysis panel, Your insights |
+| `src/app/api/insights/**` | Human insight create/list/delete |
+| `src/app/api/lens/analyses/**` | Machine dossier GET/POST |
 
 ---
 
@@ -145,7 +151,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | --- | --- |
 | Port | **4747** |
 | SuperGrok | ≠ `XAI_API_KEY` for Ask or Acquire images |
-| YT progress | Jobs async + poll; store on `globalThis` + `data/acquire-jobs.json` |
+| YT progress | Jobs async + poll; unified SQLite `jobs` (legacy `acquire-jobs.json` imported then abandoned) |
 | YT codecs | Prefer H.264+AAC; AV1 often fails in HTML5 video |
 | Media 500 | Unicode in `Content-Disposition` must use ASCII fallback + `filename*` |
 | Custom thumbs | Reindex does **not** overwrite existing `data/thumbs/{id}.webp` |
@@ -163,13 +169,14 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 2. yt-dlp JS runtime (optional deno) for more formats  
 3. **Gutenberg / Standard Ebooks** stretch book intake  
 4. Automated **restore** UI (export is manual-restore via RESTORE.md for now)  
-5. Embeddings / semantic search (explicit non-goal)
+5. Embeddings / semantic search (explicit non-goal)  
+6. Lens leftovers (optional): DELETE analyses API, agent `lens_analyze` tool, Services analysis counts
 
 **Season “Curation & intake” (2026-08):** PR1–PR7 landed — see [designs/2026-08-curation-intake.md](./designs/2026-08-curation-intake.md).  
 
 **Season “Discovery depth & reading room” (2026-08):** PR1a–PR5 + PR7 landed; PR6 stretch open — see [designs/2026-08-discovery-reading.md](./designs/2026-08-discovery-reading.md).
 
-**Season “Acquire depth & accuracy” (2026-08):** Tier 1 landed (Grok image fix, OpenAlex OA PDF, web clip, plumbing, docs). Tier 2 Grokipedia optional.
+**Season “Acquire depth & accuracy” (2026-08):** Tier 1 + Grokipedia + image URL + Ask acquire parity landed. Gutenberg remains stretch.
 
 ---
 
@@ -185,7 +192,7 @@ npm run dev    # http://127.0.0.1:4747
 # optional: yt-dlp, ffmpeg, exiftool; XAI_API_KEY for Grok Ask/images
 ```
 
-**Smoke:** home → catalog → **text** holding (scroll restore) → **PDF** holding (page nav, text select, reload restores page; Network 206 Range) → Tag/Ask from selection → related panel → smart shelf filter → `/graph` 2D/3D → `/ask?item=` → theme toggle (light mark) → `/docs` → `/acquire`.
+**Smoke:** home → catalog → **text** holding (scroll restore) → **PDF** holding (page nav, text select, reload restores page; Network 206 Range) → Tag/Ask from selection → related panel → smart shelf filter → `/graph` 2D/3D → `/ask?item=` → theme toggle (light mark) → `/docs` → `/acquire` → `/lens/{id}` (kind-object + Run analysis) → mini player (play audio/video, navigate away, bar persists).
 
 ---
 
@@ -198,3 +205,11 @@ npm run dev    # http://127.0.0.1:4747
 ## Session wrap (2026-08-08) — Export / backup
 
 **Shipped:** catalog + full backups to `data/exports/*.tar.gz` (SQLite snapshot, config, thumbs, optional holdings); Services **Export / backup** panel; `npm run backup`; download/delete APIs; job kind `backup`.
+
+## Session wrap (2026-08-13–15) — Deep Lens S2 dossier
+
+**Shipped:** `/lens` + `/lens/[id]` dossier (3D kind-objects + KindPoster fallback), `insights` + `lens_analyses`, Run analysis (local extractive / xAI `generateObject`), vision stretch for image/video, jobs `lens_analyze` with durable `progress.itemId`, suggested-tag apply. Tests **179**. Design: [2026-08-deep-lens-dossier.md](./designs/2026-08-deep-lens-dossier.md).
+
+**Also on main since last wrap:** Grokipedia + image URL + Ask acquire parity; multi-location acquire; mini player; `/design` lab; rescue dismiss; lightbox zoom.
+
+**Still optional:** Discovery PR6 open events; Gutenberg; one-click restore UI.

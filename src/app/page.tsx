@@ -1,5 +1,6 @@
 import Link from "next/link";
 import {
+  Aperture,
   ArrowUpRight,
   BookOpen,
   Download,
@@ -183,6 +184,12 @@ export default function HomePage() {
           icon={<MessageCircle className="h-4 w-4" />}
           title="Ask"
           body="Find in plain language"
+        />
+        <ServiceCard
+          href="/lens"
+          icon={<Aperture className="h-4 w-4" />}
+          title="Deep Lens"
+          body="Encyclopedia terminal"
         />
         <ServiceCard
           href="/docs"

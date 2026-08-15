@@ -81,8 +81,8 @@ function itemIdsForFilters(params: CatalogSearchParams): number[] | null {
 
   if (params.collectionId) {
     // Lazy import avoids circular init: manage → searchCatalogItemIds → manage
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { resolveCollectionItemIds } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require("@/lib/collections/manage") as typeof import("@/lib/collections/manage");
     const resolved = resolveCollectionItemIds(Number(params.collectionId));
     ids = resolved.ids;

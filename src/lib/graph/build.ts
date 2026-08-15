@@ -253,8 +253,8 @@ export function buildKnowledgeGraph(opts?: GraphBuildOpts): KnowledgeGraph {
   }
   if (filters.collectionId) {
     // Lazy import avoids cycle with catalog/query ↔ collections/manage
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
     const { resolveCollectionItemIds } =
+      // eslint-disable-next-line @typescript-eslint/no-require-imports
       require("@/lib/collections/manage") as typeof import("@/lib/collections/manage");
     const resolved = resolveCollectionItemIds(filters.collectionId);
     if (resolved.ids.length === 0) {

@@ -13,20 +13,20 @@
 ┌─────────────────────────────────────────────────────────────┐
 │  Web surface (Next.js 15 App Router + React 19)             │
 │  /  /catalog  /catalog/[id]  /graph  /collections           │
-│  /locations  /acquire  /services  /ask  /docs               │
+│  /locations  /acquire  /services  /ask  /docs  /lens        │
 │  Header (client hamburger < lg) · Footer · tooltips         │
 └───────────────────────────┬─────────────────────────────────┘
                             │ RSC / fetch
 ┌───────────────────────────▼─────────────────────────────────┐
 │  API routes (Node runtime)                                  │
 │  reindex · media · thumbs · locations · collections · tags  │
-│  ask · threads · bulk · acquire                             │
+│  ask · threads · bulk · acquire · backup · insights · lens  │
 └───────────────────────────┬─────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
 │  Library core (`src/lib`)                                   │
 │  config · db · indexer · catalog · collections · locations  │
-│  media · agent · machine · graph · acquire                  │
+│  media · agent · machine · graph · acquire · lens · backup  │
 └───────────────┬─────────────────────────────┬───────────────┘
                 │                             │
                 ▼                             ▼
@@ -66,10 +66,12 @@ Client singleton: `src/lib/db/client.ts` (`globalThis` for HMR).
 | `locations` | Scan roots (branches) |
 | `items` | Holdings: path, kind, mime, size, mtimes, hash, title, width/height, duration_ms, is_missing |
 | `item_text` | Extracted text body sample for FTS |
-| `jobs` | Reindex job log + stats_json |
-| `collections` / `collection_items` | Manual shelves |
-| `tags` / `item_tags` | Labels on items |
+| `jobs` | Unified job log (reindex, backup, acquire, `lens_analyze`) |
+| `collections` / `collection_items` | Manual shelves + smart shelves (`kind` / `query_json`) |
+| `tags` / `item_tags` | Labels on items (`source`, optional `hidden`) |
 | `chat_threads` / `chat_messages` | Librarian conversations |
+| `insights` | Human Deep Lens quotes/notes (not machine output) |
+| `lens_analyses` | Cached machine dossier per item (fingerprint-fresh) |
 
 ### Search (FTS5)
 
@@ -152,9 +154,13 @@ EXIF: `readExif()` via system exiftool when available.
 | `/collections` | Create + list |
 | `/collections/[id]` | Grid/list of shelf items |
 | `/locations` | Admin + ignore display + reindex |
-| `/services` | Reindex + machine facts |
-| `/ask` | Chat |
+| `/services` | Reindex, export/backup, machine facts, jobs |
+| `/ask` | Chat (optional `?item=` holding context) |
 | `/docs` | End-user getting started |
+| `/lens` / `/lens/[id]` | Deep Lens dossier (kind-object + analysis + Your insights) |
+| `/acquire` | ILL desk (arXiv, OpenAlex, clip, Grokipedia, YT, images) |
+| `/graph` | 2D/3D knowledge map |
+| `/design` | Internal design-assets lab |
 
 Shared nav: `src/lib/nav.ts` (Header + Footer).  
 Responsive: Header client drawer below `lg`; layout `max-w-7xl`.
@@ -175,6 +181,10 @@ Responsive: Header client drawer below `lg`; layout `max-w-7xl`.
 | GET/POST | `/api/ask` | Status / chat stream |
 | GET/POST | `/api/threads` | List / create thread |
 | GET/DELETE | `/api/threads/[id]` | Load / delete thread |
+| GET/POST | `/api/insights` | Human Lens insights |
+| DELETE | `/api/insights/[id]` | Delete one insight |
+| GET/POST | `/api/lens/analyses` | Dossier cache / run analysis |
+| GET | `/api/jobs/[id]` | Poll any job including `lens_analyze` |
 
 All data routes: `runtime = "nodejs"`, `dynamic = "force-dynamic"` where used.
 

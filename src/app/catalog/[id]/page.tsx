@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, MapPin, MessageSquareText } from "lucide-react";
+import { Aperture, ArrowLeft, MapPin, MessageSquareText } from "lucide-react";
 import { CopyPathButton } from "@/components/CopyPathButton";
 import { ExifPanel } from "@/components/ExifPanel";
 import { ExtractedTextPanel } from "@/components/ExtractedTextPanel";
@@ -185,6 +185,14 @@ export default async function ItemPage({
         </div>
         <div className="flex flex-col items-stretch gap-2 sm:items-end">
           <CopyPathButton path={item.path} />
+          <Link
+            href={`/lens/${item.id}`}
+            className="btn btn-primary btn-sm inline-flex items-center justify-center gap-1.5"
+            title="Open Deep Lens — read, relate, ask, capture insights"
+          >
+            <Aperture className="h-3.5 w-3.5" aria-hidden />
+            Deep Lens
+          </Link>
           <Link
             href={`/ask?item=${item.id}`}
             className="btn btn-secondary btn-sm inline-flex items-center justify-center gap-1.5"

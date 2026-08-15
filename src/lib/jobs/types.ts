@@ -1,6 +1,7 @@
 export type HelixJobKind =
   | "reindex"
   | "backup"
+  | "lens_analyze"
   | "arxiv"
   | "youtube"
   | "image"
@@ -20,6 +21,8 @@ export type HelixJobProgress = {
   stage: string;
   percent: number | null;
   detail?: string;
+  /** Durable binding for lens_analyze (and future kinds). Survives progress rewrites. */
+  itemId?: number;
 };
 
 export type HelixJob = {
@@ -58,5 +61,10 @@ export function isAcquireJobKind(k: string): k is AcquireJobKind {
 }
 
 export function isHelixJobKind(k: string): k is HelixJobKind {
-  return k === "reindex" || k === "backup" || isAcquireJobKind(k);
+  return (
+    k === "reindex" ||
+    k === "backup" ||
+    k === "lens_analyze" ||
+    isAcquireJobKind(k)
+  );
 }

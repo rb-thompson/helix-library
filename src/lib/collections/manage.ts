@@ -1,4 +1,4 @@
-import { and, asc, count, desc, eq, sql } from "drizzle-orm";
+import { and, asc, count, desc, eq } from "drizzle-orm";
 import {
   SMART_ID_HARD_CAP,
   searchCatalog,
@@ -636,7 +636,6 @@ export function listTags(opts?: {
   minCount?: number;
   limit?: number;
 }): ListedTag[] {
-  const db = getDb();
   const sortBy = opts?.sortBy ?? "name";
   const minCount = opts?.minCount ?? 0;
   const limit = opts?.limit;
