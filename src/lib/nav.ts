@@ -85,7 +85,7 @@ export const SECONDARY_NAV: readonly NavItem[] = [
   {
     href: "/services",
     label: "Services",
-    tip: "Reindex & machine",
+    tip: "Reindex, backup & restore",
     icon: "services",
   },
   {

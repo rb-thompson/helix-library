@@ -5,9 +5,11 @@ import {
   Archive,
   Download,
   HardDrive,
+  RotateCcw,
   Trash2,
 } from "lucide-react";
 import { HelixSpinner } from "@/components/icons/HelixSpinner";
+import { requestRestore } from "@/components/RestorePanel";
 import { cn } from "@/lib/cn";
 import { formatBytes, formatDate } from "@/lib/format";
 
@@ -152,8 +154,9 @@ export function BackupPanel() {
             <code className="code-inline">data/exports/</code> as{" "}
             <code className="code-inline">.tar.gz</code>. Does{" "}
             <strong className="font-medium text-[var(--ink-soft)]">not</strong>{" "}
-            include API keys. Restore is manual — see{" "}
-            <code className="code-inline">RESTORE.md</code> inside each archive.
+            include API keys. Inspect a local snapshot and return it over the
+            live catalog (typed confirm). Holdings trees are not overwritten.
+            Secrets are never in the archive.
           </p>
         </div>
       </div>
@@ -276,6 +279,11 @@ export function BackupPanel() {
                     >
                       {b.mode}
                     </span>
+                    {b.name.includes("-prerestore-") ? (
+                      <span className="mr-1.5 rounded-full bg-[color-mix(in_srgb,var(--warn)_18%,transparent)] px-1.5 py-0.5 text-[0.6rem] font-semibold uppercase text-[var(--warn)]">
+                        undo point
+                      </span>
+                    ) : null}
                     {formatBytes(b.bytes)} · {formatDate(b.mtimeMs)}
                   </p>
                 </div>
@@ -287,6 +295,15 @@ export function BackupPanel() {
                     <Download className="h-3.5 w-3.5" />
                     Download
                   </a>
+                  <button
+                    type="button"
+                    className="btn btn-ghost btn-sm"
+                    disabled={busy !== null}
+                    onClick={() => requestRestore(b.name)}
+                  >
+                    <RotateCcw className="h-3.5 w-3.5" />
+                    Restore
+                  </button>
                   <button
                     type="button"
                     className="btn btn-ghost btn-sm text-[var(--danger)]"

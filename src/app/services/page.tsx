@@ -2,6 +2,7 @@ import Link from "next/link";
 import { BackupPanel } from "@/components/BackupPanel";
 import { JobsPanel } from "@/components/JobsPanel";
 import { ReindexButton } from "@/components/ReindexButton";
+import { RestorePanel } from "@/components/RestorePanel";
 import { formatBytes, formatDate } from "@/lib/format";
 import {
   getLatestJob,
@@ -34,8 +35,8 @@ export default function ServicesPage() {
         <p className="eyebrow">Operations</p>
         <h1 className="page-title mt-1">Services</h1>
         <p className="page-sub">
-          Reindex holdings, export backups, and inspect this machine as the
-          library building.
+          Reindex holdings, export or restore a snapshot, and inspect this
+          machine as the library building.
         </p>
       </div>
 
@@ -43,8 +44,10 @@ export default function ServicesPage() {
 
       <BackupPanel />
 
+      <RestorePanel />
+
       <div className="grid gap-3 sm:gap-4 lg:grid-cols-2">
-        <section className="surface p-4 sm:p-5">
+        <section id="reindex" className="surface p-4 sm:p-5">
           <h2 className="text-base font-semibold tracking-tight text-[var(--ink)]">
             Reindex
           </h2>
