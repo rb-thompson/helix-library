@@ -5,7 +5,7 @@
 | **Document** | Season design — Look, feel, and feedback craft |
 | **Author** | Helix owner + design loop |
 | **Date** | 2026-08-15 |
-| **Status** | Draft (rev 4) — owner resolved Open Questions 2026-08-15. Required PRs 1a–7 on main. PR8 in review (`craft/pr8-catalog-jk`). |
+| **Status** | **Implemented** (PR1a–8 on main, 2026-08-16) — rev 4; PR8 catalog j/k merged `#2` |
 | **Approval** | Owner decided OQ1–OQ4 (2026-08-15). PR plan unchanged. |
 | **Workspace** | `/home/brandon/Projects/non-os` (package `helix-library`) |
 | **Audience** | Senior engineers implementing on `main` |

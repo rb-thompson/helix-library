@@ -1,9 +1,9 @@
 # Session handoff — Helix Library
 
-**Last updated:** 2026-08-16 (docs handbook + Circulation brand wave)  
+**Last updated:** 2026-08-16 (PR6 + PR8 merged)  
 **Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`)  
-**Tip:** `origin/main` — restore UI + left sidebar + look-feel craft + expanded `/docs` + Circulation stills. Lucide nav (custom glyphs reverted).  
-**Status:** Daily-usable OPAC. **Curation, Discovery, Acquire, export/backup, Deep Lens S2, restore UI, left rail, look-feel craft, handbook `/docs`, Circulation brand wave** shipped. Required craft PRs 1a–7 done. Optional leftover: craft PR8 catalog j/k (after living with PR3). Next product: Discovery PR6 `item_events`. Do not start embeddings.
+**Tip:** `origin/main` — restore UI + left sidebar + look-feel craft (incl. catalog j/k) + expanded `/docs` + Circulation stills + `item_events`. Lucide nav.  
+**Status:** Daily-usable OPAC. **Curation, Discovery (incl. PR6), Acquire, export/backup, Deep Lens S2, restore UI, left rail, look-feel craft (PR1a–8), handbook `/docs`, Circulation brand wave** shipped. No required leftovers. Stretch: Gutenberg. Do not start embeddings.
 
 Read [AGENTS.md](../AGENTS.md) first, then this file.
 
@@ -37,7 +37,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 | Area | Notes |
 | --- | --- |
-| Catalog | Hybrid FTS+LIKE, **snippets + highlight**, sort, `under`, facets, grid/list, bulk Select |
+| Catalog | Hybrid FTS+LIKE, **snippets + highlight**, sort, `under`, facets, grid/list, bulk Select, **j/k browse ring** |
 | Weeding | `/catalog?missing=1`; bulk **Remove from catalog** (DB only, never disk) |
 | Tags | Collapsible; **hygiene panel** (Collections); `vision-tagged` hidden from facets/graph |
 | Media | Stream + Range; **unicode filenames fixed** in `Content-Disposition` |
@@ -50,8 +50,8 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | **Acquire `/acquire`** | arXiv; OpenAlex OA PDF; web clip; **Grokipedia**; **image URL**; YT/podcast; Grok image; Ask propose+approve for all acquire kinds; SSRF outbound; jobs + auto-tags |
 | Theme / nav | Dark/light; **light helix mark** swap; **left sidebar** (Stacks + Library ops); header is jobs + theme |
 | Shell | `.app-frame` offset by `--sidebar-rail`; `.shell-x`, `--shell-max` wider at 2xl |
-| Tests | `npm test` — **270 pass** (toasts + catalogHref + restore/Deep Lens/hours) |
-| **Look-feel craft** | Design: [docs/designs/2026-08-look-feel-craft.md](./designs/2026-08-look-feel-craft.md). Tokens + lamp + overlay; toast/ProgressBar/InlineStatus; header adaptive poll; catalog `replace` while typing; holding folios + optimistic tags/dismiss; item room + lamp `?room=1`; Hours lamp; Ask bubbles; shared job bars; graph/collections/services chrome. `/design` is the living spec. Optional **PR8** j/k browse. |
+| Tests | `npm test` — **279 pass** (item_events + catalog j/k) |
+| **Look-feel craft** | Design: [docs/designs/2026-08-look-feel-craft.md](./designs/2026-08-look-feel-craft.md). Tokens + lamp + overlay; toast/ProgressBar/InlineStatus; header adaptive poll; catalog `replace` while typing; holding folios + optimistic tags/dismiss; item room + lamp `?room=1`; Hours lamp; Ask bubbles; shared job bars; graph/collections/services chrome; **PR8 j/k browse**. `/design` is the living spec. |
 | Docs | In-app `/docs` is a full handbook (map, building, every desk, privacy, keyboard). Field guide: `archive/documents/Helix-Library-Field-Guide.md` |
 | **Reading room (PR1a+1b)** | Text/code continuous + PDF.js page mode (canvas + text layer); `helix-read-position` scroll/page; `?room=1`; public unbundled pdf.min.mjs |
 | **Read → act (PR2)** | Selection toolbar Tag/Ask/Copy; `/ask?item=`; transport `holdingItemId` + quote; system appendix; local summarize → indexed body |
@@ -61,12 +61,13 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | **Brand + docs (PR7)** | `helix-mark-light.png`; HelixMark CSS theme swap; PRODUCT / `/docs` / AGENTS / design status |
 | **Deep Lens** | `/lens` + `/lens/[id]` dossier: 3D kind-object, `lens_analyses` cache, Run analysis (local/xAI), related, Your insights, Ask |
 | **Restore** | Services **Restore from snapshot** — inspect `helix-backup-v1`, type `RESTORE`, undo snapshot, ATTACH copy-in. Holdings not overwritten. `npm run restore`. LAN HTTP off unless `NON_OS_RESTORE_OK=1`. |
+| **Open events (PR6)** | `item_events`; `POST /api/items/[id]/events`; 60s dedupe; prune 500; home recent list merges with `helix-open-history`. Reading position stays client-only. |
 
 ---
 
 ## Git baseline
 
-**This wrap:** look-feel craft season on `main` (tokens/primitives + PR2–PR7).  
+**This wrap:** Discovery PR6 + craft PR8 merged to `main` (`#1`, `#2`).  
 **Older landmark:** `ba23e55` — first daily Helix ship.
 
 **Do not commit:** `.env.local`, `library.config.json`, `data/` (db, thumbs, exports), personal `archive/**`, `scripts/__pycache__/`.  
@@ -190,23 +191,19 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 ## Known gaps / natural next work
 
-**Best next:**
+**Best next:** none required. Stretch if wanted:
 
-1. **Discovery PR6** — in review on `discovery/pr6-item-events` (`item_events` dual-write with `helix-open-history`).
-
-**Stretch / later:**
-
-2. Gutenberg / Standard Ebooks (known-host EPUB only)  
-3. yt-dlp JS runtime (optional deno)  
-4. Lens leftovers: DELETE analyses API, agent `lens_analyze` tool  
-5. Holdings restore (sibling `archive.restored-<stamp>/` + Locations remap — not live-root overwrite)  
-6. Embeddings / semantic search — **explicit non-goal**
+1. Gutenberg / Standard Ebooks (known-host EPUB only)  
+2. yt-dlp JS runtime (optional deno)  
+3. Lens leftovers: DELETE analyses API, agent `lens_analyze` tool  
+4. Holdings restore (sibling `archive.restored-<stamp>/` + Locations remap — not live-root overwrite)  
+5. Embeddings / semantic search — **explicit non-goal**
 
 **Season “Curation & intake” (2026-08):** PR1–PR7 landed — see [designs/2026-08-curation-intake.md](./designs/2026-08-curation-intake.md).  
 
-**Season “Discovery depth & reading room” (2026-08):** PR1a–PR5 + PR7 landed; PR6 stretch open — see [designs/2026-08-discovery-reading.md](./designs/2026-08-discovery-reading.md).
+**Season “Discovery depth & reading room” (2026-08):** PR1a–PR7 landed (PR6 `item_events` merged `#1`) — see [designs/2026-08-discovery-reading.md](./designs/2026-08-discovery-reading.md).
 
-**Season “Look-feel craft” (2026-08):** PR1a–7 landed — see [designs/2026-08-look-feel-craft.md](./designs/2026-08-look-feel-craft.md). Optional PR8 catalog j/k in review on `craft/pr8-catalog-jk`.
+**Season “Look-feel craft” (2026-08):** PR1a–8 landed (PR8 j/k merged `#2`) — see [designs/2026-08-look-feel-craft.md](./designs/2026-08-look-feel-craft.md).
 
 **Season “Acquire depth & accuracy” (2026-08):** Tier 1 + Grokipedia + image URL + Ask acquire parity landed. Gutenberg remains stretch.
 
@@ -224,7 +221,7 @@ npm run dev    # http://127.0.0.1:4747
 # optional: yt-dlp, ffmpeg, exiftool; XAI_API_KEY for Grok Ask/images
 ```
 
-**Smoke:** home → **sidebar** (collapse, `[`, reload keeps collapsed; phone hamburger drawer) → catalog → **text** holding (scroll restore) → **PDF** holding (page nav, text select, reload restores page; Network 206 Range) → Tag/Ask from selection → related panel → smart shelf filter → `/graph` 2D/3D (fullscreen still covers rail) → `/ask?item=` → theme toggle (light mark) → `/docs#services` → `/acquire` → `/lens/{id}` (kind-object + Run analysis) → `/services` inspect a catalog archive **without** applying → mini player (play audio/video, navigate away, bar persists).
+**Smoke:** home → **sidebar** (collapse, `[`, reload keeps collapsed; phone hamburger drawer) → catalog (**j/k** browse ring, Enter opens, `x` in Select) → **text** holding (scroll restore) → **PDF** holding (page nav, text select, reload restores page; Network 206 Range) → Tag/Ask from selection → related panel → smart shelf filter → `/graph` 2D/3D (fullscreen still covers rail) → `/ask?item=` → theme toggle (light mark) → `/docs#services` → `/acquire` → `/lens/{id}` (kind-object + Run analysis) → `/services` inspect a catalog archive **without** applying → mini player (play audio/video, navigate away, bar persists) → open a holding, reload home, **Recently opened** still lists it (server `item_events`).
 
 ---
 
@@ -277,5 +274,13 @@ npm run dev    # http://127.0.0.1:4747
 **Shipped:** `/docs` rewritten as a comprehensive Helix overview (library map, building chrome, weeding, thumbs, mini player, smart shelves, Deep Lens, Acquire, Ask, restore, privacy, keyboard). Pushed as `440fd81`. Hands-on field guide with 15 labs written to `archive/documents/Helix-Library-Field-Guide.md` (holding, gitignored). Brand wave: night/day heroes, card lattices, folio banner, nameplate study, `btn-helix` / `btn-lamp`. Nav stays Lucide — custom glyphs were well-intentioned and not good enough.
 
 **Still optional:** Discovery PR6 `item_events`; Gutenberg; craft PR8 catalog j/k.
+
+**Do not start:** embeddings, batch-analyze, auto-apply AI tags.
+
+## Session wrap (2026-08-16 evening) — PR6 + PR8 merged
+
+**Shipped:** Discovery **PR6** (`#1`) — `item_events`, POST `/api/items/[id]/events`, 60s dedupe, prune 500, home recent merge with `helix-open-history`, restore registry. Craft **PR8** (`#2`) — catalog j/k browse ring (`.is-browse`), Enter opens, `x` in Select only. Both squash-merged to `main`. Tests **279**.
+
+**Still optional:** Gutenberg; Lens leftovers; holdings restore to a sibling tree.
 
 **Do not start:** embeddings, batch-analyze, auto-apply AI tags.
