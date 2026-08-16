@@ -1673,6 +1673,18 @@ html[data-theme="light"] .helix-mark-well {
   opacity: 1;
 }
 
+/* PR8 browse ring — not nav .is-active, not bulk .is-selected */
+.holding-card.is-browse {
+  box-shadow: 0 0 0 2px var(--accent), var(--shadow-soft);
+}
+
+.holding-card.is-selected.is-browse {
+  box-shadow:
+    0 0 0 2px var(--accent),
+    0 0 0 1px var(--accent-ring),
+    var(--shadow-soft);
+}
+
 .holding-card__media {
   position: relative;
   overflow: hidden;
@@ -1838,6 +1850,14 @@ html[data-theme="light"] .helix-mark-well {
   width: 3px;
   opacity: 1;
   background: var(--card-kind);
+}
+
+.holding-row.is-browse {
+  box-shadow: inset 0 0 0 2px var(--accent);
+}
+
+.holding-row.is-selected.is-browse {
+  box-shadow: inset 0 0 0 2px var(--accent);
 }
 
 /* Search hit highlight (catalog snippets / names) */

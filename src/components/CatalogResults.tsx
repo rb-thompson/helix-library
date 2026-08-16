@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { CheckSquare, Grid3X3, List, Square } from "lucide-react";
 import { CatalogNavLink } from "@/components/CatalogSearch";
 import { BulkCurationBar } from "@/components/BulkCurationBar";
@@ -8,6 +8,10 @@ import { ItemCard } from "@/components/ItemCard";
 import { ItemRow } from "@/components/ItemRow";
 import { MediaLightbox, type LightboxItem } from "@/components/MediaLightbox";
 import { cn } from "@/lib/cn";
+import {
+  isBrowseBlockedTarget,
+  nextBrowseIndex,
+} from "@/lib/client/catalog-browse";
 import type { CatalogItemRow } from "@/lib/types";
 
 export function CatalogResults({
@@ -34,7 +38,11 @@ export function CatalogResults({
   const [lightboxId, setLightboxId] = useState<number | null>(null);
   const [selectMode, setSelectMode] = useState(false);
   const [selected, setSelected] = useState<Set<number>>(new Set());
+  const [browseIndex, setBrowseIndex] = useState(0);
+  const browseArmed = useRef(false);
+  const rootRef = useRef<HTMLDivElement>(null);
   const thumbSet = useMemo(() => new Set(thumbIds), [thumbIds]);
+  const itemIdsKey = items.map((i) => i.id).join(",");
 
   const lightboxItems: LightboxItem[] = useMemo(
     () =>
@@ -66,8 +74,50 @@ export function CatalogResults({
     setSelectMode(false);
   }
 
+  useEffect(() => {
+    setBrowseIndex((i) =>
+      items.length === 0 ? 0 : Math.min(i, items.length - 1),
+    );
+  }, [itemIdsKey, items.length]);
+
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (lightboxId != null) return;
+      if (isBrowseBlockedTarget(e.target)) return;
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+
+      if (e.key === "j" || e.key === "k") {
+        e.preventDefault();
+        if (items.length === 0) return;
+        browseArmed.current = true;
+        setBrowseIndex((i) =>
+          nextBrowseIndex(i, e.key === "j" ? 1 : -1, items.length),
+        );
+        return;
+      }
+
+      if (e.key === "x" && selectMode) {
+        const item = items[browseIndex];
+        if (!item) return;
+        e.preventDefault();
+        toggle(item.id);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [lightboxId, selectMode, items, browseIndex]);
+
+  useEffect(() => {
+    if (!browseArmed.current) return;
+    const el = rootRef.current?.querySelector<HTMLElement>(
+      `[data-browse-index="${browseIndex}"]`,
+    );
+    el?.focus();
+  }, [browseIndex]);
+
   return (
     <div
+      ref={rootRef}
       className={cn("space-y-3", stale && "catalog-results-stale")}
       aria-busy={pending || stale || undefined}
     >
@@ -124,13 +174,15 @@ export function CatalogResults({
 
       {view === "grid" ? (
         <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-          {items.map((item) => (
+          {items.map((item, index) => (
             <ItemCard
               key={item.id}
               item={item}
               hasPreview={thumbSet.has(item.id)}
               selectMode={selectMode}
               selected={selected.has(item.id)}
+              browsing={index === browseIndex}
+              browseIndex={index}
               onToggleSelect={() => toggle(item.id)}
               highlightTokens={highlightTokens}
               onOpenLightbox={(id) => {
@@ -155,13 +207,15 @@ export function CatalogResults({
         </div>
       ) : (
         <ul className="surface-flat overflow-hidden">
-          {items.map((item) => (
+          {items.map((item, index) => (
             <ItemRow
               key={item.id}
               item={item}
               hasPreview={thumbSet.has(item.id)}
               selectMode={selectMode}
               selected={selected.has(item.id)}
+              browsing={index === browseIndex}
+              browseIndex={index}
               onToggleSelect={() => toggle(item.id)}
               highlightTokens={highlightTokens}
               onOpenLightbox={

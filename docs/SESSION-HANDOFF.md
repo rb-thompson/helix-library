@@ -206,7 +206,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 **Season “Discovery depth & reading room” (2026-08):** PR1a–PR5 + PR7 landed; PR6 stretch open — see [designs/2026-08-discovery-reading.md](./designs/2026-08-discovery-reading.md).
 
-**Season “Look-feel craft” (2026-08):** PR1a–7 landed — see [designs/2026-08-look-feel-craft.md](./designs/2026-08-look-feel-craft.md). Optional PR8 catalog j/k after living with PR3.
+**Season “Look-feel craft” (2026-08):** PR1a–7 landed — see [designs/2026-08-look-feel-craft.md](./designs/2026-08-look-feel-craft.md). Optional PR8 catalog j/k in review on `craft/pr8-catalog-jk`.
 
 **Season “Acquire depth & accuracy” (2026-08):** Tier 1 + Grokipedia + image URL + Ask acquire parity landed. Gutenberg remains stretch.
 

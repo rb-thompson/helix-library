@@ -21,6 +21,8 @@ export function ItemCard({
   onOpenLightbox,
   selectMode = false,
   selected = false,
+  browsing = false,
+  browseIndex,
   onToggleSelect,
   highlightTokens = [],
 }: {
@@ -29,6 +31,8 @@ export function ItemCard({
   onOpenLightbox?: (id: number) => void;
   selectMode?: boolean;
   selected?: boolean;
+  browsing?: boolean;
+  browseIndex?: number;
   onToggleSelect?: () => void;
   highlightTokens?: string[];
 }) {
@@ -66,10 +70,13 @@ export function ItemCard({
       title={tip}
       data-kind={item.kind}
       aria-pressed={selectMode ? selected : undefined}
+      tabIndex={browsing ? 0 : -1}
+      data-browse-index={browseIndex}
       className={cn(
         "holding-card group",
         kindClass,
         selected && "is-selected",
+        browsing && "is-browse",
       )}
     >
       <div
