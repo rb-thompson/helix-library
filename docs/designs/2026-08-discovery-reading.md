@@ -5,7 +5,7 @@
 | **Document** | Season design — Discovery depth & reading room |
 | **Author** | Helix owner + design loop |
 | **Date** | 2026-08-06 |
-| **Status** | **Implemented** (PR1a–PR5 + PR7 on main, 2026-08-07) — rev 3; PR6 stretch optional |
+| **Status** | **Implemented** (PR1a–PR5 + PR7 on main, 2026-08-07) — rev 3; PR6 `item_events` in review (`discovery/pr6-item-events`) |
 | **Approval** | Owner approved design + PR plan; required PRs landed |
 | **Workspace** | `/home/brandon/Projects/non-os` (package `helix-library`) |
 | **Baseline tip** | `7fcfdd3` on `main` (synced with origin; 83 tests pass) |

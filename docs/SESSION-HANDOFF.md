@@ -192,7 +192,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 **Best next:**
 
-1. **Discovery PR6** — server `item_events` dual-write with `helix-open-history`. Spec already in discovery design.
+1. **Discovery PR6** — in review on `discovery/pr6-item-events` (`item_events` dual-write with `helix-open-history`).
 
 **Stretch / later:**
 

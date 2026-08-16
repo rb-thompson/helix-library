@@ -235,5 +235,25 @@ export type CollectionRow = typeof collections.$inferSelect;
 export type TagRow = typeof tags.$inferSelect;
 export type ChatThreadRow = typeof chatThreads.$inferSelect;
 export type ChatMessageRow = typeof chatMessages.$inferSelect;
+/** Server open/read events (Discovery PR6). Dual-write with helix-open-history. */
+export const itemEvents = sqliteTable(
+  "item_events",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    itemId: integer("item_id")
+      .notNull()
+      .references(() => items.id, { onDelete: "cascade" }),
+    /** open | read (future) */
+    kind: text("kind").notNull(),
+    at: integer("at").notNull(),
+    metaJson: text("meta_json"),
+  },
+  (t) => [
+    index("item_events_item_at_idx").on(t.itemId, t.at),
+    index("item_events_at_idx").on(t.at),
+  ],
+);
+
 export type InsightRow = typeof insights.$inferSelect;
 export type LensAnalysisRow = typeof lensAnalyses.$inferSelect;
+export type ItemEventRow = typeof itemEvents.$inferSelect;

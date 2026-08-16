@@ -283,4 +283,17 @@ export function migrate(sqlite: Database.Database): void {
     CREATE UNIQUE INDEX IF NOT EXISTS lens_analyses_item_uq ON lens_analyses(item_id);
     CREATE INDEX IF NOT EXISTS lens_analyses_fp_idx ON lens_analyses(fingerprint);
   `);
+
+  // Discovery PR6: server open events (dual-write with helix-open-history)
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS item_events (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      item_id INTEGER NOT NULL REFERENCES items(id) ON DELETE CASCADE,
+      kind TEXT NOT NULL,
+      at INTEGER NOT NULL,
+      meta_json TEXT
+    );
+    CREATE INDEX IF NOT EXISTS item_events_item_at_idx ON item_events(item_id, at);
+    CREATE INDEX IF NOT EXISTS item_events_at_idx ON item_events(at);
+  `);
 }

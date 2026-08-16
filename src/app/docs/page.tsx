@@ -149,7 +149,9 @@ export default function DocsPage() {
           <p className="prose-body mt-4 text-[var(--muted)]">
             Home (<DocLink href="/">/</DocLink>) is the front steps: search,
             holdings counts, Hours (a due-slip the night clerk left out),
-            recent opens, and a tile for every desk.
+            recent opens (this browser plus server{" "}
+            <code className="code-inline">item_events</code>), and a tile for
+            every desk.
           </p>
         </section>
 

@@ -14,6 +14,7 @@ export const RESTORE_TABLES = [
   "chat_messages",
   "insights",
   "lens_analyses",
+  "item_events",
   "jobs",
 ] as const;
 
