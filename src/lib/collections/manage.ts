@@ -1,4 +1,5 @@
 import { and, asc, count, desc, eq } from "drizzle-orm";
+import { catalogHref } from "@/lib/catalog/href";
 import {
   SMART_ID_HARD_CAP,
   searchCatalog,
@@ -124,18 +125,17 @@ export function parseSmartQueryPublic(
 
 /** Catalog deep link for a smart query (no collectionId). */
 export function smartQueryToCatalogHref(q: SmartShelfQuery): string {
-  const params = new URLSearchParams();
-  if (q.q) params.set("q", q.q);
-  if (q.kind) params.set("kind", q.kind);
-  if (q.locationId) params.set("location", String(q.locationId));
-  if (q.tagId) params.set("tag", String(q.tagId));
-  if (q.under) params.set("under", q.under);
-  if (q.untaggedOnly) params.set("untagged", "1");
-  if (q.missingOnly) params.set("missing", "1");
-  if (q.sort && q.sort !== "mtime") params.set("sort", q.sort);
-  if (q.sortDir) params.set("dir", q.sortDir);
-  const s = params.toString();
-  return s ? `/catalog?${s}` : "/catalog";
+  return catalogHref({
+    q: q.q,
+    kind: q.kind || undefined,
+    location: q.locationId != null ? String(q.locationId) : undefined,
+    tag: q.tagId != null ? String(q.tagId) : undefined,
+    under: q.under,
+    untagged: q.untaggedOnly ? "1" : undefined,
+    missing: q.missingOnly ? "1" : undefined,
+    sort: q.sort,
+    dir: q.sortDir,
+  });
 }
 
 /** Strip disallowed / empty fields; never allow nested collectionId. */

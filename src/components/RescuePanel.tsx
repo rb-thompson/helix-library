@@ -19,7 +19,13 @@ export function RescuePanel({ rescue }: { rescue: RescueSnapshot }) {
   const [error, setError] = useState<string | null>(null);
 
   const dismiss = useCallback(async (payload: { id: number } | { allFailed: true }) => {
+    const snapshot = failedJobs;
     setError(null);
+    if ("allFailed" in payload) {
+      setFailedJobs([]);
+    } else {
+      setFailedJobs((prev) => prev.filter((j) => j.id !== payload.id));
+    }
     setBusy("allFailed" in payload ? "all" : payload.id);
     try {
       const res = await fetch("/api/jobs/dismiss", {
@@ -29,20 +35,16 @@ export function RescuePanel({ rescue }: { rescue: RescueSnapshot }) {
       });
       const data = await res.json();
       if (!res.ok || !data.ok) {
+        setFailedJobs(snapshot);
         setError(data.error ?? "Could not dismiss");
-        return;
-      }
-      if ("allFailed" in payload) {
-        setFailedJobs([]);
-      } else {
-        setFailedJobs((prev) => prev.filter((j) => j.id !== payload.id));
       }
     } catch (e) {
+      setFailedJobs(snapshot);
       setError(e instanceof Error ? e.message : "Dismiss failed");
     } finally {
       setBusy(null);
     }
-  }, []);
+  }, [failedJobs]);
 
   const hasOtherWork =
     rescue.missingCount > 0 ||

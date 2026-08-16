@@ -308,6 +308,7 @@ html[data-sidebar="collapsed"] {
 .app-sidebar-item.is-active {
   color: var(--ink);
   background: var(--accent-soft);
+  box-shadow: inset 2px 0 0 var(--accent);
 }
 
 .app-sidebar-item .nav-icon {
@@ -475,6 +476,33 @@ html[data-sidebar="collapsed"] {
   line-height: 1.4;
   padding-top: 0.65rem;
   padding-bottom: 0.65rem;
+  caret-color: var(--accent);
+}
+
+.chat-stream-caret {
+  display: inline-block;
+  width: 0.35rem;
+  height: 0.9em;
+  margin-left: 0.15rem;
+  vertical-align: text-bottom;
+  background: var(--accent);
+  animation: chat-caret 0.9s steps(1) infinite;
+}
+
+@keyframes chat-caret {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .chat-stream-caret {
+    animation: none;
+  }
+}
+
+.holding-chip {
+  box-shadow: inset 2px 0 0 var(--chip-kind, var(--accent));
 }
 
 body {
@@ -665,9 +693,22 @@ html[data-theme="light"] .hero-frame > img {
   z-index: 2;
 }
 
-/* Early hours: warm the hero a little, like reading lamps. */
+/* Early hours: warm the hero from --lamp (circulation only). */
 .hero-frame.hero-dawn > img {
-  filter: sepia(0.22) saturate(1.12) hue-rotate(-8deg);
+  filter: sepia(0.18) saturate(1.08);
+}
+
+.hero-frame.hero-dawn::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: linear-gradient(
+    165deg,
+    color-mix(in srgb, var(--lamp) 16%, transparent),
+    transparent 58%
+  );
 }
 
 .due-slip {
@@ -675,7 +716,7 @@ html[data-theme="light"] .hero-frame > img {
   display: grid;
   gap: 0.2rem;
   padding: 0.7rem 2.6rem 0.7rem 0.85rem;
-  border: 1px dashed color-mix(in srgb, var(--accent) 35%, var(--line));
+  border: 1px dashed color-mix(in srgb, var(--lamp) 42%, var(--line));
   border-radius: 2px;
   background:
     repeating-linear-gradient(
@@ -686,13 +727,15 @@ html[data-theme="light"] .hero-frame > img {
       color-mix(in srgb, var(--line) 55%, transparent) 7px
     )
     0 0 / 100% 7px no-repeat,
-    color-mix(in srgb, var(--paper-deep) 88%, var(--accent));
+    color-mix(in srgb, var(--paper-deep) 90%, var(--lamp));
   color: inherit;
-  transition: border-color 0.15s ease, transform 0.15s ease;
+  transition:
+    border-color var(--dur) var(--ease),
+    transform var(--dur) var(--ease);
 }
 
 .due-slip:hover {
-  border-color: var(--accent);
+  border-color: var(--lamp);
   transform: rotate(-0.25deg);
 }
 
@@ -723,8 +766,8 @@ html[data-theme="light"] .hero-frame > img {
   right: 0.45rem;
   top: 50%;
   transform: translateY(-50%) rotate(12deg);
-  border: 2px solid color-mix(in srgb, var(--danger) 70%, var(--accent));
-  color: color-mix(in srgb, var(--danger) 75%, var(--accent));
+  border: 2px solid var(--lamp);
+  color: var(--lamp);
   font-size: 0.58rem;
   font-weight: 800;
   letter-spacing: 0.08em;
@@ -1453,7 +1496,7 @@ html[data-theme="light"] .helix-mark-well {
   transition:
     border-color var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease),
-    transform 120ms var(--ease);
+    transform var(--dur-micro) var(--ease);
   cursor: pointer;
 }
 
@@ -1480,6 +1523,7 @@ html[data-theme="light"] .helix-mark-well {
 
 .holding-card:active {
   transform: translateY(1px);
+  box-shadow: var(--shadow-soft);
 }
 
 .holding-card.is-selected {
@@ -1507,10 +1551,59 @@ html[data-theme="light"] .helix-mark-well {
   background:
     radial-gradient(
       120% 80% at 50% 0%,
-      color-mix(in srgb, var(--card-kind) 14%, transparent),
+      color-mix(in srgb, var(--card-kind) 22%, transparent),
       transparent 60%
     ),
     var(--paper-deep);
+}
+
+.holding-card__thumb {
+  opacity: 0;
+  transition:
+    opacity var(--dur) var(--ease),
+    transform 300ms ease-out;
+}
+
+.holding-card__thumb.is-loaded {
+  opacity: 1;
+}
+
+.holding-card:hover .holding-card__thumb.is-loaded {
+  transform: scale(1.03);
+}
+
+.holding-row__thumb.is-empty {
+  background:
+    radial-gradient(
+      120% 80% at 50% 0%,
+      color-mix(in srgb, var(--card-kind) 22%, transparent),
+      transparent 60%
+    ),
+    var(--paper-deep);
+}
+
+.holding-row img.holding-row__thumb {
+  opacity: 0;
+  transition: opacity var(--dur) var(--ease);
+}
+
+.holding-row img.holding-row__thumb.is-loaded {
+  opacity: 1;
+}
+
+@keyframes chip-in {
+  from {
+    opacity: 0;
+    transform: scale(0.96);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.chip.is-temp {
+  animation: chip-in var(--dur) var(--ease);
 }
 
 .holding-card__meta {
@@ -1621,10 +1714,43 @@ mark.search-hit {
   border-radius: 0.15rem;
   padding: 0 0.1em;
   box-decoration-break: clone;
+  animation: search-hit-flash var(--dur) var(--ease);
 }
 
 [data-theme="light"] mark.search-hit {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+
+@keyframes search-hit-flash {
+  from {
+    background: color-mix(in srgb, var(--accent) 48%, transparent);
+  }
+  to {
+    background: color-mix(in srgb, var(--accent) 28%, transparent);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  mark.search-hit {
+    animation: none;
+  }
+}
+
+.catalog-results-stale {
+  opacity: 0.72;
+}
+
+/* Apply stays in the DOM for no-js; hide visually after hydrate */
+[data-catalog-hydrated] form.catalog-filters > button[type="submit"] {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
 }
 
 .holding-row__thumb {
@@ -1689,11 +1815,11 @@ mark.search-hit {
   position: absolute;
   inset: 0 auto 0 0;
   width: 2px;
-  background: linear-gradient(
-    180deg,
-    color-mix(in srgb, var(--accent) 55%, transparent),
-    color-mix(in srgb, var(--kind-image) 35%, transparent)
-  );
+  background: var(--accent);
+  opacity: 0.35;
+}
+
+.shelf-card.is-smart::before {
   opacity: 0.7;
 }
 
@@ -1787,8 +1913,15 @@ mark.search-hit {
   .holding-card:active {
     transform: none;
   }
-  .holding-card img {
+  .holding-card__thumb,
+  .holding-card:hover .holding-card__thumb.is-loaded,
+  .holding-row img.holding-row__thumb {
+    opacity: 1;
+    transform: none;
     transition: none !important;
+  }
+  .chip.is-temp {
+    animation: none;
   }
 }
 

@@ -13,7 +13,7 @@ import { cn } from "@/lib/cn";
 
 function GraphLoadingShell({ label }: { label: string }) {
   return (
-    <div className="graph-shell flex min-h-[22rem] flex-col items-center justify-center gap-3 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--paper)] text-sm text-[var(--muted)] sm:min-h-[28rem]">
+    <div className="graph-shell flex min-h-[22rem] flex-col items-center justify-center gap-3 rounded-[var(--radius)] border border-[var(--line)] bg-[var(--paper)] text-sm text-[var(--muted)] shadow-[var(--shadow-soft)] sm:min-h-[28rem]">
       <HelixSpinner size="lg" label={label} />
       <span>{label}</span>
     </div>

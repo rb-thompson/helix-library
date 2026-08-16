@@ -31,8 +31,24 @@ export function PageHeader({
     >
       <div className="min-w-0">
         {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
-        <h1 className={cn(titleClass, eyebrow && "mt-1")}>{title}</h1>
-        {description ? <div className="page-sub max-w-2xl">{description}</div> : null}
+        <h1
+          className={cn(
+            titleClass,
+            eyebrow && "mt-1",
+            register === "room" && "break-words",
+          )}
+        >
+          {title}
+        </h1>
+        {description ? (
+          <div
+            className={
+              register === "room" ? "mt-2" : "page-sub max-w-2xl"
+            }
+          >
+            {description}
+          </div>
+        ) : null}
       </div>
       {actions ? (
         <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>

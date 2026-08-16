@@ -38,7 +38,13 @@ export function AcquireModuleCard({
   const panelId = `acquire-module-${id}`;
 
   return (
-    <section className={cn("surface flex flex-col p-3 sm:p-4", className)}>
+    <section
+      className={cn(
+        open ? "surface" : "surface-flat",
+        "flex flex-col p-3 sm:p-4",
+        className,
+      )}
+    >
       <button
         type="button"
         id={btnId}

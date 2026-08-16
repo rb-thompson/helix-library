@@ -1,5 +1,5 @@
-import Link from "next/link";
 import { X } from "lucide-react";
+import { CatalogNavLink } from "@/components/CatalogSearch";
 
 export type FilterChip = {
   key: string;
@@ -23,7 +23,7 @@ export function ActiveFilters({
     >
       <span className="label-quiet mb-0 mr-1 !inline">Active</span>
       {chips.map((chip) => (
-        <Link
+        <CatalogNavLink
           key={chip.key}
           href={chip.clearHref}
           title={`Remove filter: ${chip.label}`}
@@ -34,12 +34,12 @@ export function ActiveFilters({
             <X className="h-3 w-3" aria-hidden />
             <span className="sr-only">Remove {chip.label}</span>
           </span>
-        </Link>
+        </CatalogNavLink>
       ))}
       {chips.length > 1 ? (
-        <Link href={clearAllHref} className="link-accent ml-1 text-xs">
+        <CatalogNavLink href={clearAllHref} className="link-accent ml-1 text-xs">
           Clear all
-        </Link>
+        </CatalogNavLink>
       ) : null}
     </div>
   );

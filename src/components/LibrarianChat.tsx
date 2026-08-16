@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { HelixSpinner } from "@/components/icons/HelixSpinner";
 import { AssistantMarkdown } from "@/components/AssistantMarkdown";
+import { InlineStatus } from "@/components/ui/Feedback";
 import { Tooltip } from "@/components/Tooltip";
 import { cn } from "@/lib/cn";
 
@@ -124,7 +125,14 @@ function renderAssistantText(
                 onClick={() => onAction?.(a.kind, a.payload)}
                 className="btn btn-primary btn-sm"
               >
-                {busy ? "Working…" : actionButtonLabel(a.payload)}
+                {busy ? (
+                  <>
+                    <HelixSpinner size="sm" decorative />
+                    Working…
+                  </>
+                ) : (
+                  actionButtonLabel(a.payload)
+                )}
               </button>
             );
           })}
@@ -135,9 +143,14 @@ function renderAssistantText(
               onClick={onApproveAll}
               className="btn btn-secondary btn-sm"
             >
-              {proposeBusy === "__all__"
-                ? "Working…"
-                : `Approve all (${actions.length})`}
+              {proposeBusy === "__all__" ? (
+                <>
+                  <HelixSpinner size="sm" decorative />
+                  Working…
+                </>
+              ) : (
+                `Approve all (${actions.length})`
+              )}
             </button>
           ) : null}
         </div>
@@ -151,6 +164,7 @@ export function LibrarianChat({
   agent,
   holdingItemId = null,
   holdingLabel = null,
+  holdingKind = null,
   initialQuote = null,
 }: {
   initialThreads: ThreadRow[];
@@ -158,6 +172,7 @@ export function LibrarianChat({
   /** Active holding for catalog_read bridge (PR2). */
   holdingItemId?: number | null;
   holdingLabel?: string | null;
+  holdingKind?: string | null;
   /** Untrusted selection seed (composer + optional server appendix). */
   initialQuote?: string | null;
 }) {
@@ -522,8 +537,15 @@ export function LibrarianChat({
             {holdingItemId ? (
               <a
                 href={`/catalog/${holdingItemId}`}
-                className="chip chip-active !max-w-[12rem] truncate !py-0.5 text-[0.65rem]"
+                className="holding-chip chip chip-active !max-w-[12rem] truncate !py-0.5 text-[0.65rem]"
                 title={holdingLabel ?? `Holding #${holdingItemId}`}
+                style={
+                  holdingKind
+                    ? {
+                        ["--chip-kind" as string]: `var(--kind-${holdingKind})`,
+                      }
+                    : undefined
+                }
               >
                 Holding · {holdingLabel ?? `#${holdingItemId}`}
               </a>
@@ -583,15 +605,20 @@ export function LibrarianChat({
               )}
             </div>
           ) : (
-            messages.map((m) => {
+            messages.map((m, i) => {
               const text = messageText(m);
+              const streamingTail =
+                status === "streaming" && i === messages.length - 1;
               if (!text && m.role === "assistant") {
                 return (
                   <div
                     key={m.id}
-                    className="rounded-[var(--radius-sm)] bg-[var(--paper-deep)] px-3 py-2 text-sm text-[var(--muted)]"
+                    className="surface-flat px-3 py-2 text-sm text-[var(--muted)]"
                   >
                     Looking in the catalog…
+                    {streamingTail ? (
+                      <span className="chat-stream-caret" aria-hidden />
+                    ) : null}
                   </div>
                 );
               }
@@ -601,8 +628,8 @@ export function LibrarianChat({
                   key={m.id}
                   className={
                     m.role === "user"
-                      ? "ml-auto max-w-[min(92%,28rem)] whitespace-pre-wrap break-words rounded-[var(--radius-sm)] bg-[var(--accent)] px-3 py-2 text-sm text-[var(--accent-fg)] sm:max-w-[min(85%,32rem)]"
-                      : "max-w-[min(100%,36rem)] break-words rounded-[var(--radius)] border border-[var(--line)] bg-[var(--surface-raised)] px-3.5 py-2.5 text-sm shadow-[var(--shadow-soft)] sm:max-w-[min(92%,40rem)] xl:max-w-3xl"
+                      ? "surface ml-auto max-w-[min(92%,28rem)] whitespace-pre-wrap break-words px-3 py-2 text-sm text-[var(--ink)] sm:max-w-[min(85%,32rem)]"
+                      : "surface-flat max-w-[min(100%,36rem)] break-words px-3.5 py-2.5 text-sm sm:max-w-[min(92%,40rem)] xl:max-w-3xl"
                   }
                 >
                   {m.role === "assistant"
@@ -613,26 +640,27 @@ export function LibrarianChat({
                         () => void approveAllFromMessage(text),
                       )
                     : text}
+                  {m.role === "assistant" && streamingTail ? (
+                    <span className="chat-stream-caret" aria-hidden />
+                  ) : null}
                 </div>
               );
             })
           )}
-          {busy ? (
+          {busy && status !== "streaming" ? (
             <div className="flex items-center gap-2 text-xs text-[var(--muted)]">
               <HelixSpinner size="sm" decorative />
               Librarian is working…
             </div>
           ) : null}
           {proposeNote ? (
-            <p className="feedback-ok" role="status">
-              {proposeNote}
-            </p>
+            <InlineStatus tone="ok">{proposeNote}</InlineStatus>
           ) : null}
-          {(error || bootError) && (
-            <p className="feedback-err" role="alert">
+          {error || bootError ? (
+            <InlineStatus tone="danger">
               {error?.message ?? bootError}
-            </p>
-          )}
+            </InlineStatus>
+          ) : null}
           <div ref={bottomRef} />
         </div>
 

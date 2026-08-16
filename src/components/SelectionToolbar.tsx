@@ -9,7 +9,7 @@ import {
   useState,
   type RefObject,
 } from "react";
-import { Copy, MessageSquareText, Tag } from "lucide-react";
+import { Check, Copy, MessageSquareText, Tag } from "lucide-react";
 import {
   normalizeTagName,
   tagExistsByNameClient,
@@ -45,6 +45,8 @@ export function SelectionToolbar({
   const [confirmNew, setConfirmNew] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [note, setNote] = useState<string | null>(null);
+  const [tick, setTick] = useState<"copy" | "tag" | null>(null);
+  const tickTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [pillStyle, setPillStyle] = useState<{
     top: number;
     left: number;
@@ -61,7 +63,12 @@ export function SelectionToolbar({
     setTouchSheet(false);
     setConfirmNew(null);
     setNote(null);
+    setTick(null);
     setPillStyle(null);
+    if (tickTimer.current) {
+      clearTimeout(tickTimer.current);
+      tickTimer.current = null;
+    }
   }, []);
 
   const measureAnchor = useCallback((): Anchor | null => {
@@ -290,6 +297,9 @@ export function SelectionToolbar({
       }
       setConfirmNew(null);
       setNote(`Tagged #${normalized}`);
+      setTick("tag");
+      if (tickTimer.current) clearTimeout(tickTimer.current);
+      tickTimer.current = setTimeout(() => setTick(null), 1400);
       router.refresh();
       setTimeout(() => {
         clearUi();
@@ -310,7 +320,12 @@ export function SelectionToolbar({
     try {
       await navigator.clipboard.writeText(selection);
       setNote("Copied");
-      setTimeout(() => setNote(null), 900);
+      setTick("copy");
+      if (tickTimer.current) clearTimeout(tickTimer.current);
+      tickTimer.current = setTimeout(() => {
+        setTick(null);
+        setNote(null);
+      }, 1400);
     } catch {
       setNote("Copy failed");
     }
@@ -439,7 +454,11 @@ export function SelectionToolbar({
               disabled={busy}
               onClick={() => void onCopy()}
             >
-              <Copy className="h-3.5 w-3.5 opacity-80" aria-hidden />
+              {tick === "copy" ? (
+                <Check className="h-3.5 w-3.5 text-[var(--ok)]" aria-hidden />
+              ) : (
+                <Copy className="h-3.5 w-3.5 opacity-80" aria-hidden />
+              )}
               Copy
             </button>
             <button
@@ -448,7 +467,11 @@ export function SelectionToolbar({
               disabled={busy}
               onClick={() => void applyTag(selection, { confirmed: false })}
             >
-              <Tag className="h-3.5 w-3.5 opacity-80" aria-hidden />
+              {tick === "tag" ? (
+                <Check className="h-3.5 w-3.5 text-[var(--ok)]" aria-hidden />
+              ) : (
+                <Tag className="h-3.5 w-3.5 opacity-80" aria-hidden />
+              )}
               Tag
             </button>
             <button

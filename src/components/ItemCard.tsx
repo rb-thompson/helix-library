@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { Check, Play } from "lucide-react";
 import { KindBadge } from "@/components/KindBadge";
 import { SearchHighlight } from "@/components/SearchHighlight";
@@ -34,6 +35,7 @@ export function ItemCard({
   const media = item.kind === "image" || item.kind === "video";
   const showThumb = hasPreview && media;
   const label = displayTitle(item);
+  const [thumbLoaded, setThumbLoaded] = useState(false);
 
   function open() {
     if (selectMode) {
@@ -81,16 +83,13 @@ export function ItemCard({
           <img
             src={`/api/thumbs/${item.id}`}
             alt=""
-            className="h-full w-full object-cover transition duration-300 ease-out group-hover:scale-[1.03]"
+            onLoad={() => setThumbLoaded(true)}
+            className={cn(
+              "holding-card__thumb h-full w-full object-cover",
+              thumbLoaded && "is-loaded",
+            )}
           />
-        ) : (
-          <div className="flex h-full w-full flex-col items-center justify-center gap-1.5 p-4 text-center">
-            <KindBadge kind={item.kind} />
-            <span className="line-clamp-3 text-[0.8125rem] font-medium leading-snug text-[var(--ink-soft)]">
-              {item.name}
-            </span>
-          </div>
-        )}
+        ) : null}
         {selectMode ? (
           <span
             className={cn(
@@ -125,7 +124,7 @@ export function ItemCard({
               label
             )}
           </span>
-          {showThumb ? <KindBadge kind={item.kind} className="shrink-0" /> : null}
+          <KindBadge kind={item.kind} className="shrink-0" />
         </div>
         <p className="truncate font-mono text-[0.65rem] text-[var(--muted)]">
           {highlightTokens.length ? (

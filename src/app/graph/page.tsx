@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { KnowledgeGraphLoader } from "@/components/KnowledgeGraphLoader";
+import { PageHeader } from "@/components/ui/PageHeader";
 import {
   buildKnowledgeGraph,
   graphHrefFromFilters,
@@ -128,36 +129,39 @@ export default async function GraphPage({
 
   return (
     <div className="space-y-4 sm:space-y-5">
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-end sm:justify-between">
-        <div>
-          <p className="eyebrow">Personal knowledge graph</p>
-          <h1 className="page-title mt-1">Knowledge Graph</h1>
-          <p className="page-sub max-w-2xl">
+      <PageHeader
+        register="catalog"
+        className="sm:items-end"
+        eyebrow="Personal knowledge graph"
+        title="Knowledge Graph"
+        description={
+          <>
             Holdings and concepts as a force layout — switch 2D (lighter) or 3D
             (orbit). Drag, zoom, tap a node to inspect.
             {hasFilters
               ? " Showing a filtered subset from the catalog."
               : " Singleton vision tags are hidden by default so shared themes stay readable."}
-          </p>
-          {filterChips.length > 0 ? (
-            <p className="mt-2 flex flex-wrap gap-1.5 text-xs">
-              {filterChips.map((c) => (
-                <span key={c.key} className="chip !py-0.5">
-                  {c.label}
-                </span>
-              ))}
-              <Link href="/graph" className="link-accent text-xs font-semibold">
-                Clear filters
-              </Link>
-              <Link
-                href={catalogParams ? `/catalog?${catalogParams}` : "/catalog"}
-                className="link-accent text-xs font-semibold"
-              >
-                Open in catalog
-              </Link>
-            </p>
-          ) : null}
-        </div>
+            {filterChips.length > 0 ? (
+              <span className="mt-2 flex flex-wrap gap-1.5 text-xs">
+                {filterChips.map((c) => (
+                  <span key={c.key} className="chip !py-0.5">
+                    {c.label}
+                  </span>
+                ))}
+                <Link href="/graph" className="link-accent text-xs font-semibold">
+                  Clear filters
+                </Link>
+                <Link
+                  href={catalogParams ? `/catalog?${catalogParams}` : "/catalog"}
+                  className="link-accent text-xs font-semibold"
+                >
+                  Open in catalog
+                </Link>
+              </span>
+            ) : null}
+          </>
+        }
+        actions={
         <div className="flex flex-col items-stretch gap-2 sm:items-end">
           <div className="segment shrink-0" role="group" aria-label="Tag density">
             <Link
@@ -197,7 +201,8 @@ export default async function GraphPage({
             ))}
           </div>
         </div>
-      </div>
+        }
+      />
 
       <div className="flex flex-wrap gap-2 text-xs">
         <Link

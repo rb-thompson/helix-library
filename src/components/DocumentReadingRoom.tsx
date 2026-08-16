@@ -100,7 +100,7 @@ export function DocumentReadingRoom({
 
   return (
     <section
-      className={`media-theater rounded-2xl ${focusRoom ? "ring-1 ring-[var(--accent)]/40" : ""}`}
+      className={`media-theater rounded-2xl ${focusRoom ? "ring-1 ring-[var(--lamp)]/45" : ""}`}
       aria-label="Reading room"
     >
       <div className="media-theater-bar">
@@ -396,7 +396,7 @@ function TextReadingPane({
       <pre
         ref={scrollerRef}
         onScroll={onScroll}
-        className="reading-room-text min-h-0 flex-1 overflow-auto rounded-md bg-black/40 p-4 text-left font-mono text-xs leading-relaxed whitespace-pre-wrap break-words text-white/90 sm:text-sm"
+        className="reading-room-text min-h-0 flex-1 overflow-auto rounded-md bg-black/40 p-4 text-left font-mono text-sm leading-relaxed whitespace-pre-wrap break-words text-white/90 sm:text-[0.9375rem]"
         tabIndex={0}
       >
         {activeText || <span className="text-white/40">(empty file)</span>}

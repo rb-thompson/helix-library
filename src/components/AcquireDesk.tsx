@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import {
   CheckCircle2,
@@ -17,6 +17,8 @@ import {
   AcquireModuleCard,
   type AcquireModuleId,
 } from "@/components/AcquireModuleCard";
+import { toast } from "@/components/ui/Feedback";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 import { cn } from "@/lib/cn";
 import { formatBytes } from "@/lib/format";
 import type { AcquireTarget } from "@/lib/acquire/paths";
@@ -121,6 +123,54 @@ function loadOpenModules(): Record<AcquireModuleId, boolean> {
   }
 }
 
+function maybeToastAcquire(
+  kind: JobKind,
+  result: ResultBox,
+  open: Record<AcquireModuleId, boolean>,
+) {
+  const hidden =
+    typeof document !== "undefined" && document.visibilityState === "hidden";
+  const collapsed = !open[kind];
+  if (!hidden && !collapsed) return;
+  if (!result.ok) {
+    toast({
+      tone: "danger",
+      title: "Acquire failed",
+      href: "/acquire",
+    });
+    return;
+  }
+  toast({
+    tone: "ok",
+    title: "Acquire done",
+    href: result.itemId ? `/catalog/${result.itemId}` : "/acquire",
+  });
+}
+
+function AcquireProgress({
+  progress,
+  active,
+}: {
+  progress: JobProgress | null;
+  active: boolean;
+}) {
+  if (
+    !progress ||
+    (!active && (progress.stage === "done" || progress.stage === "failed"))
+  ) {
+    return null;
+  }
+  return (
+    <ProgressBar
+      percent={progress.percent}
+      active={active}
+      label={progress.stage.replace(/_/g, " ")}
+      detail={progress.detail}
+      className="mt-3"
+    />
+  );
+}
+
 function saveOpenModules(state: Record<AcquireModuleId, boolean>) {
   try {
     localStorage.setItem(ACQUIRE_OPEN_KEY, JSON.stringify(state));
@@ -207,6 +257,8 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
   const [imgProgress, setImgProgress] = useState<JobProgress | null>(null);
   const [openMods, setOpenMods] = useState<Record<AcquireModuleId, boolean>>(DEFAULT_OPEN);
   const [openReady, setOpenReady] = useState(false);
+  const openModsRef = useRef(openMods);
+  openModsRef.current = openMods;
 
   const refreshCaps = useCallback(async () => {
     try {
@@ -331,6 +383,11 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             ok: false,
             message: data.error ?? "Lost job status (server restart?)",
           });
+          maybeToastAcquire(
+            kind,
+            { ok: false, message: data.error ?? "Lost job status" },
+            openModsRef.current,
+          );
           return;
         }
         notFoundStreak = 0;
@@ -360,7 +417,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             tags.length > 0
               ? ` Tags: ${tags.slice(0, 10).join(", ")}${tags.length > 10 ? "…" : ""}.`
               : "";
-          setResult({
+          const done: ResultBox = {
             ok: true,
             message: hard
               ? `Saved & reindexed. Codec ${vcodec} may not play in-browser.${tagNote}`
@@ -368,15 +425,19 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             path: typeof r.path === "string" ? r.path : undefined,
             itemId: typeof r.itemId === "number" ? r.itemId : null,
             bytes: typeof r.bytes === "number" ? r.bytes : undefined,
-          });
+          };
+          setResult(done);
+          maybeToastAcquire(kind, done, openModsRef.current);
           void refreshCaps();
           return;
         }
         if (job.status === "failed") {
-          setResult({
+          const fail: ResultBox = {
             ok: false,
             message: job.error ?? "Acquire failed",
-          });
+          };
+          setResult(fail);
+          maybeToastAcquire(kind, fail, openModsRef.current);
           return;
         }
       } catch (e) {
@@ -389,10 +450,12 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
         }
       }
     }
-    setResult({
+    const timeout: ResultBox = {
       ok: false,
       message: "Timed out waiting for job (download may still finish on server)",
-    });
+    };
+    setResult(timeout);
+    maybeToastAcquire(kind, timeout, openModsRef.current);
   }
 
   async function post(
@@ -901,7 +964,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             </div>
           ) : null}
 
-          <ProgressPanel progress={arxivProgress} active={busy === "arxiv"} />
+          <AcquireProgress progress={arxivProgress} active={busy === "arxiv"} />
           <ResultPanel result={arxivResult} />
         </AcquireModuleCard>
 
@@ -1147,7 +1210,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             </div>
           ) : null}
 
-          <ProgressPanel
+          <AcquireProgress
             progress={oaProgress}
             active={busy === "openalex"}
           />
@@ -1206,7 +1269,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             )}
             {busy === "clip" ? "Clipping…" : "Clip to notes"}
           </button>
-          <ProgressPanel progress={clipProgress} active={busy === "clip"} />
+          <AcquireProgress progress={clipProgress} active={busy === "clip"} />
           <ResultPanel result={clipResult} />
         </AcquireModuleCard>
 
@@ -1334,7 +1397,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
               ))}
             </ul>
           ) : null}
-          <ProgressPanel
+          <AcquireProgress
             progress={gpProgress}
             active={busy === "grokipedia"}
           />
@@ -1387,7 +1450,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             )}
             {busy === "image_url" ? "Downloading…" : "Save image"}
           </button>
-          <ProgressPanel
+          <AcquireProgress
             progress={imgUrlProgress}
             active={busy === "image_url"}
           />
@@ -1474,7 +1537,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             )}
             {busy === "youtube" ? "Downloading…" : "Download"}
           </button>
-          <ProgressPanel progress={ytProgress} active={busy === "youtube"} />
+          <AcquireProgress progress={ytProgress} active={busy === "youtube"} />
           <ResultPanel result={ytResult} />
         </AcquireModuleCard>
 
@@ -1561,7 +1624,7 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
             )}
             {busy === "image" ? "Generating…" : "Generate & save"}
           </button>
-          <ProgressPanel progress={imgProgress} active={busy === "image"} />
+          <AcquireProgress progress={imgProgress} active={busy === "image"} />
           <ResultPanel result={imgResult} />
         </AcquireModuleCard>
       </div>
@@ -1572,57 +1635,6 @@ export function AcquireDesk({ initialCaps }: { initialCaps: Caps }) {
         paywall bypass. arXiv is open access. Files land under your Archive root
         and are reindexed automatically. Respect site terms of service.
       </p>
-    </div>
-  );
-}
-
-function ProgressPanel({
-  progress,
-  active,
-}: {
-  progress: JobProgress | null;
-  active: boolean;
-}) {
-  if (!progress || (!active && progress.stage === "done")) return null;
-  if (!active && progress.stage === "failed") return null;
-  const pct = progress.percent;
-  const indeterminate = pct == null;
-  return (
-    <div
-      className="mt-3 rounded-[var(--radius-sm)] border border-[var(--line)] bg-[var(--paper-deep)] px-3 py-2.5"
-      role="status"
-      aria-live="polite"
-      aria-busy={active}
-    >
-      <div className="flex items-center justify-between gap-2 text-xs">
-        <span className="inline-flex items-center gap-1.5 font-medium capitalize text-[var(--ink)]">
-          {active ? (
-            <HelixSpinner size="sm" decorative className="text-[var(--ok)]" />
-          ) : null}
-          {progress.stage.replace(/_/g, " ")}
-        </span>
-        <span className="tabular-nums text-[var(--muted)]">
-          {indeterminate ? "…" : `${Math.round(pct)}%`}
-        </span>
-      </div>
-      <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--ok)_18%,var(--paper-deep))]">
-        <div
-          className={cn(
-            "h-full rounded-full bg-[var(--ok)] shadow-[0_0_10px_color-mix(in_srgb,var(--ok)_45%,transparent)] transition-[width] duration-300",
-            indeterminate && "w-1/3 animate-pulse",
-          )}
-          style={
-            indeterminate
-              ? undefined
-              : { width: `${Math.max(2, Math.min(100, pct))}%` }
-          }
-        />
-      </div>
-      {progress.detail ? (
-        <p className="mt-1.5 line-clamp-2 font-mono text-[0.65rem] text-[var(--muted)]">
-          {progress.detail}
-        </p>
-      ) : null}
     </div>
   );
 }

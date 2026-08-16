@@ -89,7 +89,7 @@ export default async function CollectionDetailPage({
           <div className="mt-1 flex flex-wrap items-center gap-2">
             <h1 className="page-title">{collection.name}</h1>
             {collection.kind === "smart" ? (
-              <span className="chip chip-active !py-0.5 text-[0.65rem]">
+              <span className="chip !py-0.5 text-[0.65rem] text-[var(--muted)]">
                 Smart
               </span>
             ) : null}

@@ -7,12 +7,14 @@ export function ProgressBar({
   label,
   detail,
   size = "default",
+  className,
 }: {
   percent: number | null;
   active: boolean;
   label?: string;
   detail?: string;
   size?: "compact" | "default";
+  className?: string;
 }) {
   const indeterminate = percent == null;
   const width =
@@ -42,7 +44,7 @@ export function ProgressBar({
 
   if (size === "compact") {
     return (
-      <div className="flex min-w-[4.5rem] flex-col gap-0.5">
+      <div className={cn("flex min-w-[4.5rem] flex-col gap-0.5", className)}>
         {label ? (
           <span className="truncate text-[0.65rem] font-medium text-[var(--ink-soft)]">
             {label}
@@ -55,7 +57,10 @@ export function ProgressBar({
 
   return (
     <div
-      className="rounded-[var(--radius-sm)] border border-[var(--line)] bg-[var(--paper-deep)] px-3 py-2.5"
+      className={cn(
+        "rounded-[var(--radius-sm)] border border-[var(--line)] bg-[var(--paper-deep)] px-3 py-2.5",
+        className,
+      )}
       role="status"
       aria-live="polite"
       aria-busy={active}

@@ -64,9 +64,9 @@ export function RelatedHoldingsPanel({
                   <li key={item.id}>
                     <Link
                       href={`/catalog/${item.id}`}
-                      className="flex items-center gap-2 px-3 py-2.5 transition hover:bg-[var(--surface-hover)]"
+                      className="flex items-center gap-2 px-3 py-2.5 text-[var(--ink-soft)] transition hover:bg-[var(--surface-hover)] hover:text-[var(--ink)]"
                     >
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--ink)]">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium">
                         {item.label}
                       </span>
                       <KindBadge kind={item.kind} className="shrink-0" />

@@ -2,21 +2,23 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState, useTransition } from "react";
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 import { HelpTip, Tooltip } from "@/components/Tooltip";
+import { InlineStatus } from "@/components/ui/Feedback";
+import { cn } from "@/lib/cn";
+import { normalizeTagName } from "@/lib/client/tag-normalize";
 
 type Named = { id: number; name: string };
+type Chip = { id: number; name: string; temp?: boolean };
 
 const TAG_PREVIEW = 6;
 
 function ItemTagChips({
   itemTags,
-  pending,
   onRemove,
 }: {
-  itemTags: Named[];
-  pending: boolean;
+  itemTags: Chip[];
   onRemove: (tagId: number) => void;
 }) {
   const [open, setOpen] = useState(false);
@@ -29,17 +31,21 @@ function ItemTagChips({
   return (
     <div className="flex flex-wrap items-center gap-1.5">
       {visible.map((t) => (
-        <span key={t.id} className="chip chip-active">
+        <span
+          key={t.temp ? `temp-${t.name}` : t.id}
+          className={cn("chip chip-active", t.temp && "is-temp")}
+        >
           #{t.name}
-          <button
-            type="button"
-            disabled={pending}
-            onClick={() => onRemove(t.id)}
-            className="rounded-full p-0.5 hover:bg-[var(--accent-muted)]"
-            aria-label={`Remove tag ${t.name}`}
-          >
-            <X className="h-3 w-3" />
-          </button>
+          {t.temp ? null : (
+            <button
+              type="button"
+              onClick={() => onRemove(t.id)}
+              className="rounded-full p-0.5 hover:bg-[var(--accent-muted)]"
+              aria-label={`Remove tag ${t.name}`}
+            >
+              <X className="h-3 w-3" />
+            </button>
+          )}
         </span>
       ))}
       {more > 0 ? (
@@ -67,41 +73,68 @@ export function ItemCuration({
   itemTags: Named[];
 }) {
   const router = useRouter();
-  const [pending, startTransition] = useTransition();
+  const [chips, setChips] = useState<Chip[]>(itemTags);
+  const [shelves, setShelves] = useState<Named[]>(itemCollections);
   const [tagInput, setTagInput] = useState("");
   const [collectionId, setCollectionId] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [addingTag, setAddingTag] = useState(false);
+  const [addingShelf, setAddingShelf] = useState(false);
 
-  const inCollection = new Set(itemCollections.map((c) => c.id));
+  useEffect(() => {
+    setChips((prev) => {
+      const names = new Set(itemTags.map((t) => t.name));
+      const temps = prev.filter((c) => c.temp && !names.has(c.name));
+      return [...itemTags, ...temps];
+    });
+  }, [itemTags]);
+
+  useEffect(() => {
+    setShelves(itemCollections);
+  }, [itemCollections]);
+
+  const inCollection = new Set(shelves.map((c) => c.id));
   const available = collections.filter((c) => !inCollection.has(c.id));
 
-  function refresh() {
-    router.refresh();
-  }
-
-  function addTag(e: React.FormEvent) {
+  async function addTag(e: React.FormEvent) {
     e.preventDefault();
-    if (!tagInput.trim()) return;
+    const name = normalizeTagName(tagInput);
+    if (!name) return;
+    if (chips.some((c) => c.name === name)) {
+      setTagInput("");
+      return;
+    }
     setError(null);
-    startTransition(async () => {
+    const tempId = -Date.now();
+    setChips((prev) => [...prev, { id: tempId, name, temp: true }]);
+    setTagInput("");
+    setAddingTag(true);
+    try {
       const res = await fetch(`/api/items/${itemId}/tags`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: tagInput }),
+        body: JSON.stringify({ name }),
       });
       const data = await res.json();
       if (!res.ok) {
+        setChips((prev) => prev.filter((c) => c.id !== tempId));
         setError(data.error ?? "Failed to add tag");
         return;
       }
-      setTagInput("");
-      refresh();
-    });
+      router.refresh();
+    } catch (err) {
+      setChips((prev) => prev.filter((c) => c.id !== tempId));
+      setError(err instanceof Error ? err.message : "Failed to add tag");
+    } finally {
+      setAddingTag(false);
+    }
   }
 
-  function removeTag(tagId: number) {
+  async function removeTag(tagId: number) {
+    const snapshot = chips;
     setError(null);
-    startTransition(async () => {
+    setChips((prev) => prev.filter((c) => c.id !== tagId));
+    try {
       const res = await fetch(`/api/items/${itemId}/tags`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -109,36 +142,54 @@ export function ItemCuration({
       });
       const data = await res.json();
       if (!res.ok) {
+        setChips(snapshot);
         setError(data.error ?? "Failed to remove tag");
         return;
       }
-      refresh();
-    });
+      router.refresh();
+    } catch (err) {
+      setChips(snapshot);
+      setError(err instanceof Error ? err.message : "Failed to remove tag");
+    }
   }
 
-  function addToCollection(e: React.FormEvent) {
+  async function addToCollection(e: React.FormEvent) {
     e.preventDefault();
     if (!collectionId) return;
+    const cid = Number(collectionId);
+    const col = collections.find((c) => c.id === cid);
+    if (!col) return;
+    const snapshot = shelves;
     setError(null);
-    startTransition(async () => {
-      const res = await fetch(`/api/collections/${collectionId}/items`, {
+    setShelves((prev) => [...prev, col]);
+    setCollectionId("");
+    setAddingShelf(true);
+    try {
+      const res = await fetch(`/api/collections/${cid}/items`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ itemId }),
       });
       const data = await res.json();
       if (!res.ok) {
+        setShelves(snapshot);
         setError(data.error ?? "Failed to add to collection");
         return;
       }
-      setCollectionId("");
-      refresh();
-    });
+      router.refresh();
+    } catch (err) {
+      setShelves(snapshot);
+      setError(err instanceof Error ? err.message : "Failed to add to collection");
+    } finally {
+      setAddingShelf(false);
+    }
   }
 
-  function removeFromCollection(cid: number) {
+  async function removeFromCollection(cid: number) {
+    const snapshot = shelves;
     setError(null);
-    startTransition(async () => {
+    setShelves((prev) => prev.filter((c) => c.id !== cid));
+    try {
       const res = await fetch(`/api/collections/${cid}/items`, {
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
@@ -146,11 +197,15 @@ export function ItemCuration({
       });
       const data = await res.json();
       if (!res.ok) {
+        setShelves(snapshot);
         setError(data.error ?? "Failed to remove from collection");
         return;
       }
-      refresh();
-    });
+      router.refresh();
+    } catch (err) {
+      setShelves(snapshot);
+      setError(err instanceof Error ? err.message : "Failed to remove from collection");
+    }
   }
 
   return (
@@ -159,22 +214,14 @@ export function ItemCuration({
         Curation
         <HelpTip content="Tags and shelves organize the catalog without moving files." />
       </h2>
-      {error ? (
-        <p className="feedback-err" role="alert">
-          {error}
-        </p>
-      ) : null}
+      {error ? <InlineStatus tone="danger">{error}</InlineStatus> : null}
 
       <div>
         <h3 className="label-quiet flex items-center gap-1.5 !mb-2">
           Tags
           <HelpTip content="Short labels for filtering (e.g. stem, resume)." />
         </h3>
-        <ItemTagChips
-          itemTags={itemTags}
-          pending={pending}
-          onRemove={removeTag}
-        />
+        <ItemTagChips itemTags={chips} onRemove={removeTag} />
         <form onSubmit={addTag} className="mt-2 flex gap-2">
           <input
             value={tagInput}
@@ -185,7 +232,7 @@ export function ItemCuration({
           <Tooltip content="Attach this tag">
             <button
               type="submit"
-              disabled={pending}
+              disabled={addingTag}
               className="btn btn-secondary btn-sm"
             >
               Add
@@ -200,10 +247,10 @@ export function ItemCuration({
           <HelpTip content="Named shelves. Create them on Collections, then add items here or via bulk Select." />
         </h3>
         <ul className="space-y-1">
-          {itemCollections.length === 0 ? (
+          {shelves.length === 0 ? (
             <li className="text-sm text-[var(--muted)]">Not in any collection</li>
           ) : (
-            itemCollections.map((c) => (
+            shelves.map((c) => (
               <li
                 key={c.id}
                 className="flex items-center justify-between gap-2 text-sm"
@@ -214,8 +261,7 @@ export function ItemCuration({
                 <Tooltip content="Remove from shelf (files stay on disk)">
                   <button
                     type="button"
-                    disabled={pending}
-                    onClick={() => removeFromCollection(c.id)}
+                    onClick={() => void removeFromCollection(c.id)}
                     className="btn btn-ghost btn-sm text-[var(--muted)] hover:text-[var(--danger)]"
                   >
                     Remove
@@ -242,7 +288,7 @@ export function ItemCuration({
             <Tooltip content="Put this holding on the selected shelf">
               <button
                 type="submit"
-                disabled={pending || !collectionId}
+                disabled={addingShelf || !collectionId}
                 className="btn btn-primary btn-sm"
               >
                 Add

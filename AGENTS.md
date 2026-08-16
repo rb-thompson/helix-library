@@ -147,7 +147,7 @@ npm run build            # before calling a slice “done”
 
 ## Current status (high level)
 
-**Daily-usable Helix Library (2026-08-07 handoff):**
+**Daily-usable Helix Library (2026-08-16 handoff):**
 
 - Config + SQLite catalog + hybrid FTS/LIKE + snippets/highlights
 - Indexer + enrichment; media (unicode-safe serve); EXIF; optional `npm run watch`
@@ -161,9 +161,10 @@ npm run build            # before calling a slice “done”
 - **`/graph`** 2D + 3D map (`force-graph` / `3d-force-graph`); `totalItems` cap UX; mobile defaults 2D
 - **`/ask`** viewport chat; holding-context bridge; Grok when keyed; server-side approve
 - Responsive shell; **collapsible left sidebar**; space UI; H+helix mark (dark + light) + favicon
-- Tests: `npm test` — **255 pass** (restore UI + Deep Lens S2 + library-hours desk)
+- **Look-feel craft** — starlight tokens, lamp circulation, toasts, adaptive jobs poll, catalog replace-while-typing, holding folios, optimistic tags/shelves/dismiss, shared ProgressBar. Design: [look-feel craft](./docs/designs/2026-08-look-feel-craft.md)
+- Tests: `npm test` — **270 pass** (toasts + catalogHref + restore/Deep Lens/hours)
 
-**Shipped:** daily OPAC + Curation + Discovery + Acquire depth + **export/backup** + **Deep Lens S2 dossier** + **restore UI** + **left sidebar**. Designs: [discovery](./docs/designs/2026-08-discovery-reading.md), [acquire depth](./docs/designs/2026-08-acquire-depth.md), [deep lens dossier](./docs/designs/2026-08-deep-lens-dossier.md), [restore](./docs/designs/2026-08-restore.md).
+**Shipped:** daily OPAC + Curation + Discovery + Acquire depth + **export/backup** + **Deep Lens S2 dossier** + **restore UI** + **left sidebar** + **look-feel craft (PR1a–7)**. Designs: [discovery](./docs/designs/2026-08-discovery-reading.md), [acquire depth](./docs/designs/2026-08-acquire-depth.md), [deep lens dossier](./docs/designs/2026-08-deep-lens-dossier.md), [restore](./docs/designs/2026-08-restore.md), [look-feel craft](./docs/designs/2026-08-look-feel-craft.md). Optional leftover: catalog j/k (craft PR8).
 
 **Next work:** SESSION-HANDOFF — Discovery PR6 `item_events` (optional Gutenberg). Do not start embeddings.
 

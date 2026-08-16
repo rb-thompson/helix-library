@@ -19,6 +19,7 @@ import {
 import { ItemTitleEditor } from "@/components/ItemTitleEditor";
 import { OpenHistoryRecorder } from "@/components/OpenHistoryRecorder";
 import { RelatedHoldingsPanel } from "@/components/RelatedHoldingsPanel";
+import { PageHeader } from "@/components/ui/PageHeader";
 import { displayTitle } from "@/lib/catalog/display";
 import { formatBytes, formatDate } from "@/lib/format";
 import { hasThumb } from "@/lib/media/thumbs";
@@ -160,54 +161,58 @@ export default async function ItemPage({
         Catalog
       </Link>
 
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between sm:gap-4">
-        <div className="min-w-0">
-          <div className="flex flex-wrap items-center gap-2">
-            <h1 className="break-words text-xl font-semibold tracking-tight text-[var(--ink)] sm:text-2xl">
-              {displayTitle(item)}
-            </h1>
-            {displayTitle(item) !== item.name ? (
-              <p className="mt-1 font-mono text-xs text-[var(--muted)]">
-                {item.name}
-              </p>
-            ) : null}
-            <KindBadge kind={item.kind} />
-            {item.isMissing ? (
-              <span className="text-xs font-semibold text-[var(--danger)]">
-                Missing on disk
-              </span>
-            ) : null}
+      <PageHeader
+        register="room"
+        className="sm:items-start"
+        title={displayTitle(item)}
+        description={
+          <div className="space-y-2">
+            <div className="flex flex-wrap items-center gap-2">
+              {displayTitle(item) !== item.name ? (
+                <span className="font-mono text-xs text-[var(--muted)]">
+                  {item.name}
+                </span>
+              ) : null}
+              <KindBadge kind={item.kind} />
+              {item.isMissing ? (
+                <span className="text-xs font-semibold text-[var(--danger)]">
+                  Missing on disk
+                </span>
+              ) : null}
+            </div>
+            <p className="flex items-start gap-1.5 font-mono text-xs text-[var(--muted)] sm:text-sm">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
+              <span className="break-all">{item.path}</span>
+            </p>
           </div>
-          <p className="mt-2 flex items-start gap-1.5 font-mono text-xs text-[var(--muted)] sm:text-sm">
-            <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[var(--accent)]" />
-            <span className="break-all">{item.path}</span>
-          </p>
-        </div>
-        <div className="flex flex-col items-stretch gap-2 sm:items-end">
-          <CopyPathButton path={item.path} />
-          <Link
-            href={`/lens/${item.id}`}
-            className="btn btn-primary btn-sm inline-flex items-center justify-center gap-1.5"
-            title="Open Deep Lens — read, relate, ask, capture insights"
-          >
-            <Aperture className="h-3.5 w-3.5" aria-hidden />
-            Deep Lens
-          </Link>
-          <Link
-            href={`/ask?item=${item.id}`}
-            className="btn btn-secondary btn-sm inline-flex items-center justify-center gap-1.5"
-            title="Ask the Librarian about this holding"
-          >
-            <MessageSquareText className="h-3.5 w-3.5" aria-hidden />
-            Ask about this holding
-          </Link>
-          <ItemTitleEditor
-            itemId={item.id}
-            displayTitle={displayTitle(item)}
-            filename={item.name}
-          />
-        </div>
-      </div>
+        }
+        actions={
+          <div className="flex flex-col items-stretch gap-2 sm:items-end">
+            <CopyPathButton path={item.path} />
+            <Link
+              href={`/lens/${item.id}`}
+              className="btn btn-primary btn-sm inline-flex items-center justify-center gap-1.5"
+              title="Open Deep Lens — read, relate, ask, capture insights"
+            >
+              <Aperture className="h-3.5 w-3.5" aria-hidden />
+              Deep Lens
+            </Link>
+            <Link
+              href={`/ask?item=${item.id}`}
+              className="btn btn-secondary btn-sm inline-flex items-center justify-center gap-1.5"
+              title="Ask the Librarian about this holding"
+            >
+              <MessageSquareText className="h-3.5 w-3.5" aria-hidden />
+              Ask about this holding
+            </Link>
+            <ItemTitleEditor
+              itemId={item.id}
+              displayTitle={displayTitle(item)}
+              filename={item.name}
+            />
+          </div>
+        }
+      />
 
       <ItemMediaViewer
         item={item}
@@ -237,7 +242,9 @@ export default async function ItemPage({
             <dl className="mt-3 grid gap-2 sm:grid-cols-2">
               {fields.map((f) => (
                 <div key={f.label} className="surface-inset px-3 py-2">
-                  <dt className="label-quiet !mb-0.5">{f.label}</dt>
+                  <dt className="mb-0.5 text-[0.6875rem] font-medium uppercase tracking-wide text-[var(--muted-faint)]">
+                    {f.label}
+                  </dt>
                   <dd className="break-all text-sm text-[var(--ink)]">
                     {f.value}
                   </dd>

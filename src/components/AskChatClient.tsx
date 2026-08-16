@@ -29,12 +29,14 @@ export function AskChatClient({
   agent,
   holdingItemId,
   holdingLabel,
+  holdingKind,
   urlQuote,
 }: {
   initialThreads: ThreadRow[];
   agent: AgentInfo;
   holdingItemId: number | null;
   holdingLabel: string | null;
+  holdingKind: string | null;
   urlQuote: string | null;
 }) {
   const [quote, setQuote] = useState<string | null>(urlQuote);
@@ -54,6 +56,7 @@ export function AskChatClient({
       agent={agent}
       holdingItemId={holdingItemId}
       holdingLabel={holdingLabel}
+      holdingKind={holdingKind}
       initialQuote={quote}
     />
   );

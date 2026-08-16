@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { CheckSquare, Grid3X3, List, Square } from "lucide-react";
+import { CatalogNavLink } from "@/components/CatalogSearch";
 import { BulkCurationBar } from "@/components/BulkCurationBar";
 import { ItemCard } from "@/components/ItemCard";
 import { ItemRow } from "@/components/ItemRow";
@@ -18,6 +18,8 @@ export function CatalogResults({
   collections = [],
   weedingMode = false,
   highlightTokens = [],
+  stale = false,
+  pending = false,
 }: {
   items: CatalogItemRow[];
   thumbIds: number[];
@@ -26,6 +28,8 @@ export function CatalogResults({
   collections?: Array<{ id: number; name: string }>;
   weedingMode?: boolean;
   highlightTokens?: string[];
+  stale?: boolean;
+  pending?: boolean;
 }) {
   const [lightboxId, setLightboxId] = useState<number | null>(null);
   const [selectMode, setSelectMode] = useState(false);
@@ -63,7 +67,10 @@ export function CatalogResults({
   }
 
   return (
-    <div className="space-y-3">
+    <div
+      className={cn("space-y-3", stale && "catalog-results-stale")}
+      aria-busy={pending || stale || undefined}
+    >
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-1.5">
           <button
@@ -96,22 +103,22 @@ export function CatalogResults({
           ) : null}
         </div>
         <div className="segment" role="group" aria-label="View mode">
-          <Link
+          <CatalogNavLink
             href={viewToggleHref.grid}
             title="Grid view"
             className={cn(view === "grid" && "is-active")}
           >
             <Grid3X3 className="h-3.5 w-3.5" aria-hidden />
             Grid
-          </Link>
-          <Link
+          </CatalogNavLink>
+          <CatalogNavLink
             href={viewToggleHref.list}
             title="List view"
             className={cn(view === "list" && "is-active")}
           >
             <List className="h-3.5 w-3.5" aria-hidden />
             List
-          </Link>
+          </CatalogNavLink>
         </div>
       </div>
 

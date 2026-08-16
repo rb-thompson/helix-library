@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Layers, Tag, Trash2, X } from "lucide-react";
+import { InlineStatus } from "@/components/ui/Feedback";
 
 export function BulkCurationBar({
   selectedIds,
@@ -23,6 +24,7 @@ export function BulkCurationBar({
   const [tagName, setTagName] = useState("");
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<string | null>(null);
+  const [messageTone, setMessageTone] = useState<"ok" | "info">("ok");
   const [error, setError] = useState<string | null>(null);
 
   if (selectedIds.length === 0) return null;
@@ -30,11 +32,16 @@ export function BulkCurationBar({
   async function run(
     body: Record<string, unknown>,
     okMsg: (data: Record<string, number>) => string,
-    opts?: { clearAfter?: boolean },
+    opts?: { clearAfter?: boolean; pendingMsg?: string },
   ) {
     setBusy(true);
     setError(null);
-    setMessage(null);
+    if (opts?.pendingMsg) {
+      setMessageTone("info");
+      setMessage(opts.pendingMsg);
+    } else {
+      setMessage(null);
+    }
     try {
       const res = await fetch("/api/bulk", {
         method: "POST",
@@ -43,13 +50,16 @@ export function BulkCurationBar({
       });
       const data = await res.json();
       if (!res.ok) {
+        setMessage(null);
         setError(data.error ?? "Bulk action failed");
         return;
       }
+      setMessageTone("ok");
       setMessage(okMsg(data));
       if (opts?.clearAfter) onClear();
       router.refresh();
     } catch (e) {
+      setMessage(null);
       setError(e instanceof Error ? e.message : "Bulk action failed");
     } finally {
       setBusy(false);
@@ -135,6 +145,7 @@ export function BulkCurationBar({
                   },
                   (d) =>
                     `Added ${d.added ?? 0} to shelf${d.skipped ? ` · ${d.skipped} already there` : ""}`,
+                  { pendingMsg: "Shelving…" },
                 )
               }
               className="btn btn-primary"
@@ -168,6 +179,7 @@ export function BulkCurationBar({
                   },
                   (d) =>
                     `Tagged ${d.tagged ?? 0}${d.skipped ? ` · ${d.skipped} already tagged` : ""}`,
+                  { pendingMsg: "Tagging…" },
                 )
               }
               className="btn btn-secondary"
@@ -180,14 +192,14 @@ export function BulkCurationBar({
       )}
 
       {message ? (
-        <p className="feedback-ok mt-2.5" role="status">
+        <InlineStatus tone={messageTone} className="mt-2.5">
           {message}
-        </p>
+        </InlineStatus>
       ) : null}
       {error ? (
-        <p className="feedback-err mt-2.5" role="alert">
+        <InlineStatus tone="danger" className="mt-2.5">
           {error}
-        </p>
+        </InlineStatus>
       ) : null}
     </div>
   );

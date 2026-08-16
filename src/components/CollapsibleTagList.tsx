@@ -1,8 +1,8 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import Link from "next/link";
 import { ChevronDown, ChevronUp } from "lucide-react";
+import { CatalogNavLink } from "@/components/CatalogSearch";
 import { cn } from "@/lib/cn";
 
 export type TagListItem = {
@@ -134,9 +134,9 @@ export function CollapsibleTagList({
           return (
             <li key={t.id}>
               {t.href ? (
-                <Link href={t.href} className={className} title={`#${t.name}`}>
+                <CatalogNavLink href={t.href} className={className} title={`#${t.name}`}>
                   {body}
-                </Link>
+                </CatalogNavLink>
               ) : (
                 <span className={className} title={`#${t.name}`}>
                   {body}

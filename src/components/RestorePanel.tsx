@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AlertTriangle, Download, RotateCcw, X } from "lucide-react";
 import { HelixSpinner } from "@/components/icons/HelixSpinner";
 import { ReindexButton } from "@/components/ReindexButton";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 import { Tooltip } from "@/components/Tooltip";
 import { cn } from "@/lib/cn";
 import { formatBytes, formatDate } from "@/lib/format";
@@ -678,7 +679,13 @@ export function RestorePanel() {
           </p>
 
           {progress && applying ? (
-            <ProgressBlock progress={progress} />
+            <ProgressBar
+              percent={progress.percent}
+              active
+              label={progress.stage.replace(/_/g, " ")}
+              detail={progress.detail}
+              className="mt-3"
+            />
           ) : null}
 
           {preview ? (
@@ -714,43 +721,6 @@ export function RestorePanel() {
         </p>
       ) : null}
     </section>
-  );
-}
-
-function ProgressBlock({
-  progress,
-}: {
-  progress: { stage: string; percent: number | null; detail?: string };
-}) {
-  return (
-    <div
-      className="mt-3 rounded-[var(--radius-sm)] border border-[var(--line)] bg-[var(--paper-deep)] px-3 py-2.5"
-      role="status"
-    >
-      <div className="flex justify-between text-xs">
-        <span className="font-medium capitalize text-[var(--ink)]">
-          {progress.stage.replace(/_/g, " ")}
-        </span>
-        <span className="tabular-nums text-[var(--muted)]">
-          {progress.percent == null ? "…" : `${Math.round(progress.percent)}%`}
-        </span>
-      </div>
-      {progress.percent != null ? (
-        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-[color-mix(in_srgb,var(--ok)_18%,var(--paper-deep))]">
-          <div
-            className="h-full rounded-full bg-[var(--ok)] transition-[width]"
-            style={{
-              width: `${Math.max(2, Math.min(100, progress.percent))}%`,
-            }}
-          />
-        </div>
-      ) : null}
-      {progress.detail ? (
-        <p className="mt-1.5 font-mono text-[0.65rem] text-[var(--muted)]">
-          {progress.detail}
-        </p>
-      ) : null}
-    </div>
   );
 }
 

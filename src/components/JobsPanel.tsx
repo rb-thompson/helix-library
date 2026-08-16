@@ -9,6 +9,7 @@ import {
   RefreshCw,
   Square,
 } from "lucide-react";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 
 type JobProgress = {
   stage: string;
@@ -97,6 +98,9 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
   const [error, setError] = useState<string | null>(null);
   /** Collapsed by default so Services stays compact; expand for detail. */
   const [open, setOpen] = useState(false);
+  const [optimisticDismissed, setOptimisticDismissed] = useState<Set<number>>(
+    () => new Set(),
+  );
 
   const activeCount = useMemo(
     () =>
@@ -150,6 +154,8 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
   }
 
   async function dismiss(id: number) {
+    const snapshot = optimisticDismissed;
+    setOptimisticDismissed((prev) => new Set(prev).add(id));
     setBusyId(id);
     setError(null);
     try {
@@ -160,11 +166,14 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
       });
       const data = await res.json();
       if (!res.ok) {
+        setOptimisticDismissed(snapshot);
         setError(data.error ?? "Dismiss failed");
         return;
       }
       await refresh();
+      setOptimisticDismissed(new Set());
     } catch (e) {
+      setOptimisticDismissed(snapshot);
       setError(e instanceof Error ? e.message : "Dismiss failed");
     } finally {
       setBusyId(null);
@@ -172,6 +181,16 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
   }
 
   async function dismissAllFailed() {
+    const snapshot = optimisticDismissed;
+    const ids = jobs
+      .filter(
+        (j) =>
+          (j.status === "failed" || j.status === "cancelled") &&
+          !j.dismissed &&
+          !optimisticDismissed.has(j.id),
+      )
+      .map((j) => j.id);
+    setOptimisticDismissed(new Set([...snapshot, ...ids]));
     setBusyId(-1);
     setError(null);
     try {
@@ -182,11 +201,14 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
       });
       const data = await res.json();
       if (!res.ok) {
+        setOptimisticDismissed(snapshot);
         setError(data.error ?? "Dismiss failed");
         return;
       }
       await refresh();
+      setOptimisticDismissed(new Set());
     } catch (e) {
+      setOptimisticDismissed(snapshot);
       setError(e instanceof Error ? e.message : "Dismiss failed");
     } finally {
       setBusyId(null);
@@ -197,9 +219,11 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
     () =>
       jobs.filter(
         (j) =>
-          (j.status === "failed" || j.status === "cancelled") && !j.dismissed,
+          (j.status === "failed" || j.status === "cancelled") &&
+          !j.dismissed &&
+          !optimisticDismissed.has(j.id),
       ),
-    [jobs],
+    [jobs, optimisticDismissed],
   );
 
   const summaryLine =
@@ -312,7 +336,8 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
                           >
                             {job.status}
                             {job.cancelRequested && active ? " · cancel…" : ""}
-                            {job.dismissed &&
+                            {(job.dismissed ||
+                              optimisticDismissed.has(job.id)) &&
                             (job.status === "failed" ||
                               job.status === "cancelled")
                               ? " · seen"
@@ -332,7 +357,7 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
                             : ""}
                           {summary ? ` · ${summary}` : ""}
                         </p>
-                        {job.progress?.detail ? (
+                        {job.progress?.detail && !active ? (
                           <p className="mt-1 text-xs text-[var(--ink-soft)]">
                             {job.progress.stage}
                             {pct != null ? ` · ${Math.round(pct)}%` : ""} —{" "}
@@ -369,7 +394,8 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
                         ) : null}
                         {(job.status === "failed" ||
                           job.status === "cancelled") &&
-                        !job.dismissed ? (
+                        !job.dismissed &&
+                        !optimisticDismissed.has(job.id) ? (
                           <button
                             type="button"
                             className="btn btn-ghost btn-sm"
@@ -383,21 +409,18 @@ export function JobsPanel({ initialJobs }: { initialJobs: HelixJobRow[] }) {
                         ) : null}
                       </div>
                     </div>
-                    {active && pct != null ? (
-                      <div
-                        className="mt-2 h-1.5 overflow-hidden rounded-full bg-[var(--paper-deep)]"
-                        role="progressbar"
-                        aria-valuenow={Math.round(pct)}
-                        aria-valuemin={0}
-                        aria-valuemax={100}
-                      >
-                        <div
-                          className="h-full rounded-full bg-[var(--accent)] transition-[width] duration-300"
-                          style={{
-                            width: `${Math.max(2, Math.min(100, pct))}%`,
-                          }}
-                        />
-                      </div>
+                    {active ? (
+                      <ProgressBar
+                        percent={pct ?? null}
+                        active
+                        label={
+                          job.progress?.stage
+                            ? job.progress.stage.replace(/_/g, " ")
+                            : job.kind
+                        }
+                        detail={job.progress?.detail}
+                        className="mt-2"
+                      />
                     ) : null}
                   </li>
                 );

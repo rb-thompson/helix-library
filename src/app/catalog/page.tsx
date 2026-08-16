@@ -1,8 +1,15 @@
 import Link from "next/link";
 import { ActiveFilters, type FilterChip } from "@/components/ActiveFilters";
 import { CatalogResults } from "@/components/CatalogResults";
+import { CatalogResultsShell } from "@/components/CatalogResultsShell";
+import {
+  CatalogNavLink,
+  CatalogSearch,
+} from "@/components/CatalogSearch";
 import { CollapsibleTagList } from "@/components/CollapsibleTagList";
 import { SearchForm } from "@/components/SearchForm";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { catalogHref, type CatalogHrefState } from "@/lib/catalog/href";
 import {
   catalogFacets,
   listLocationsWithCounts,
@@ -147,9 +154,8 @@ export default async function CatalogPage({
     .filter((i) => hasThumb(i.id))
     .map((i) => i.id);
 
-  function hrefFor(overrides: Record<string, string | number | undefined>) {
-    const params = new URLSearchParams();
-    const next = {
+  function hrefFor(overrides: Partial<CatalogHrefState> = {}) {
+    return catalogHref({
       q,
       kind,
       location: locationId === "" ? "" : String(locationId),
@@ -158,31 +164,17 @@ export default async function CatalogPage({
       under,
       missing: missingOnly ? "1" : "",
       untagged: untaggedOnly ? "1" : "",
-      sort: sort === "mtime" ? "" : sort,
-      dir:
-        sort === "name"
-          ? sortDir === "asc"
-            ? ""
-            : sortDir
-          : sortDir === "desc"
-            ? ""
-            : sortDir,
-      view: view === "list" ? "list" : sp.view === "grid" ? "grid" : view,
-      page: String(page),
+      sort,
+      dir: sortDir,
+      view,
+      viewExplicit: sp.view === "grid",
+      page,
       ...overrides,
-    };
-    for (const [k, v] of Object.entries(next)) {
-      if (v !== undefined && v !== "" && !(k === "page" && String(v) === "1")) {
-        if (k === "view" && v === "grid" && !sp.view) continue;
-        params.set(k, String(v));
-      }
-    }
-    const s = params.toString();
-    return s ? `/catalog?${s}` : "/catalog";
+    });
   }
 
   const viewToggleHref = {
-    grid: hrefFor({ view: "grid", page: 1 }),
+    grid: hrefFor({ view: "grid", page: 1, viewExplicit: true }),
     list: hrefFor({ view: "list", page: 1 }),
   };
 
@@ -267,40 +259,44 @@ export default async function CatalogPage({
   const underParts = under ? under.split("/").filter(Boolean) : [];
 
   return (
+    <CatalogSearch>
     <div className="space-y-5 sm:space-y-6">
-      <div>
-        <p className="eyebrow">Holdings</p>
-        <h1 className="page-title mt-1">
-          {missingOnly
+      <PageHeader
+        register="catalog"
+        eyebrow="Holdings"
+        title={
+          missingOnly
             ? "Weeding desk"
             : untaggedOnly
               ? "Untagged holdings"
-              : "Catalog"}
-        </h1>
-        <p className="page-sub">
-          <span className="tabular-nums font-medium text-[var(--ink-soft)]">
-            {result.total.toLocaleString()}
-          </span>{" "}
-          {missingOnly
-            ? `missing holding${result.total === 1 ? "" : "s"}`
-            : untaggedOnly
-              ? `untagged holding${result.total === 1 ? "" : "s"}`
-              : `holding${result.total === 1 ? "" : "s"}`}
-          {q ? ` matching “${q}”` : ""}
-          {!missingOnly &&
-          !untaggedOnly &&
-          filterChips.length > 0 &&
-          !q
-            ? " with filters"
-            : ""}
-          {missingOnly
-            ? " — select and remove from catalog (files already gone)"
-            : ""}
-          {untaggedOnly
-            ? " — add tags from bulk Select or item detail"
-            : ""}
-        </p>
-      </div>
+              : "Catalog"
+        }
+        description={
+          <>
+            <span className="tabular-nums font-medium text-[var(--ink-soft)]">
+              {result.total.toLocaleString()}
+            </span>{" "}
+            {missingOnly
+              ? `missing holding${result.total === 1 ? "" : "s"}`
+              : untaggedOnly
+                ? `untagged holding${result.total === 1 ? "" : "s"}`
+                : `holding${result.total === 1 ? "" : "s"}`}
+            {q ? ` matching “${q}”` : ""}
+            {!missingOnly &&
+            !untaggedOnly &&
+            filterChips.length > 0 &&
+            !q
+              ? " with filters"
+              : ""}
+            {missingOnly
+              ? " — select and remove from catalog (files already gone)"
+              : ""}
+            {untaggedOnly
+              ? " — add tags from bulk Select or item detail"
+              : ""}
+          </>
+        }
+      />
 
       <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
         <div className="min-w-0 flex-1">
@@ -352,12 +348,12 @@ export default async function CatalogPage({
           className="flex flex-wrap items-center gap-1 text-xs text-[var(--muted)]"
           aria-label="Path within location"
         >
-          <Link
+          <CatalogNavLink
             href={hrefFor({ under: "", page: 1 })}
             className="link-accent"
           >
             root
-          </Link>
+          </CatalogNavLink>
           {underParts.map((part, i) => {
             const path = underParts.slice(0, i + 1).join("/");
             const last = i === underParts.length - 1;
@@ -367,12 +363,12 @@ export default async function CatalogPage({
                 {last ? (
                   <span className="font-medium text-[var(--ink)]">{part}</span>
                 ) : (
-                  <Link
+                  <CatalogNavLink
                     href={hrefFor({ under: path, page: 1 })}
                     className="link-accent"
                   >
                     {part}
-                  </Link>
+                  </CatalogNavLink>
                 )}
               </span>
             );
@@ -488,7 +484,7 @@ export default async function CatalogPage({
               <ul className="flex flex-wrap gap-1.5">
                 {facets.kinds.map((f) => (
                   <li key={f.kind}>
-                    <Link
+                    <CatalogNavLink
                       href={hrefFor({
                         kind: kind === f.kind ? "" : f.kind,
                         page: 1,
@@ -501,7 +497,7 @@ export default async function CatalogPage({
                       <span className="tabular-nums text-[var(--muted-faint)]">
                         {f.c}
                       </span>
-                    </Link>
+                    </CatalogNavLink>
                   </li>
                 ))}
               </ul>
@@ -526,29 +522,23 @@ export default async function CatalogPage({
         </div>
       )}
 
+      <CatalogResultsShell
+        itemsLength={result.items.length}
+        page={page}
+        view={view}
+        pageSize={pageSize}
+      >
       {result.items.length === 0 ? (
         <div className="empty-state">
           <strong>No holdings match</strong>
           {result.total === 0 && filterChips.length === 0 ? (
-            <>
-              Catalog is empty.{" "}
-              <Link href="/services" className="link-accent">
-                Run a reindex
-              </Link>{" "}
-              after configuring locations, or drop files into{" "}
-              <code className="rounded bg-[var(--paper-deep)] px-1 text-xs">
-                archive/
-              </code>
-              .
-            </>
+            <Link href="/services" className="link-accent">
+              Run a reindex
+            </Link>
           ) : (
-            <>
-              Try a broader query, or{" "}
-              <Link href={clearAllHref} className="link-accent">
-                clear filters
-              </Link>
-              . Search also matches note bodies and PDF text.
-            </>
+            <CatalogNavLink href={clearAllHref} className="link-accent">
+              Clear filters
+            </CatalogNavLink>
           )}
         </div>
       ) : (
@@ -564,6 +554,7 @@ export default async function CatalogPage({
           highlightTokens={q ? searchTokens(q) : []}
         />
       )}
+      </CatalogResultsShell>
 
       {totalPages > 1 ? (
         <nav
@@ -575,18 +566,27 @@ export default async function CatalogPage({
           </span>
           <div className="flex gap-2">
             {page > 1 ? (
-              <Link href={hrefFor({ page: page - 1 })} className="btn btn-secondary btn-sm">
+              <CatalogNavLink
+                href={hrefFor({ page: page - 1 })}
+                className="btn btn-secondary btn-sm"
+                scrollResults
+              >
                 Previous
-              </Link>
+              </CatalogNavLink>
             ) : null}
             {page < totalPages ? (
-              <Link href={hrefFor({ page: page + 1 })} className="btn btn-secondary btn-sm">
+              <CatalogNavLink
+                href={hrefFor({ page: page + 1 })}
+                className="btn btn-secondary btn-sm"
+                scrollResults
+              >
                 Next
-              </Link>
+              </CatalogNavLink>
             ) : null}
           </div>
         </nav>
       ) : null}
     </div>
+    </CatalogSearch>
   );
 }

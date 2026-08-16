@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Moon, Sun } from "lucide-react";
+import { cn } from "@/lib/cn";
 
 export type ThemeMode = "dark" | "light";
 
@@ -85,11 +86,22 @@ export function ThemeToggle() {
       aria-label={mode === "dark" ? "Switch to light mode" : "Switch to dark mode"}
       disabled={!ready}
     >
-      {mode === "dark" ? (
-        <Sun className="h-4 w-4" aria-hidden />
-      ) : (
-        <Moon className="h-4 w-4" aria-hidden />
-      )}
+      <span className="relative inline-flex h-4 w-4">
+        <Sun
+          className={cn(
+            "absolute inset-0 h-4 w-4 transition-opacity duration-[var(--dur-micro)]",
+            mode === "dark" ? "opacity-100" : "opacity-0",
+          )}
+          aria-hidden
+        />
+        <Moon
+          className={cn(
+            "absolute inset-0 h-4 w-4 transition-opacity duration-[var(--dur-micro)]",
+            mode === "light" ? "opacity-100" : "opacity-0",
+          )}
+          aria-hidden
+        />
+      </span>
     </button>
   );
 }

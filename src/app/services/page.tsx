@@ -211,7 +211,9 @@ function Fact({
 }) {
   return (
     <div className="surface-inset px-3 py-2">
-      <dt className="label-quiet mb-0.5">{label}</dt>
+      <dt className="mb-0.5 text-[0.6875rem] font-medium uppercase tracking-wide text-[var(--muted-faint)]">
+        {label}
+      </dt>
       <dd
         className={`break-all text-sm text-[var(--ink)] ${mono ? "font-mono text-xs" : ""}`}
       >

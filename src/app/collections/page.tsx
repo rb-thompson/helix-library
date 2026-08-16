@@ -45,12 +45,12 @@ export default function CollectionsPage() {
             <li key={c.id} className="min-h-0">
               <Link
                 href={`/collections/${c.id}`}
-                className="shelf-card group"
+                className={`shelf-card group${c.kind === "smart" ? " is-smart" : ""}`}
               >
                 <div className="flex items-start justify-between gap-2">
                   <h2 className="shelf-card__title">{c.name}</h2>
                   {c.kind === "smart" ? (
-                    <span className="chip chip-active shrink-0 !py-0.5 text-[0.65rem]">
+                    <span className="chip shrink-0 !py-0.5 text-[0.65rem] text-[var(--muted)]">
                       Smart
                     </span>
                   ) : null}

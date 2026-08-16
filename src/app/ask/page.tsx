@@ -64,7 +64,12 @@ export default async function AskPage({
         </p>
 
         {holding ? (
-          <p className="surface-flat border-[var(--accent-ring)] bg-[var(--accent-soft)] px-3 py-2 text-sm text-[var(--ink)]">
+          <p
+            className="holding-chip surface-flat border-[var(--accent-ring)] bg-[var(--accent-soft)] px-3 py-2 text-sm text-[var(--ink)]"
+            style={{
+              ["--chip-kind" as string]: `var(--kind-${holding.kind})`,
+            }}
+          >
             Active holding:{" "}
             <a
               href={`/catalog/${holding.id}`}
@@ -150,6 +155,7 @@ export default async function AskPage({
         }}
         holdingItemId={holdingItemId}
         holdingLabel={holdingLabel}
+        holdingKind={holding?.kind ?? null}
         urlQuote={urlQuote}
       />
     </div>

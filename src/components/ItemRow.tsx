@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { Check, Play } from "lucide-react";
 import { KindBadge } from "@/components/KindBadge";
@@ -29,6 +30,7 @@ export function ItemRow({
   const media = item.kind === "image" || item.kind === "video";
   const showThumb = hasPreview && media;
   const label = displayTitle(item);
+  const [thumbLoaded, setThumbLoaded] = useState(false);
   const kindClass = `kind-${(ITEM_KINDS as readonly string[]).includes(item.kind) ? item.kind : "other"}`;
 
   const body = (
@@ -53,7 +55,11 @@ export function ItemRow({
             <img
               src={`/api/thumbs/${item.id}`}
               alt=""
-              className="holding-row__thumb h-11 w-11 rounded-[0.45rem] border bg-[var(--paper-deep)] object-cover"
+              onLoad={() => setThumbLoaded(true)}
+              className={cn(
+                "holding-row__thumb h-11 w-11 rounded-[0.45rem] border bg-[var(--paper-deep)] object-cover",
+                thumbLoaded && "is-loaded",
+              )}
             />
             {item.kind === "video" ? (
               <Play
@@ -64,7 +70,7 @@ export function ItemRow({
           </span>
         ) : (
           <span
-            className="holding-row__thumb flex h-11 w-11 shrink-0 items-center justify-center rounded-[0.45rem] border bg-[var(--paper-deep)] text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--muted)]"
+            className="holding-row__thumb is-empty flex h-11 w-11 shrink-0 items-center justify-center rounded-[0.45rem] border text-[0.6rem] font-semibold uppercase tracking-wide text-[var(--muted)]"
             aria-hidden
           >
             {item.ext || item.kind.slice(0, 3)}

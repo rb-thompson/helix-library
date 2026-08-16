@@ -1,9 +1,9 @@
 # Session handoff — Helix Library
 
-**Last updated:** 2026-08-15 (sidebar land)  
+**Last updated:** 2026-08-16 (look-feel craft season)  
 **Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`)  
-**Tip:** `origin/main` — restore UI + collapsible left sidebar. Working tree should be clean.  
-**Status:** Daily-usable OPAC. **Curation, Discovery, Acquire, export/backup, Deep Lens S2, restore UI, left rail** shipped. Next product: Discovery PR6 `item_events`.
+**Tip:** `origin/main` — restore UI + left sidebar + look-feel craft (tokens through PR7).  
+**Status:** Daily-usable OPAC. **Curation, Discovery, Acquire, export/backup, Deep Lens S2, restore UI, left rail, look-feel craft** shipped. Required craft PRs 1a–7 done. Optional leftover: craft PR8 catalog j/k (after living with PR3). Next product: Discovery PR6 `item_events`. Do not start embeddings.
 
 Read [AGENTS.md](../AGENTS.md) first, then this file.
 
@@ -50,7 +50,8 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | **Acquire `/acquire`** | arXiv; OpenAlex OA PDF; web clip; **Grokipedia**; **image URL**; YT/podcast; Grok image; Ask propose+approve for all acquire kinds; SSRF outbound; jobs + auto-tags |
 | Theme / nav | Dark/light; **light helix mark** swap; **left sidebar** (Stacks + Library ops); header is jobs + theme |
 | Shell | `.app-frame` offset by `--sidebar-rail`; `.shell-x`, `--shell-max` wider at 2xl |
-| Tests | `npm test` — **255 pass** (restore season + Deep Lens + library-hours) |
+| Tests | `npm test` — **270 pass** (toasts + catalogHref + restore/Deep Lens/hours) |
+| **Look-feel craft** | Design: [docs/designs/2026-08-look-feel-craft.md](./designs/2026-08-look-feel-craft.md). Tokens + lamp + overlay; toast/ProgressBar/InlineStatus; header adaptive poll; catalog `replace` while typing; holding folios + optimistic tags/dismiss; item room + lamp `?room=1`; Hours lamp; Ask bubbles; shared job bars; graph/collections/services chrome. `/design` is the living spec. Optional **PR8** j/k browse. |
 | Docs | In-app `/docs` includes Acquire, reading room, smart shelves, graph, restore |
 | **Reading room (PR1a+1b)** | Text/code continuous + PDF.js page mode (canvas + text layer); `helix-read-position` scroll/page; `?room=1`; public unbundled pdf.min.mjs |
 | **Read → act (PR2)** | Selection toolbar Tag/Ask/Copy; `/ask?item=`; transport `holdingItemId` + quote; system appendix; local summarize → indexed body |
@@ -65,7 +66,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 ## Git baseline
 
-**Tip on origin:** Deep Lens `1aae6bc` plus hours-desk follow-up on `main`.  
+**This wrap:** look-feel craft season on `main` (tokens/primitives + PR2–PR7).  
 **Older landmark:** `ba23e55` — first daily Helix ship.
 
 **Do not commit:** `.env.local`, `library.config.json`, `data/` (db, thumbs, exports), personal `archive/**`, `scripts/__pycache__/`.  
@@ -145,6 +146,11 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | `src/app/api/lens/analyses/**` | Machine dossier GET/POST |
 | `src/lib/client/library-hours.ts` | Time-of-day phase + hourly cart pick |
 | `src/components/HoursDesk.tsx` | Home due-slip (“left on the cart”) |
+| `src/lib/client/toasts.ts` | Toast store (max 3, href sanitizer, 6s dismiss) |
+| `src/lib/catalog/href.ts` | Catalog URL builder + default-param omit table |
+| `src/components/CatalogSearch.tsx` | Client catalog search; `replace` while typing, `push` on submit |
+| `src/components/CatalogResultsShell.tsx` | Pending dim XOR skeletons |
+| `src/components/ItemCardSkeleton.tsx` | Folio-shaped loading cards |
 | `src/lib/client/sidebar.ts` | `helix-sidebar` expanded/collapsed; ThemeScript sets `data-sidebar` before paint |
 | `src/components/AppShell.tsx` | Sidebar context + `[` toggle on desktop |
 | `src/components/AppSidebar.tsx` | Left rail / phone drawer |
@@ -176,6 +182,9 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | Restore + watch | Stop `npm run watch` if apply reports another process has the catalog open. |
 | Sidebar FOUC | Collapse width is `html[data-sidebar]`; ThemeScript must set it (same pattern as theme). |
 | Sidebar `[` | Desktop only; ignored in inputs. Phone drawer ignores collapse. |
+| Reindex percent | Header compact bar only if `percent != null`. Reindex jobs never fake-fill. |
+| Catalog history | Search `replace` while typing; `push` on submit / facet / sort. Do not toast every default tone at once (max 3). |
+| Optimistic catalog | Tags / shelves / dismiss only. Restore stays ugly (typed `RESTORE`). |
 
 ---
 
@@ -196,6 +205,8 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 **Season “Curation & intake” (2026-08):** PR1–PR7 landed — see [designs/2026-08-curation-intake.md](./designs/2026-08-curation-intake.md).  
 
 **Season “Discovery depth & reading room” (2026-08):** PR1a–PR5 + PR7 landed; PR6 stretch open — see [designs/2026-08-discovery-reading.md](./designs/2026-08-discovery-reading.md).
+
+**Season “Look-feel craft” (2026-08):** PR1a–7 landed — see [designs/2026-08-look-feel-craft.md](./designs/2026-08-look-feel-craft.md). Optional PR8 catalog j/k after living with PR3.
 
 **Season “Acquire depth & accuracy” (2026-08):** Tier 1 + Grokipedia + image URL + Ask acquire parity landed. Gutenberg remains stretch.
 

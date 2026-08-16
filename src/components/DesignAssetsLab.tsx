@@ -31,6 +31,7 @@ const SECTIONS = [
   { id: "surfaces", label: "Surfaces" },
   { id: "status", label: "Status" },
   { id: "progress", label: "Progress" },
+  { id: "exceptions", label: "Exceptions" },
 ] as const;
 
 const ICON_NOTES: Record<NavIconName, string> = {
@@ -635,8 +636,7 @@ export function DesignAssetsLab() {
             <h2 className="page-title mt-1 text-xl sm:text-2xl">Status lines</h2>
             <p className="page-sub mt-1 max-w-2xl">
               <code className="code-inline">InlineStatus</code> wraps the existing
-              feedback classes. Classes stay. Toast only for off-screen jobs —
-              no production callers this PR.
+              feedback classes. Classes stay. Toast only for off-screen jobs.
             </p>
           </header>
           <div className="space-y-2">
@@ -691,7 +691,8 @@ export function DesignAssetsLab() {
             <h2 className="page-title mt-1 text-xl sm:text-2xl">Progress</h2>
             <p className="page-sub mt-1 max-w-2xl">
               Shared bar. Default copies Acquire’s 6px track. Compact is 4px for
-              the header. Production extracts land in later PRs.
+              the header. In production on Acquire, Backup, Jobs, Reindex, and
+              Restore.
             </p>
           </header>
           <div className="grid gap-4 lg:grid-cols-2">
@@ -710,6 +711,50 @@ export function DesignAssetsLab() {
               <ProgressBar percent={null} active size="compact" label="reindex" />
             </Surface>
           </div>
+        </section>
+
+        <section id="exceptions" className="scroll-mt-24 space-y-4">
+          <header>
+            <p className="eyebrow">Season</p>
+            <h2 className="page-title mt-1 text-xl sm:text-2xl">
+              Exceptions & primitives
+            </h2>
+            <p className="page-sub mt-1 max-w-2xl">
+              Deep Lens is a deliberate exception — do not flatten it to the
+              slab. Restore’s typed{" "}
+              <code className="code-inline">RESTORE</code> stays ugly on
+              purpose.
+            </p>
+          </header>
+          <Surface className="space-y-3 p-4 sm:p-5">
+            <p className="text-sm font-medium text-[var(--ink)]">
+              Deep Lens
+            </p>
+            <p className="text-sm text-[var(--muted)]">
+              Terminal, scanlines, kind-object, drop-cap. Keep that register.
+              Do not migrate{" "}
+              <code className="code-inline">/lens</code> to{" "}
+              <code className="code-inline">PageHeader</code> or{" "}
+              <code className="code-inline">surface-flat</code> chrome.
+            </p>
+            <p className="text-sm font-medium text-[var(--ink)]">
+              Shipped this season
+            </p>
+            <ul className="list-disc space-y-1 pl-5 text-sm text-[var(--muted)]">
+              <li>Tokens, lamp, overlay, motion, type registers</li>
+              <li>
+                <code className="code-inline">toast</code> /{" "}
+                <code className="code-inline">InlineStatus</code> /{" "}
+                <code className="code-inline">ProgressBar</code>
+              </li>
+              <li>
+                Catalog <code className="code-inline">catalogHref</code> +
+                pending paint
+              </li>
+              <li>Holding folios + optimistic tags / dismiss</li>
+              <li>Ask bubbles, Hours lamp, shared job bars</li>
+            </ul>
+          </Surface>
         </section>
       </div>
     </div>

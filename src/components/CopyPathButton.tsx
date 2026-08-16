@@ -27,6 +27,7 @@ export function CopyPathButton({ path }: { path: string }) {
           "btn btn-sm",
           copied ? "btn-secondary text-[var(--ok)]" : "btn-secondary",
         )}
+        style={{ transitionDuration: "var(--dur-micro)" }}
       >
         {copied ? (
           <Check className="h-3.5 w-3.5" aria-hidden />

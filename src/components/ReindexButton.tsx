@@ -5,7 +5,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { RefreshCw } from "lucide-react";
 import { HelixSpinner } from "@/components/icons/HelixSpinner";
 import { Tooltip } from "@/components/Tooltip";
-import { StatusLine } from "@/components/ui/StatusLine";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 import type { IndexJobStats } from "@/lib/types";
 
 type JobSnapshot = {
@@ -131,13 +131,17 @@ export function ReindexButton({
           {running ? "Reindexing…" : "Run reindex"}
         </button>
       </Tooltip>
-      {running && job ? (
-        <StatusLine tone="info" pulse>
-          Job #{job.id} running
-          {job.startedAt
-            ? ` · started ${new Date(job.startedAt).toLocaleTimeString()}`
-            : ""}
-        </StatusLine>
+      {running ? (
+        <ProgressBar
+          percent={null}
+          active
+          label={job ? `Job #${job.id}` : "Reindex"}
+          detail={
+            job?.startedAt
+              ? `started ${new Date(job.startedAt).toLocaleTimeString()}`
+              : "Walking locations…"
+          }
+        />
       ) : null}
       {!running && job?.status === "completed" && job.stats ? (
         <p className="feedback-ok" role="status">

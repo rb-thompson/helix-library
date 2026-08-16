@@ -50,6 +50,11 @@ export function SearchForm({
             onClick={() => {
               setValue("");
               inputRef.current?.focus();
+              requestAnimationFrame(() => {
+                inputRef.current?.dispatchEvent(
+                  new Event("input", { bubbles: true }),
+                );
+              });
             }}
           >
             <X className="h-4 w-4" aria-hidden />
