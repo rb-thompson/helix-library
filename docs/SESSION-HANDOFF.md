@@ -2,7 +2,7 @@
 
 **Last updated:** 2026-08-16 (docs handbook + Circulation brand wave)  
 **Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`)  
-**Tip:** `origin/main` — restore UI + left sidebar + look-feel craft + expanded `/docs` + brand stills/glyphs.  
+**Tip:** `origin/main` — restore UI + left sidebar + look-feel craft + expanded `/docs` + Circulation stills. Lucide nav (custom glyphs reverted).  
 **Status:** Daily-usable OPAC. **Curation, Discovery, Acquire, export/backup, Deep Lens S2, restore UI, left rail, look-feel craft, handbook `/docs`, Circulation brand wave** shipped. Required craft PRs 1a–7 done. Optional leftover: craft PR8 catalog j/k (after living with PR3). Next product: Discovery PR6 `item_events`. Do not start embeddings.
 
 Read [AGENTS.md](../AGENTS.md) first, then this file.
@@ -274,7 +274,7 @@ npm run dev    # http://127.0.0.1:4747
 
 ## Session wrap (2026-08-16) — handbook + Circulation brand wave
 
-**Shipped:** `/docs` rewritten as a comprehensive Helix overview (library map, building chrome, weeding, thumbs, mini player, smart shelves, Deep Lens, Acquire, Ask, restore, privacy, keyboard). Pushed as `440fd81`. Hands-on field guide with 15 labs written to `archive/documents/Helix-Library-Field-Guide.md` (holding, gitignored). Brand wave: night/day heroes, card lattices, folio banner, nameplate study, custom SVG nav glyphs (rail + home tiles + docs map), `btn-helix` / `btn-lamp`. `/design` lists stills and the new buttons.
+**Shipped:** `/docs` rewritten as a comprehensive Helix overview (library map, building chrome, weeding, thumbs, mini player, smart shelves, Deep Lens, Acquire, Ask, restore, privacy, keyboard). Pushed as `440fd81`. Hands-on field guide with 15 labs written to `archive/documents/Helix-Library-Field-Guide.md` (holding, gitignored). Brand wave: night/day heroes, card lattices, folio banner, nameplate study, `btn-helix` / `btn-lamp`. Nav stays Lucide — custom glyphs were well-intentioned and not good enough.
 
 **Still optional:** Discovery PR6 `item_events`; Gutenberg; craft PR8 catalog j/k.
 

@@ -1336,7 +1336,7 @@ select.field {
   background: var(--accent-soft);
 }
 
-/* ─── Nav icons (custom Helix glyphs — same set as home tiles) ─── */
+/* ─── Nav icons (Lucide — same set as home service tiles) ─── */
 .nav-icon {
   display: inline-flex;
   flex-shrink: 0;

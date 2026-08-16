@@ -6,7 +6,6 @@ import { HelixMark } from "@/components/HelixMark";
 import { HelixGlyph } from "@/components/icons/HelixGlyph";
 import { HelixSpinner } from "@/components/icons/HelixSpinner";
 import { NavIcon } from "@/components/icons/nav";
-import { NAV_GLYPH_NOTES } from "@/components/icons/nav/glyphs";
 import { KindBadge } from "@/components/KindBadge";
 import { InlineStatus, toast } from "@/components/ui/Feedback";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -37,7 +36,18 @@ const SECTIONS = [
   { id: "exceptions", label: "Exceptions" },
 ] as const;
 
-const ICON_NOTES: Record<NavIconName, string> = NAV_GLYPH_NOTES;
+const ICON_NOTES: Record<NavIconName, string> = {
+  catalog: "Lucide Search — home Catalog tile",
+  graph: "Lucide Network — home Graph tile",
+  collections: "Lucide Layers — home Collections tile",
+  ask: "Lucide MessageCircle — home Ask tile",
+  lens: "Lucide Aperture — home Deep Lens tile",
+  locations: "Lucide FolderOpen — home Locations tile",
+  acquire: "Lucide Download — home Acquire tile",
+  services: "Lucide HardDrive — home Services tile",
+  docs: "Lucide BookOpen — home Docs tile",
+  design: "Lucide LayoutGrid — design lab only",
+};
 
 const COLOR_TOKENS: { name: string; varName: string; group: string }[] = [
   { name: "ink", varName: "--ink", group: "Text" },
@@ -141,9 +151,9 @@ export function DesignAssetsLab() {
             <p className="eyebrow">Glyphs</p>
             <h2 className="page-title mt-1 text-xl sm:text-2xl">Nav icons</h2>
             <p className="page-sub mt-1 max-w-2xl">
-              Custom Helix glyphs — card catalog, constellation, bookcase,
-              lamp-bubble, aperture. Shared by the left rail, home tiles, and
-              the /docs map. Size ladder below for chrome vs large review.
+              Same Lucide set as the home service tiles (Search, Network, Layers,
+              …). Shared so nav and home stay visually consistent. Size ladder
+              below for chrome vs large review.
             </p>
           </header>
 

@@ -1,4 +1,4 @@
-/** Glyph key for custom Helix nav icons (`NavIcon`). */
+/** Glyph key for Helix nav icons (`NavIcon` — Lucide). */
 export type NavIconName =
   | "catalog"
   | "graph"
