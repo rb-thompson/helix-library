@@ -8,14 +8,24 @@ import {
   readOpenHistory,
   type OpenHistoryEntry,
 } from "@/lib/client/open-history";
+import { mergeRecentOpens, type RecentOpen } from "@/lib/catalog/open-merge";
 import { formatRelativeDate } from "@/lib/format";
 
-export function RecentOpens({ limit = 8 }: { limit?: number }) {
+export function RecentOpens({
+  limit = 8,
+  serverEntries = [],
+}: {
+  limit?: number;
+  /** RSC recent opens from item_events (displayTitle already applied). */
+  serverEntries?: RecentOpen[];
+}) {
   const [entries, setEntries] = useState<OpenHistoryEntry[] | null>(null);
 
   useEffect(() => {
-    setEntries(readOpenHistory().slice(0, limit));
-  }, [limit]);
+    setEntries(
+      mergeRecentOpens(serverEntries, readOpenHistory(), limit),
+    );
+  }, [limit, serverEntries]);
 
   if (entries == null || entries.length === 0) return null;
 
@@ -28,9 +38,10 @@ export function RecentOpens({ limit = 8 }: { limit?: number }) {
         <button
           type="button"
           className="text-xs font-semibold text-[var(--muted)] hover:text-[var(--accent)] hover:underline"
+          title="Clear this browser's open history (server events stay)"
           onClick={() => {
             clearOpenHistory();
-            setEntries([]);
+            setEntries(mergeRecentOpens(serverEntries, [], limit));
           }}
         >
           Clear

@@ -19,6 +19,7 @@ import { collectionCount, listCollections } from "@/lib/collections/manage";
 import { kindLabel } from "@/lib/format";
 import { hasThumb } from "@/lib/media/thumbs";
 import { getLatestJob, isReindexRunning } from "@/lib/indexer/run";
+import { listRecentOpens } from "@/lib/catalog/events";
 import { ensureLocationsSynced } from "@/lib/locations/manage";
 
 export const dynamic = "force-dynamic";
@@ -33,6 +34,7 @@ export default function HomePage() {
   const latestJob = getLatestJob();
   const reindexRunning = isReindexRunning();
   const rescue = getRescueSnapshot();
+  const serverOpens = listRecentOpens(40);
 
   return (
     <div className="space-y-7 sm:space-y-10">
@@ -248,7 +250,7 @@ export default function HomePage() {
             </ul>
           )}
           <div className="mt-5">
-            <RecentOpens limit={8} />
+            <RecentOpens limit={8} serverEntries={serverOpens} />
           </div>
         </section>
 
