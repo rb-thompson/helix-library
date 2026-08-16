@@ -16,7 +16,7 @@ export default function DesignPage() {
         <h1 className="page-title mt-1">Design assets</h1>
         <p className="page-sub max-w-2xl">
           Single surface for reviewing Helix glyphs, motion, and chrome. Use
-          this while raising icon quality — large preview first, then header
+          this while raising icon quality — large preview first, then sidebar
           scale. Theme toggle (header) for light/dark.
         </p>
       </div>

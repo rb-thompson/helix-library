@@ -56,7 +56,7 @@ Personal files are gitignored (except `archive/README.md`). Drop files in, then 
 | `/services` | Reindex, backup, restore from snapshot, machine facts |
 | `/ask` | Librarian (Grok when API key set; else local) |
 
-Responsive: primary nav + **More** (Locations/Services/Docs); hamburger below `lg`. Hover tooltips on desktop; `?` help chips on dense forms.
+Responsive: **left sidebar** (collapse to icons; `[` on desktop); hamburger drawer below `lg`. Hover tooltips on desktop; `?` help chips on dense forms.
 
 ## Stack
 

@@ -14,7 +14,7 @@
 │  Web surface (Next.js 15 App Router + React 19)             │
 │  /  /catalog  /catalog/[id]  /graph  /collections           │
 │  /locations  /acquire  /services  /ask  /docs  /lens        │
-│  Header (client hamburger < lg) · Footer · tooltips         │
+│  AppShell left rail · Header (jobs + theme) · Footer        │
 └───────────────────────────┬─────────────────────────────────┘
                             │ RSC / fetch
 ┌───────────────────────────▼─────────────────────────────────┐
@@ -162,8 +162,8 @@ EXIF: `readExif()` via system exiftool when available.
 | `/graph` | 2D/3D knowledge map |
 | `/design` | Internal design-assets lab |
 
-Shared nav: `src/lib/nav.ts` (Header + Footer).  
-Responsive: Header client drawer below `lg`; layout `max-w-7xl`.
+Shared nav: `src/lib/nav.ts` (AppSidebar + Footer).  
+Responsive: left sidebar at `lg+` (collapsible); hamburger drawer below `lg`; layout `max-w-7xl`.
 
 ## API reference (concise)
 

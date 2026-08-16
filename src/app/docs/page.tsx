@@ -678,6 +678,13 @@ export default function DocsPage() {
           <SectionTitle icon={<RefreshCw className="h-5 w-5" />} title="Tips & troubleshooting" />
           <ul className="mt-4 prose-body list-disc space-y-2 pl-5">
             <li>
+              Desktop destinations live in the left rail. Collapse it to icons
+              (or press{" "}
+              <code className="code-inline">[</code>
+              ) when you want more room for the catalog. Phones still use the
+              header menu — it opens the same list as a drawer.
+            </li>
+            <li>
               New files not showing? Reindex. Confirm the folder is under an
               enabled location.
             </li>

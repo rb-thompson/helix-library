@@ -1,5 +1,6 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
+import { AppShell } from "@/components/AppShell";
 import { Footer } from "@/components/Footer";
 import { Header } from "@/components/Header";
 import { MiniPlayerProvider } from "@/components/player/MiniPlayerProvider";
@@ -59,21 +60,23 @@ export default function RootLayout({
       >
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[100] focus:rounded-[var(--radius-sm)] focus:bg-[var(--accent)] focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--accent-fg)] focus:shadow-[var(--shadow-lift)]"
+          className="sr-only focus:not-sr-only focus:absolute focus:left-3 focus:top-3 focus:z-[100] focus:rounded-[var(--radius-sm)] focus:bg-[var(--accent)] focus:px-3 focus:py-2 focus:text-sm focus:font-medium focus:text-[var(--accent-fg)] focus:shadow-[var(--shadow-lift)] lg:focus:left-[calc(var(--sidebar-rail)+0.75rem)]"
         >
           Skip to content
         </a>
         <MiniPlayerProvider>
-          <Header />
-          <SearchHotkey />
-          <main
-            id="main-content"
-            tabIndex={-1}
-            className="shell-x flex-1 py-4 outline-none sm:py-6 lg:py-7"
-          >
-            {children}
-          </main>
-          <Footer />
+          <AppShell>
+            <Header />
+            <SearchHotkey />
+            <main
+              id="main-content"
+              tabIndex={-1}
+              className="shell-x flex-1 py-4 outline-none sm:py-6 lg:py-7"
+            >
+              {children}
+            </main>
+            <Footer />
+          </AppShell>
         </MiniPlayerProvider>
       </body>
     </html>

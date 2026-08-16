@@ -34,7 +34,7 @@ export type NavItem = {
   icon: NavIconName;
 };
 
-/** Daily-use destinations — always visible in desktop header. */
+/** Daily-use destinations — top of the left sidebar. */
 export const PRIMARY_NAV: readonly NavItem[] = [
   {
     href: "/catalog",
@@ -68,7 +68,7 @@ export const PRIMARY_NAV: readonly NavItem[] = [
   },
 ] as const;
 
-/** Ops / help — desktop “More” menu; mobile secondary group. */
+/** Ops / help — lower group in the left sidebar. */
 export const SECONDARY_NAV: readonly NavItem[] = [
   {
     href: "/locations",

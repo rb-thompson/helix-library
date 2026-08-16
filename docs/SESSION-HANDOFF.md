@@ -1,9 +1,9 @@
 # Session handoff — Helix Library
 
-**Last updated:** 2026-08-15 (restore UI season)  
+**Last updated:** 2026-08-15 (sidebar land)  
 **Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`)  
-**Tip:** restore season PR1–PR6 on this branch (inspect → session → copy-in → HTTP/CLI → RestorePanel → docs).  
-**Status:** Daily-usable OPAC. **Curation, Discovery, Acquire, export/backup, Deep Lens S2, restore UI** shipped. Next product: Discovery PR6 `item_events`.
+**Tip:** `origin/main` — restore UI + collapsible left sidebar. Working tree should be clean.  
+**Status:** Daily-usable OPAC. **Curation, Discovery, Acquire, export/backup, Deep Lens S2, restore UI, left rail** shipped. Next product: Discovery PR6 `item_events`.
 
 Read [AGENTS.md](../AGENTS.md) first, then this file.
 
@@ -11,7 +11,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 ## One-paragraph summary
 
-**Helix Library** is a localhost personal OPAC: Next.js 15 + SQLite FTS over explicit scan roots (`archive/` primary), media preview, collections/tags/**smart shelves**, hybrid search with snippets, **reading room** (text/code + PDF.js), related holdings, **2D/3D knowledge graph**, dark/light space UI (theme-swapped brand mark), **Ask the Librarian** (Grok when keyed, else local; holding-context bridge; server-side approve), **`/acquire`** (ILL desk: arXiv, **OpenAlex OA PDFs**, **web clip → notes**, yt-dlp YouTube/podcast, Grok Imagine images), and Services **restore from snapshot**. Responsive shell (phone → ultrawide). SuperGrok chat ≠ developer API key.
+**Helix Library** is a localhost personal OPAC: Next.js 15 + SQLite FTS over explicit scan roots (`archive/` primary), media preview, collections/tags/**smart shelves**, hybrid search with snippets, **reading room** (text/code + PDF.js), related holdings, **2D/3D knowledge graph**, dark/light space UI (theme-swapped brand mark), **Ask the Librarian** (Grok when keyed, else local; holding-context bridge; server-side approve), **`/acquire`** (ILL desk: arXiv, **OpenAlex OA PDFs**, **web clip → notes**, yt-dlp YouTube/podcast, Grok Imagine images), and Services **restore from snapshot**. **Collapsible left sidebar** (desktop rail; phone drawer). SuperGrok chat ≠ developer API key.
 
 ---
 
@@ -48,8 +48,8 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | Reindex | Async + poll; `npm run watch` optional |
 | Ask | Viewport chat; sticky composer; **holding chip** + `holdingItemId`; Grok/local approve |
 | **Acquire `/acquire`** | arXiv; OpenAlex OA PDF; web clip; **Grokipedia**; **image URL**; YT/podcast; Grok image; Ask propose+approve for all acquire kinds; SSRF outbound; jobs + auto-tags |
-| Theme / nav | Dark/light; **light helix mark** swap; Primary + More (Locations, **Acquire**, Services, Docs) |
-| Shell | `.shell-x`, `--shell-max` wider at 2xl |
+| Theme / nav | Dark/light; **light helix mark** swap; **left sidebar** (Stacks + Library ops); header is jobs + theme |
+| Shell | `.app-frame` offset by `--sidebar-rail`; `.shell-x`, `--shell-max` wider at 2xl |
 | Tests | `npm test` — **255 pass** (restore season + Deep Lens + library-hours) |
 | Docs | In-app `/docs` includes Acquire, reading room, smart shelves, graph, restore |
 | **Reading room (PR1a+1b)** | Text/code continuous + PDF.js page mode (canvas + text layer); `helix-read-position` scroll/page; `?room=1`; public unbundled pdf.min.mjs |
@@ -145,6 +145,10 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | `src/app/api/lens/analyses/**` | Machine dossier GET/POST |
 | `src/lib/client/library-hours.ts` | Time-of-day phase + hourly cart pick |
 | `src/components/HoursDesk.tsx` | Home due-slip (“left on the cart”) |
+| `src/lib/client/sidebar.ts` | `helix-sidebar` expanded/collapsed; ThemeScript sets `data-sidebar` before paint |
+| `src/components/AppShell.tsx` | Sidebar context + `[` toggle on desktop |
+| `src/components/AppSidebar.tsx` | Left rail / phone drawer |
+| `src/components/Header.tsx` | Jobs + theme; hamburger opens the same drawer |
 | `src/lib/backup/*` | Create/list/inspect/apply restore; session + sidecar + LAN gate |
 | `src/components/RestorePanel.tsx` | Services typed-`RESTORE` confirm |
 | `scripts/restore.ts` | `npm run restore` (list by default; `--inspect <name>`; apply with `--name` + `--phrase RESTORE`) |
@@ -170,6 +174,8 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | Restore LAN | Restore HTTP is refused when `lanModeEnabled()` unless `NON_OS_RESTORE_OK=1`. |
 | Restore holdings | In-app never overwrites live stacks. Full archives list `holdings/` as present-not-applied. |
 | Restore + watch | Stop `npm run watch` if apply reports another process has the catalog open. |
+| Sidebar FOUC | Collapse width is `html[data-sidebar]`; ThemeScript must set it (same pattern as theme). |
+| Sidebar `[` | Desktop only; ignored in inputs. Phone drawer ignores collapse. |
 
 ---
 
@@ -207,7 +213,7 @@ npm run dev    # http://127.0.0.1:4747
 # optional: yt-dlp, ffmpeg, exiftool; XAI_API_KEY for Grok Ask/images
 ```
 
-**Smoke:** home → catalog → **text** holding (scroll restore) → **PDF** holding (page nav, text select, reload restores page; Network 206 Range) → Tag/Ask from selection → related panel → smart shelf filter → `/graph` 2D/3D → `/ask?item=` → theme toggle (light mark) → `/docs#services` → `/acquire` → `/lens/{id}` (kind-object + Run analysis) → `/services` inspect a catalog archive **without** applying → mini player (play audio/video, navigate away, bar persists).
+**Smoke:** home → **sidebar** (collapse, `[`, reload keeps collapsed; phone hamburger drawer) → catalog → **text** holding (scroll restore) → **PDF** holding (page nav, text select, reload restores page; Network 206 Range) → Tag/Ask from selection → related panel → smart shelf filter → `/graph` 2D/3D (fullscreen still covers rail) → `/ask?item=` → theme toggle (light mark) → `/docs#services` → `/acquire` → `/lens/{id}` (kind-object + Run analysis) → `/services` inspect a catalog archive **without** applying → mini player (play audio/video, navigate away, bar persists).
 
 ---
 
@@ -246,3 +252,11 @@ npm run dev    # http://127.0.0.1:4747
 **Still optional:** Discovery PR6 `item_events`; Gutenberg.
 
 **Do not start:** embeddings, batch-analyze, auto-apply AI tags, holdings overwrite, upload desk, agent restore action.
+
+## Session wrap (2026-08-15 evening) — left sidebar
+
+**Shipped:** collapsible left rail (`AppShell` / `AppSidebar`). Desktop: Stacks + Library ops, collapse to icons (`helix-sidebar` + `data-sidebar`, `[` toggle). Phone: hamburger opens the same list as a drawer under the header. Header is jobs + theme. Graph fullscreen still covers the rail.
+
+**Still optional:** Discovery PR6 `item_events`; Gutenberg.
+
+**Do not start:** embeddings, batch-analyze, auto-apply AI tags.

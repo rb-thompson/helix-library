@@ -102,7 +102,7 @@ Browser → Next.js App Router (127.0.0.1:4747)
 ```text
 src/
   app/                 # routes + API (/graph knowledge map)
-  components/          # Header (nav + HelixMark), catalog, graph, chat
+  components/          # AppShell + AppSidebar, Header, catalog, graph, chat
   lib/
     agent/             # modes, tools, threads, local NLP, actions
     catalog/           # hybrid searchCatalog, FTS, stats
@@ -126,9 +126,9 @@ Domain language in code: **Item**, **Location**, **Collection**, **Job**, **Cata
 ## Conventions
 
 - **Server-first** for data: RSC pages call `lib/*` directly; mutations via `app/api/*` or client fetch.
-- **Client components** only when needed (`"use client"`): Header menu, chat, lightbox, admin forms, reindex button, catalog results.
+- **Client components** only when needed (`"use client"`): AppShell/sidebar, Header, chat, lightbox, admin forms, reindex button, catalog results.
 - **Tooltips:** `.tip` + `data-tip` in `globals.css` (`Tooltip.tsx` / `HelpTip`). On touch devices CSS hides custom tips; use `title` for nav.
-- **Responsive:** hamburger drawer below `lg`; see `Header.tsx`. Layout max width `max-w-7xl`.
+- **Responsive:** left sidebar at `lg+` (collapsible); hamburger drawer below `lg`. Layout max width `max-w-7xl`.
 - **Native modules:** `next.config.ts` marks `better-sqlite3` and `sharp` as `serverExternalPackages`.
 - Prefer **editing existing modules** over new frameworks. No Payload CMS — custom catalog is intentional.
 
@@ -160,12 +160,12 @@ npm run build            # before calling a slice “done”
 - **Related holdings** on item detail (folder / tags / co-shelved)
 - **`/graph`** 2D + 3D map (`force-graph` / `3d-force-graph`); `totalItems` cap UX; mobile defaults 2D
 - **`/ask`** viewport chat; holding-context bridge; Grok when keyed; server-side approve
-- Responsive shell; space UI; H+helix mark (dark + light) + favicon
+- Responsive shell; **collapsible left sidebar**; space UI; H+helix mark (dark + light) + favicon
 - Tests: `npm test` — **255 pass** (restore UI + Deep Lens S2 + library-hours desk)
 
-**Shipped:** daily OPAC + Curation + Discovery + Acquire depth + **export/backup** + **Deep Lens S2 dossier** + **restore UI** (Services typed `RESTORE`). Designs: [discovery](./docs/designs/2026-08-discovery-reading.md), [acquire depth](./docs/designs/2026-08-acquire-depth.md), [deep lens dossier](./docs/designs/2026-08-deep-lens-dossier.md), [restore](./docs/designs/2026-08-restore.md).
+**Shipped:** daily OPAC + Curation + Discovery + Acquire depth + **export/backup** + **Deep Lens S2 dossier** + **restore UI** + **left sidebar**. Designs: [discovery](./docs/designs/2026-08-discovery-reading.md), [acquire depth](./docs/designs/2026-08-acquire-depth.md), [deep lens dossier](./docs/designs/2026-08-deep-lens-dossier.md), [restore](./docs/designs/2026-08-restore.md).
 
-**Next work:** SESSION-HANDOFF — Discovery PR6 `item_events` (optional Gutenberg). Restore UI shipped. Do not start embeddings.
+**Next work:** SESSION-HANDOFF — Discovery PR6 `item_events` (optional Gutenberg). Do not start embeddings.
 
 ## Safety for future agent features
 
