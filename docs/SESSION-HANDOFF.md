@@ -1,9 +1,9 @@
 # Session handoff — Helix Library
 
-**Last updated:** 2026-08-16 (look-feel craft season)  
+**Last updated:** 2026-08-16 (docs handbook + Circulation brand wave)  
 **Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`)  
-**Tip:** `origin/main` — restore UI + left sidebar + look-feel craft (tokens through PR7).  
-**Status:** Daily-usable OPAC. **Curation, Discovery, Acquire, export/backup, Deep Lens S2, restore UI, left rail, look-feel craft** shipped. Required craft PRs 1a–7 done. Optional leftover: craft PR8 catalog j/k (after living with PR3). Next product: Discovery PR6 `item_events`. Do not start embeddings.
+**Tip:** `origin/main` — restore UI + left sidebar + look-feel craft + expanded `/docs` + brand stills/glyphs.  
+**Status:** Daily-usable OPAC. **Curation, Discovery, Acquire, export/backup, Deep Lens S2, restore UI, left rail, look-feel craft, handbook `/docs`, Circulation brand wave** shipped. Required craft PRs 1a–7 done. Optional leftover: craft PR8 catalog j/k (after living with PR3). Next product: Discovery PR6 `item_events`. Do not start embeddings.
 
 Read [AGENTS.md](../AGENTS.md) first, then this file.
 
@@ -52,7 +52,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | Shell | `.app-frame` offset by `--sidebar-rail`; `.shell-x`, `--shell-max` wider at 2xl |
 | Tests | `npm test` — **270 pass** (toasts + catalogHref + restore/Deep Lens/hours) |
 | **Look-feel craft** | Design: [docs/designs/2026-08-look-feel-craft.md](./designs/2026-08-look-feel-craft.md). Tokens + lamp + overlay; toast/ProgressBar/InlineStatus; header adaptive poll; catalog `replace` while typing; holding folios + optimistic tags/dismiss; item room + lamp `?room=1`; Hours lamp; Ask bubbles; shared job bars; graph/collections/services chrome. `/design` is the living spec. Optional **PR8** j/k browse. |
-| Docs | In-app `/docs` includes Acquire, reading room, smart shelves, graph, restore |
+| Docs | In-app `/docs` is a full handbook (map, building, every desk, privacy, keyboard). Field guide: `archive/documents/Helix-Library-Field-Guide.md` |
 | **Reading room (PR1a+1b)** | Text/code continuous + PDF.js page mode (canvas + text layer); `helix-read-position` scroll/page; `?room=1`; public unbundled pdf.min.mjs |
 | **Read → act (PR2)** | Selection toolbar Tag/Ask/Copy; `/ask?item=`; transport `holdingItemId` + quote; system appendix; local summarize → indexed body |
 | **Related (PR3)** | `getRelatedHoldings` — same folder / shared tags / co-shelved; panel on item detail; exclude missing |
@@ -269,5 +269,13 @@ npm run dev    # http://127.0.0.1:4747
 **Shipped:** collapsible left rail (`AppShell` / `AppSidebar`). Desktop: Stacks + Library ops, collapse to icons (`helix-sidebar` + `data-sidebar`, `[` toggle). Phone: hamburger opens the same list as a drawer under the header. Header is jobs + theme. Graph fullscreen still covers the rail.
 
 **Still optional:** Discovery PR6 `item_events`; Gutenberg.
+
+**Do not start:** embeddings, batch-analyze, auto-apply AI tags.
+
+## Session wrap (2026-08-16) — handbook + Circulation brand wave
+
+**Shipped:** `/docs` rewritten as a comprehensive Helix overview (library map, building chrome, weeding, thumbs, mini player, smart shelves, Deep Lens, Acquire, Ask, restore, privacy, keyboard). Pushed as `440fd81`. Hands-on field guide with 15 labs written to `archive/documents/Helix-Library-Field-Guide.md` (holding, gitignored). Brand wave: night/day heroes, card lattices, folio banner, nameplate study, custom SVG nav glyphs (rail + home tiles + docs map), `btn-helix` / `btn-lamp`. `/design` lists stills and the new buttons.
+
+**Still optional:** Discovery PR6 `item_events`; Gutenberg; craft PR8 catalog j/k.
 
 **Do not start:** embeddings, batch-analyze, auto-apply AI tags.

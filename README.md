@@ -47,7 +47,7 @@ Personal files are gitignored (except `archive/README.md`). Drop files in, then 
 | Route | Purpose |
 | --- | --- |
 | `/` | Home, search, stats |
-| `/docs` | Getting started + user guide |
+| `/docs` | Comprehensive handbook (field guide lives in `archive/documents/`) |
 | `/catalog` | Browse / search (grid or list) |
 | `/catalog/[id]` | Preview, reading room, related holdings, curation |
 | `/graph` | 2D/3D knowledge graph (holdings + concepts) |

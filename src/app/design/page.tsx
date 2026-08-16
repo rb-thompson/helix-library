@@ -15,9 +15,9 @@ export default function DesignPage() {
         <p className="eyebrow">Internal lab</p>
         <h1 className="page-title mt-1">Design assets</h1>
         <p className="page-sub max-w-2xl">
-          Living spec for Helix craft. Swatches, material stack, lamp (circulation
-          only), type registers, and motion durations. Theme toggle in the header
-          for dark / day reading room.
+          Living spec for Helix craft. Custom nav glyphs, brand stills, lamp
+          (circulation only), type registers, and motion. Theme toggle in the
+          header for dark / day reading room.
         </p>
       </div>
       <DesignAssetsLab />

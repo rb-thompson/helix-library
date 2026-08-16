@@ -19,4 +19,6 @@ Project docs: [../AGENTS.md](../AGENTS.md), [../docs/SESSION-HANDOFF.md](../docs
 
 Drop new material into the matching folder (or create subfolders), then reindex from the UI or `npm run reindex`.
 
+Hands-on workbook: [`documents/Helix-Library-Field-Guide.md`](./documents/Helix-Library-Field-Guide.md) — exercises for every desk. In-app handbook: `/docs`.
+
 Personal archive files under this tree are gitignored; only this README is tracked.

@@ -3,8 +3,10 @@
 import { useMemo, useState, type CSSProperties } from "react";
 import Link from "next/link";
 import { HelixMark } from "@/components/HelixMark";
+import { HelixGlyph } from "@/components/icons/HelixGlyph";
 import { HelixSpinner } from "@/components/icons/HelixSpinner";
 import { NavIcon } from "@/components/icons/nav";
+import { NAV_GLYPH_NOTES } from "@/components/icons/nav/glyphs";
 import { KindBadge } from "@/components/KindBadge";
 import { InlineStatus, toast } from "@/components/ui/Feedback";
 import { PageHeader } from "@/components/ui/PageHeader";
@@ -23,6 +25,7 @@ const SECTIONS = [
   { id: "nav-icons", label: "Nav icons" },
   { id: "spinner", label: "Helix spinner" },
   { id: "brand", label: "Brand mark" },
+  { id: "stills", label: "Brand stills" },
   { id: "color", label: "Color tokens" },
   { id: "type", label: "Typography" },
   { id: "motion", label: "Motion" },
@@ -34,18 +37,7 @@ const SECTIONS = [
   { id: "exceptions", label: "Exceptions" },
 ] as const;
 
-const ICON_NOTES: Record<NavIconName, string> = {
-  catalog: "Lucide Search — home Catalog tile",
-  graph: "Lucide Network — home Graph tile",
-  collections: "Lucide Layers — home Collections tile",
-  ask: "Lucide MessageCircle — home Ask tile",
-  lens: "Lucide Aperture — home Deep Lens tile",
-  locations: "Lucide FolderOpen — home Locations tile",
-  acquire: "Lucide Download — home Acquire tile",
-  services: "Lucide HardDrive — home Services tile",
-  docs: "Lucide BookOpen — home Docs tile",
-  design: "Lucide LayoutGrid — design lab only",
-};
+const ICON_NOTES: Record<NavIconName, string> = NAV_GLYPH_NOTES;
 
 const COLOR_TOKENS: { name: string; varName: string; group: string }[] = [
   { name: "ink", varName: "--ink", group: "Text" },
@@ -149,9 +141,9 @@ export function DesignAssetsLab() {
             <p className="eyebrow">Glyphs</p>
             <h2 className="page-title mt-1 text-xl sm:text-2xl">Nav icons</h2>
             <p className="page-sub mt-1 max-w-2xl">
-              Same Lucide set as the home service tiles (Search, Network, Layers,
-              …). Shared so nav and home stay visually consistent. Size ladder
-              below for chrome vs large review.
+              Custom Helix glyphs — card catalog, constellation, bookcase,
+              lamp-bubble, aperture. Shared by the left rail, home tiles, and
+              the /docs map. Size ladder below for chrome vs large review.
             </p>
           </header>
 
@@ -377,6 +369,70 @@ export function DesignAssetsLab() {
           </div>
         </section>
 
+        {/* ── Brand stills ── */}
+        <section id="stills" className="scroll-mt-24 space-y-4">
+          <header>
+            <p className="eyebrow">Circulation wave</p>
+            <h2 className="page-title mt-1 text-xl sm:text-2xl">Brand stills</h2>
+            <p className="page-sub mt-1 max-w-2xl">
+              Night stacks / day reading room heroes, card lattice, folio
+              banner, and a nameplate study. Heroes and lattices swap with
+              theme. Lamp stays circulation-only.
+            </p>
+          </header>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <BrandStill
+              src="/hero-helix.jpg"
+              label="Hero · night stacks"
+              note="Home, dark theme"
+            />
+            <BrandStill
+              src="/hero-helix-light.jpg"
+              label="Hero · day reading room"
+              note="Home, light theme"
+            />
+            <BrandStill
+              src="/brand/card-lattice.jpg"
+              label="Card lattice"
+              note="Service tiles, dark"
+            />
+            <BrandStill
+              src="/brand/card-lattice-light.jpg"
+              label="Card paper"
+              note="Service tiles, light"
+            />
+            <BrandStill
+              src="/brand/docs-folio.jpg"
+              label="Folio banner"
+              note="/docs handbook header"
+            />
+            <BrandStill
+              src="/brand/plate-helix.jpg"
+              label="Nameplate study"
+              note="Engraved helix plate"
+            />
+          </div>
+          <Surface className="flex flex-wrap items-center gap-3 p-4 sm:p-5">
+            <button type="button" className="btn btn-helix">
+              <HelixGlyph />
+              Open catalog
+            </button>
+            <button type="button" className="btn btn-helix btn-sm">
+              <HelixGlyph />
+              Reindex
+            </button>
+            <button type="button" className="btn btn-lamp">
+              Left on the cart
+            </button>
+            <button type="button" className="btn btn-primary">
+              Primary
+            </button>
+            <button type="button" className="btn btn-secondary">
+              Secondary
+            </button>
+          </Surface>
+        </section>
+
         {/* ── Color ── */}
         <section id="color" className="scroll-mt-24 space-y-4">
           <header>
@@ -386,7 +442,9 @@ export function DesignAssetsLab() {
               CSS variables from{" "}
               <code className="code-inline">globals.css</code>. Swatches follow
               the active theme. Starlight is chrome. Lamp is circulation only
-              (due-slip, dawn, reading-room ring) — not buttons or the sidebar.
+              (due-slip, dawn, reading-room ring,{" "}
+              <code className="code-inline">btn-lamp</code>) — not sidebar or
+              primary chrome.
             </p>
           </header>
           {COLOR_GROUPS.map((group) => (
@@ -758,5 +816,30 @@ export function DesignAssetsLab() {
         </section>
       </div>
     </div>
+  );
+}
+
+function BrandStill({
+  src,
+  label,
+  note,
+}: {
+  src: string;
+  label: string;
+  note: string;
+}) {
+  return (
+    <figure className="surface overflow-hidden">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={src}
+        alt=""
+        className="aspect-video w-full object-cover object-center"
+      />
+      <figcaption className="space-y-0.5 p-3">
+        <p className="text-sm font-semibold text-[var(--ink)]">{label}</p>
+        <p className="text-xs text-[var(--muted)]">{note}</p>
+      </figcaption>
+    </figure>
   );
 }

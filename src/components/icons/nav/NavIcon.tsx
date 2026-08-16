@@ -1,39 +1,14 @@
 import type { CSSProperties, ReactElement } from "react";
-import {
-  Aperture,
-  BookOpen,
-  Download,
-  FolderOpen,
-  HardDrive,
-  Layers,
-  LayoutGrid,
-  MessageCircle,
-  Network,
-  Search,
-  type LucideIcon,
-} from "lucide-react";
 import { cn } from "@/lib/cn";
 import type { NavIconName } from "@/lib/nav";
+import { NavGlyph } from "./glyphs";
 
 export type { NavIconName };
 
 /**
- * Same Lucide glyphs as the home service tiles
- * (`src/app/page.tsx` ServiceTile icons).
+ * Custom Helix nav glyphs (library + starlight).
+ * Shared by the left rail, home service tiles, and /docs map.
  */
-const ICONS: Record<NavIconName, LucideIcon> = {
-  catalog: Search,
-  graph: Network,
-  collections: Layers,
-  ask: MessageCircle,
-  lens: Aperture,
-  locations: FolderOpen,
-  acquire: Download,
-  services: HardDrive,
-  docs: BookOpen,
-  design: LayoutGrid,
-};
-
 export function NavIcon({
   name,
   className,
@@ -44,21 +19,15 @@ export function NavIcon({
   /** Override size in design lab / special layouts. */
   style?: CSSProperties;
 }) {
-  const Icon = ICONS[name];
   return (
     <span
       className={cn("nav-icon", `nav-icon--${name}`, className)}
       style={style}
       aria-hidden
     >
-      <Icon className="nav-icon-svg" strokeWidth={1.75} absoluteStrokeWidth />
+      <NavGlyph name={name} />
     </span>
   );
-}
-
-/** For design lab listings that need the component type. */
-export function navIconComponent(name: NavIconName): LucideIcon {
-  return ICONS[name];
 }
 
 export function NavIconGlyph({
@@ -68,6 +37,9 @@ export function NavIconGlyph({
   name: NavIconName;
   className?: string;
 }): ReactElement {
-  const Icon = ICONS[name];
-  return <Icon className={className} strokeWidth={1.75} absoluteStrokeWidth />;
+  return (
+    <span className={cn("nav-icon-glyph", className)}>
+      <NavGlyph name={name} />
+    </span>
+  );
 }

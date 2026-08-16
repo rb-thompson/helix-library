@@ -1,17 +1,7 @@
 import Link from "next/link";
-import {
-  Aperture,
-  ArrowUpRight,
-  BookOpen,
-  Download,
-  FolderOpen,
-  HardDrive,
-  Layers,
-  MessageCircle,
-  Network,
-  RefreshCw,
-  Search,
-} from "lucide-react";
+import { ArrowUpRight, RefreshCw } from "lucide-react";
+import { NavIcon } from "@/components/icons/nav";
+import type { NavIconName } from "@/lib/nav";
 import { HoursDesk } from "@/components/HoursDesk";
 import { ItemRow } from "@/components/ItemRow";
 import { RecentOpens } from "@/components/RecentOpens";
@@ -51,7 +41,14 @@ export default function HomePage() {
         <img
           src="/hero-helix.jpg"
           alt=""
-          className="pointer-events-none absolute inset-0 h-full w-full object-cover object-center"
+          className="hero-img hero-img--dark"
+          aria-hidden
+        />
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img
+          src="/hero-helix-light.jpg"
+          alt=""
+          className="hero-img hero-img--light"
           aria-hidden
         />
         <div
@@ -154,55 +151,55 @@ export default function HomePage() {
       <section className="grid grid-cols-2 gap-2.5 sm:gap-3 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-4 2xl:grid-cols-4">
         <ServiceCard
           href="/catalog"
-          icon={<Search className="h-4 w-4" />}
+          icon="catalog"
           title="Catalog"
           body="Search & preview holdings"
         />
         <ServiceCard
           href="/graph"
-          icon={<Network className="h-4 w-4" />}
+          icon="graph"
           title="Graph"
           body="2D/3D knowledge map"
         />
         <ServiceCard
           href="/collections"
-          icon={<Layers className="h-4 w-4" />}
+          icon="collections"
           title="Collections"
           body={`${colCount} shelf${colCount === 1 ? "" : "ves"}`}
         />
         <ServiceCard
           href="/locations"
-          icon={<FolderOpen className="h-4 w-4" />}
+          icon="locations"
           title="Locations"
           body="Scan roots"
         />
         <ServiceCard
           href="/acquire"
-          icon={<Download className="h-4 w-4" />}
+          icon="acquire"
           title="Acquire"
           body="arXiv, YT, Grok images"
         />
         <ServiceCard
           href="/services"
-          icon={<HardDrive className="h-4 w-4" />}
+          icon="services"
           title="Services"
           body="Reindex & machine"
         />
         <ServiceCard
           href="/ask"
-          icon={<MessageCircle className="h-4 w-4" />}
+          icon="ask"
           title="Ask"
           body="Find in plain language"
         />
         <ServiceCard
           href="/lens"
-          icon={<Aperture className="h-4 w-4" />}
+          icon="lens"
           title="Deep Lens"
           body="Encyclopedia terminal"
         />
         <ServiceCard
           href="/docs"
-          icon={<BookOpen className="h-4 w-4" />}
+          icon="docs"
           title="Docs"
           body="How it works"
         />
@@ -380,13 +377,15 @@ function ServiceCard({
   body,
 }: {
   href: string;
-  icon: React.ReactNode;
+  icon: NavIconName;
   title: string;
   body: string;
 }) {
   return (
     <Link href={href} className="service-tile group">
-      <div className="service-tile__icon relative z-[1]">{icon}</div>
+      <div className="service-tile__icon relative z-[1]">
+        <NavIcon name={icon} className="!opacity-100" />
+      </div>
       <h3 className="relative z-[1] mt-2.5 text-sm font-semibold tracking-tight text-[var(--ink)]">
         {title}
       </h3>

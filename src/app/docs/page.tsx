@@ -17,6 +17,7 @@ import {
   Shield,
 } from "lucide-react";
 import { MAIN_NAV } from "@/lib/nav";
+import { HelixGlyph } from "@/components/icons/HelixGlyph";
 import { NavIcon } from "@/components/icons/nav";
 
 export const metadata: Metadata = {
@@ -72,24 +73,46 @@ export default function DocsPage() {
       </aside>
 
       <article className="min-w-0 max-w-3xl space-y-10 sm:space-y-12 2xl:max-w-4xl">
-        <header>
-          <p className="eyebrow">Documentation</p>
-          <h1 className="page-title mt-1 text-2xl sm:text-3xl">
-            Helix Library
-          </h1>
-          <p className="page-sub mt-3 max-w-2xl text-sm sm:text-base">
-            A personal library for files on this machine. Helix is an OPAC —
-            the same idea as a public-library catalog — rebuilt for one
-            person, one host, and the folders you choose to scan. Nothing
-            leaves localhost unless you turn on a password-gated LAN preview.
-          </p>
-          <p className="prose-body mt-3 max-w-2xl">
-            This page is the in-app handbook: what every desk does, how the
-            pieces fit, and how to stay safe. For a hands-on walkthrough with
-            exercises, open the field guide in the archive after you reindex
-            — <code className="code-inline">archive/documents/Helix-Library-Field-Guide.md</code>
-            .
-          </p>
+        <header className="docs-hero">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/brand/docs-folio.jpg"
+            alt=""
+            className="docs-hero__art"
+            aria-hidden
+          />
+          <div className="docs-hero__scrim" aria-hidden />
+          <div className="relative">
+            <p className="eyebrow">Documentation</p>
+            <h1 className="page-title mt-1 text-2xl sm:text-3xl">
+              Helix Library
+            </h1>
+            <p className="page-sub mt-3 max-w-2xl text-sm sm:text-base">
+              A personal library for files on this machine. Helix is an OPAC —
+              the same idea as a public-library catalog — rebuilt for one
+              person, one host, and the folders you choose to scan. Nothing
+              leaves localhost unless you turn on a password-gated LAN preview.
+            </p>
+            <p className="prose-body mt-3 max-w-2xl">
+              This page is the in-app handbook: what every desk does, how the
+              pieces fit, and how to stay safe. For a hands-on walkthrough with
+              exercises, open the field guide in the archive after you reindex
+              —{" "}
+              <code className="code-inline">
+                archive/documents/Helix-Library-Field-Guide.md
+              </code>
+              .
+            </p>
+            <div className="mt-5 flex flex-wrap gap-2">
+              <Link href="/catalog" className="btn btn-helix">
+                <HelixGlyph />
+                Open catalog
+              </Link>
+              <Link href="/ask" className="btn btn-secondary">
+                Ask the Librarian
+              </Link>
+            </div>
+          </div>
         </header>
 
         {/* The library */}
@@ -110,7 +133,7 @@ export default function DocsPage() {
                 className="surface flex items-start gap-3 p-3.5 transition hover:border-[var(--accent-ring)] hover:shadow-[var(--shadow-lift)]"
               >
                 <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-[var(--accent-soft)] text-[var(--accent)]">
-                  <NavIcon name={desk.icon} className="h-4 w-4" />
+                  <NavIcon name={desk.icon} className="!opacity-100" />
                 </span>
                 <span className="min-w-0">
                   <span className="block font-semibold text-[var(--ink)]">

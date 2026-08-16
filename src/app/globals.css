@@ -670,18 +670,43 @@ html[data-theme="light"] .graph-shell {
   min-height: 17rem;
 }
 
-.hero-frame > img {
+.hero-frame > img,
+.hero-frame .hero-img {
   z-index: 0;
   opacity: 0.38;
 }
 
-html[data-theme="dark"] .hero-frame > img {
-  opacity: 0.52;
+html[data-theme="dark"] .hero-frame > img,
+html[data-theme="dark"] .hero-frame .hero-img {
+  opacity: 0.58;
 }
 
-html[data-theme="light"] .hero-frame > img {
-  opacity: 0.22;
+html[data-theme="light"] .hero-frame > img,
+html[data-theme="light"] .hero-frame .hero-img {
+  opacity: 0.42;
   mix-blend-mode: multiply;
+}
+
+.hero-img {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  object-position: center;
+}
+
+.hero-img--light {
+  display: none;
+}
+
+html[data-theme="light"] .hero-img--dark {
+  display: none;
+}
+
+html[data-theme="light"] .hero-img--light {
+  display: block;
 }
 
 .hero-frame > .hero-scrim,
@@ -690,6 +715,68 @@ html[data-theme="light"] .hero-frame > img {
 }
 
 .hero-frame > .relative {
+  z-index: 2;
+}
+
+/* Docs handbook banner */
+.docs-hero {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  box-shadow: var(--shadow-soft);
+  padding: 1.25rem 1.25rem 1.35rem;
+}
+
+@media (min-width: 640px) {
+  .docs-hero {
+    padding: 1.6rem 1.75rem 1.7rem;
+  }
+}
+
+.docs-hero__art {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  height: 100%;
+  width: 100%;
+  object-fit: cover;
+  object-position: center 42%;
+  opacity: 0.28;
+}
+
+html[data-theme="dark"] .docs-hero__art {
+  opacity: 0.36;
+}
+
+html[data-theme="light"] .docs-hero__art {
+  opacity: 0.22;
+  mix-blend-mode: multiply;
+}
+
+.docs-hero__scrim {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  background:
+    linear-gradient(
+      105deg,
+      var(--surface) 0%,
+      color-mix(in srgb, var(--surface) 82%, transparent) 46%,
+      color-mix(in srgb, var(--surface) 28%, transparent) 100%
+    ),
+    linear-gradient(
+      to top,
+      var(--surface) 0%,
+      transparent 55%
+    );
+}
+
+.docs-hero > .relative {
   z-index: 2;
 }
 
@@ -992,6 +1079,52 @@ html[data-theme="light"] .hero-frame > img {
   padding: 0;
 }
 
+/* Brand wave — starlight plate with a quiet helix watermark */
+.btn-helix {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+  background: var(--accent);
+  color: var(--accent-fg);
+  border-color: transparent;
+  box-shadow: var(--shadow-soft);
+}
+
+.btn-helix:hover:not(:disabled) {
+  background: var(--accent-hover);
+}
+
+.btn-helix .helix-glyph {
+  position: absolute;
+  right: -0.2rem;
+  bottom: -0.35rem;
+  z-index: 0;
+  width: 1.55rem;
+  height: 1.55rem;
+  opacity: 0.22;
+  pointer-events: none;
+}
+
+.btn-helix > :not(.helix-glyph) {
+  position: relative;
+  z-index: 1;
+}
+
+/* Circulation only — Hours / due / reading warmth */
+.btn-lamp {
+  background: var(--lamp);
+  color: #1a120c;
+  border-color: transparent;
+}
+
+.btn-lamp:hover:not(:disabled) {
+  filter: brightness(1.06);
+}
+
+html[data-theme="light"] .btn-lamp {
+  color: #f6f1e8;
+}
+
 /* ─── Fields ─── */
 .field {
   width: 100%;
@@ -1203,7 +1336,7 @@ select.field {
   background: var(--accent-soft);
 }
 
-/* ─── Nav icons (Lucide — same set as home service tiles) ─── */
+/* ─── Nav icons (custom Helix glyphs — same set as home tiles) ─── */
 .nav-icon {
   display: inline-flex;
   flex-shrink: 0;
@@ -1862,6 +1995,25 @@ mark.search-hit {
   transition:
     border-color var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease);
+}
+
+.service-tile::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  background-image: url("/brand/card-lattice.jpg");
+  background-position: right bottom;
+  background-size: 9.5rem;
+  background-repeat: no-repeat;
+  opacity: 0.32;
+}
+
+html[data-theme="light"] .service-tile::before {
+  background-image: url("/brand/card-lattice-light.jpg");
+  opacity: 0.38;
+  mix-blend-mode: multiply;
 }
 
 @media (min-width: 640px) {
