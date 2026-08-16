@@ -16,6 +16,8 @@ export function ItemRow({
   onOpenLightbox,
   selectMode = false,
   selected = false,
+  browsing = false,
+  browseIndex,
   onToggleSelect,
   highlightTokens = [],
 }: {
@@ -24,6 +26,8 @@ export function ItemRow({
   onOpenLightbox?: () => void;
   selectMode?: boolean;
   selected?: boolean;
+  browsing?: boolean;
+  browseIndex?: number;
   onToggleSelect?: () => void;
   highlightTokens?: string[];
 }) {
@@ -123,7 +127,16 @@ export function ItemRow({
     </>
   );
 
-  const rowClass = cn("holding-row", kindClass, selected && "is-selected");
+  const rowClass = cn(
+    "holding-row",
+    kindClass,
+    selected && "is-selected",
+    browsing && "is-browse",
+  );
+  const browseProps = {
+    tabIndex: browsing ? 0 : -1,
+    "data-browse-index": browseIndex,
+  } as const;
 
   if (selectMode) {
     return (
@@ -135,6 +148,7 @@ export function ItemRow({
           aria-pressed={selected}
           data-kind={item.kind}
           className={rowClass}
+          {...browseProps}
         >
           {body}
         </button>
@@ -155,6 +169,7 @@ export function ItemRow({
           title={tip}
           data-kind={item.kind}
           className={rowClass}
+          {...browseProps}
         >
           {body}
         </button>
@@ -169,6 +184,7 @@ export function ItemRow({
         title={tip}
         data-kind={item.kind}
         className={rowClass}
+        {...browseProps}
       >
         {body}
       </Link>

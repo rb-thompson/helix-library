@@ -917,6 +917,16 @@ export default function DocsPage() {
                   does="Collapse / expand the left rail"
                 />
                 <KbdRow
+                  keys="j k"
+                  where="Catalog"
+                  does="Move the browse ring (Enter opens)"
+                />
+                <KbdRow
+                  keys="x"
+                  where="Catalog Select"
+                  does="Toggle the browsed holding"
+                />
+                <KbdRow
                   keys="← → Esc"
                   where="Lightbox"
                   does="Previous / next / close"
