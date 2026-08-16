@@ -11,6 +11,7 @@ import {
 } from "react";
 import { usePathname } from "next/navigation";
 import { AppSidebar } from "@/components/AppSidebar";
+import { ToastRegion } from "@/components/ui/Feedback";
 import {
   applySidebarMode,
   sidebarModeFromDocument,
@@ -110,6 +111,7 @@ export function AppShell({ children }: { children: ReactNode }) {
         toggleCollapsed={toggleCollapsed}
       />
       <div className="app-frame flex min-h-dvh flex-1 flex-col">{children}</div>
+      <ToastRegion />
     </SidebarContext.Provider>
   );
 }

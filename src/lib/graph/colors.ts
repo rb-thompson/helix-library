@@ -49,7 +49,8 @@ export const CONCEPT_COLORS: Record<
 };
 
 export function graphBackground(theme: GraphTheme): string {
-  return theme === "dark" ? "#08090c" : "#f0f1f4";
+  /* Light matches --paper-deep (#e8e2d6). Do not use ivory --paper. */
+  return theme === "dark" ? "#08090c" : "#e8e2d6";
 }
 
 export function graphDimNode(theme: GraphTheme): string {

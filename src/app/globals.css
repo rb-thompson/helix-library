@@ -2,7 +2,7 @@
 
 /*
   Helix Library — space / xAI-inspired theme
-  Dark-first, monochrome surfaces; color only for chips, status, sparse accents.
+  Dark-first, starlight chrome; kind color for holdings; --lamp for circulation only.
 */
 
 /* ─── Dark (default) ─── */
@@ -18,10 +18,11 @@ html[data-theme="dark"] {
   --line-strong: rgb(255 255 255 / 0.14);
 
   --paper: #08090c;
-  --paper-deep: #0c0e13;
-  --surface: #111318;
-  --surface-raised: #161920;
-  --surface-hover: #1a1e27;
+  --paper-deep: #0b0d12;
+  --surface: #0e1015;
+  --surface-raised: #141821;
+  --surface-hover: #1c212c;
+  --surface-overlay: #1a1f2a;
 
   /* Sparse starlight accent — cool, desaturated */
   --accent: #c8d0e0;
@@ -39,6 +40,10 @@ html[data-theme="dark"] {
   --warn: #fbbf24;
   --warn-soft: rgb(251 191 36 / 0.12);
 
+  /* Circulation — hours, due, reading warmth. Not chrome. */
+  --lamp: #d4a574;
+  --lamp-soft: rgb(212 165 116 / 0.14);
+
   --radius: 0.75rem;
   --radius-sm: 0.5rem;
   --radius-pill: 999px;
@@ -52,7 +57,10 @@ html[data-theme="dark"] {
   --shell-max: 80rem; /* ~max-w-7xl */
   --shell-pad-x: 0.75rem;
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --dur: 160ms;
+  --ease-out: cubic-bezier(0.4, 0, 1, 1);
+  --dur-micro: 90ms;
+  --dur: 180ms;
+  --dur-scene: 320ms;
 
   --background: var(--paper);
   --foreground: var(--ink);
@@ -80,56 +88,60 @@ html[data-theme="dark"] {
 html[data-theme="light"] {
   color-scheme: light;
 
-  --ink: #0c0e12;
-  --ink-soft: #2a2f3a;
-  --muted: #6b7280;
-  --muted-faint: #9ca3af;
-  --line: rgb(12 14 18 / 0.09);
-  --line-strong: rgb(12 14 18 / 0.14);
+  --ink: #1a1712;
+  --ink-soft: #2c2820;
+  --muted: #6f675c;
+  --muted-faint: #9a9286;
+  --line: rgb(26 23 18 / 0.10);
+  --line-strong: rgb(26 23 18 / 0.16);
 
-  --paper: #f4f5f7;
-  --paper-deep: #e8eaef;
-  --surface: #ffffff;
-  --surface-raised: #ffffff;
-  --surface-hover: #f0f1f4;
+  --paper: #f3efe6;
+  --paper-deep: #e8e2d6;
+  --surface: #faf7f0;
+  --surface-raised: #fffdf8;
+  --surface-hover: #efe8da;
+  --surface-overlay: #fffdf8;
 
-  --accent: #1a1d26;
-  --accent-hover: #0c0e12;
-  --accent-fg: #f4f5f7;
-  --accent-soft: rgb(26 29 38 / 0.06);
-  --accent-muted: rgb(26 29 38 / 0.1);
-  --accent-ring: rgb(26 29 38 / 0.22);
-  --accent-glow: rgb(100 120 180 / 0.06);
+  --accent: #243044;
+  --accent-hover: #161b26;
+  --accent-fg: #f6f1e8;
+  --accent-soft: rgb(36 48 68 / 0.08);
+  --accent-muted: rgb(36 48 68 / 0.12);
+  --accent-ring: rgb(36 48 68 / 0.28);
+  --accent-glow: rgb(154 107 58 / 0.08);
 
   --danger: #dc2626;
-  --danger-soft: #fef2f2;
-  --ok: #059669;
-  --ok-soft: #ecfdf5;
+  --danger-soft: #f8e8e6;
+  --ok: #047857;
+  --ok-soft: #e6f4ec;
   --warn: #d97706;
-  --warn-soft: #fffbeb;
+  --warn-soft: #f8efd8;
 
-  --shadow-soft: 0 1px 2px rgb(12 14 18 / 0.04), 0 8px 28px rgb(12 14 18 / 0.06);
-  --shadow-lift: 0 2px 4px rgb(12 14 18 / 0.05), 0 16px 40px rgb(12 14 18 / 0.1);
-  --header-bg: rgb(244 245 247 / 0.86);
+  --lamp: #825530;
+  --lamp-soft: #f0e2cf;
+
+  --shadow-soft: 0 1px 2px rgb(26 23 18 / 0.05), 0 8px 28px rgb(26 23 18 / 0.07);
+  --shadow-lift: 0 2px 4px rgb(26 23 18 / 0.06), 0 16px 40px rgb(26 23 18 / 0.11);
+  --header-bg: rgb(243 239 230 / 0.88);
   --shell-max: 80rem;
   --shell-pad-x: 0.75rem;
 
   --kind-text: #0369a1;
-  --kind-text-bg: #e0f2fe;
+  --kind-text-bg: #e2f0fa;
   --kind-image: #6d28d9;
-  --kind-image-bg: #ede9fe;
+  --kind-image-bg: #eeeafc;
   --kind-video: #be185d;
-  --kind-video-bg: #fce7f3;
+  --kind-video-bg: #fbe9f3;
   --kind-audio: #b45309;
-  --kind-audio-bg: #fef3c7;
+  --kind-audio-bg: #fdf3cb;
   --kind-archive: #57534e;
-  --kind-archive-bg: #f5f5f4;
+  --kind-archive-bg: #f3efe8;
   --kind-code: #047857;
-  --kind-code-bg: #d1fae5;
+  --kind-code-bg: #d4f6e4;
   --kind-document: #1d4ed8;
-  --kind-document-bg: #dbeafe;
+  --kind-document-bg: #dce8fb;
   --kind-other: #4b5563;
-  --kind-other-bg: #f3f4f6;
+  --kind-other-bg: #f1eee8;
 }
 
 @theme inline {
@@ -511,10 +523,23 @@ select:focus:not(:focus-visible) {
 
 /* ─── Surfaces ─── */
 .surface {
-  background: var(--surface);
+  background: var(--surface-raised);
   border: 1px solid var(--line);
   border-radius: var(--radius);
   box-shadow: var(--shadow-soft);
+}
+
+.surface-overlay {
+  background: color-mix(in srgb, var(--surface-overlay) 92%, transparent);
+  backdrop-filter: blur(14px) saturate(1.2);
+  -webkit-backdrop-filter: blur(14px) saturate(1.2);
+  border: 1px solid var(--line-strong);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow-lift);
+}
+
+html[data-theme="light"] .surface-overlay {
+  background: color-mix(in srgb, var(--surface-overlay) 94%, transparent);
 }
 
 /* Knowledge graph viewport */
@@ -607,8 +632,8 @@ html[data-theme="light"] .graph-slider {
 }
 
 html[data-theme="light"] .graph-shell {
-  /* Slightly cooler paper so phosphor inks contrast */
-  background: #eef0f3;
+  /* Keep this override — Tailwind bg-[var(--paper)] on the shells is ivory */
+  background: var(--paper-deep);
 }
 
 /* Homepage hero with Helix art */
@@ -778,7 +803,8 @@ html[data-theme="light"] .hero-frame > img {
   color: var(--muted);
 }
 
-.page-title {
+.page-title,
+.type-desk {
   font-size: 1.375rem;
   font-weight: 600;
   letter-spacing: -0.025em;
@@ -786,9 +812,32 @@ html[data-theme="light"] .hero-frame > img {
   line-height: 1.25;
 }
 
+.type-catalog {
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: -0.025em;
+  color: var(--ink);
+  line-height: 1.25;
+}
+
+.type-room {
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.03em;
+  color: var(--ink);
+  line-height: 1.25;
+}
+
 @media (min-width: 640px) {
-  .page-title {
+  .page-title,
+  .type-desk {
     font-size: 1.625rem;
+  }
+  .type-catalog {
+    font-size: 1.375rem;
+  }
+  .type-room {
+    font-size: 1.875rem;
   }
 }
 
@@ -826,7 +875,7 @@ html[data-theme="light"] .hero-frame > img {
     border-color var(--dur) var(--ease),
     color var(--dur) var(--ease),
     box-shadow var(--dur) var(--ease),
-    transform 100ms var(--ease);
+    transform var(--dur-micro) var(--ease);
   cursor: pointer;
   user-select: none;
   white-space: nowrap;
@@ -1194,6 +1243,25 @@ select.field {
 .design-lab-toc a:hover {
   color: var(--ink);
 }
+.design-lab-motion-bar {
+  animation-name: design-lab-motion-pulse;
+  animation-timing-function: var(--ease);
+  animation-iteration-count: infinite;
+  animation-direction: alternate;
+}
+@keyframes design-lab-motion-pulse {
+  from {
+    transform: translateX(0);
+  }
+  to {
+    transform: translateX(200%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .design-lab-motion-bar {
+    animation: none;
+  }
+}
 
 /* ─── Helix spinner ─── */
 .helix-spinner {
@@ -1364,7 +1432,7 @@ html[data-theme="light"] .helix-mark-img--light {
 
 /* Light theme: light-field mark sits on pale chrome */
 html[data-theme="light"] .helix-mark-well {
-  background: #eef0f3;
+  background: #ebe6db;
   border-color: var(--line);
 }
 
@@ -1380,7 +1448,7 @@ html[data-theme="light"] .helix-mark-well {
   text-align: left;
   border-radius: var(--radius);
   border: 1px solid var(--line);
-  background: var(--surface);
+  background: var(--surface-raised);
   box-shadow: var(--shadow-soft);
   transition:
     border-color var(--dur) var(--ease),
@@ -1573,7 +1641,7 @@ mark.search-hit {
   overflow: hidden;
   border-radius: var(--radius);
   border: 1px solid var(--line);
-  background: var(--surface);
+  background: var(--surface-raised);
   box-shadow: var(--shadow-soft);
   padding: 1rem 1rem 1rem 1.15rem;
   transition:
@@ -1662,7 +1730,7 @@ mark.search-hit {
   overflow: hidden;
   border-radius: var(--radius);
   border: 1px solid var(--line);
-  background: var(--surface);
+  background: var(--surface-raised);
   box-shadow: var(--shadow-soft);
   padding: 0.75rem;
   transition:
@@ -1823,6 +1891,66 @@ mark.search-hit {
   font-size: 0.8125rem;
 }
 
+.feedback-warn {
+  color: var(--warn);
+  background: var(--warn-soft);
+  border: 1px solid color-mix(in srgb, var(--warn) 22%, transparent);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.65rem;
+  font-size: 0.8125rem;
+}
+
+.feedback-info {
+  color: var(--accent);
+  background: var(--accent-soft);
+  border: 1px solid var(--accent-ring);
+  border-radius: var(--radius-sm);
+  padding: 0.45rem 0.65rem;
+  font-size: 0.8125rem;
+}
+
+.helix-toast-region {
+  position: fixed;
+  right: max(0.75rem, env(safe-area-inset-right, 0px));
+  bottom: calc(0.75rem + var(--mini-player-h, 0px) + env(safe-area-inset-bottom, 0px));
+  z-index: 85;
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  width: min(22rem, calc(100vw - 1.5rem));
+  pointer-events: none;
+}
+
+.helix-toast-region > * {
+  pointer-events: auto;
+}
+
+.helix-toast {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.65rem;
+  padding: 0.7rem 0.75rem 0.7rem 0.85rem;
+  border-left: 2px solid var(--toast-edge, var(--accent));
+  animation: toast-in var(--dur) var(--ease);
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateY(0.4rem);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .helix-toast {
+    animation: none;
+  }
+}
+
 /* ─── Toolstrip ─── */
 .toolstrip {
   display: flex;
@@ -1832,7 +1960,7 @@ mark.search-hit {
   padding: 0.85rem;
   border-radius: var(--radius);
   border: 1px solid var(--line);
-  background: var(--surface);
+  background: var(--surface-raised);
   box-shadow: var(--shadow-soft);
 }
 

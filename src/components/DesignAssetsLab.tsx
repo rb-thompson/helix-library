@@ -6,6 +6,9 @@ import { HelixMark } from "@/components/HelixMark";
 import { HelixSpinner } from "@/components/icons/HelixSpinner";
 import { NavIcon } from "@/components/icons/nav";
 import { KindBadge } from "@/components/KindBadge";
+import { InlineStatus, toast } from "@/components/ui/Feedback";
+import { PageHeader } from "@/components/ui/PageHeader";
+import { ProgressBar } from "@/components/ui/ProgressBar";
 import { StatusLine } from "@/components/ui/StatusLine";
 import { Surface } from "@/components/ui/Surface";
 import { cn } from "@/lib/cn";
@@ -22,10 +25,12 @@ const SECTIONS = [
   { id: "brand", label: "Brand mark" },
   { id: "color", label: "Color tokens" },
   { id: "type", label: "Typography" },
+  { id: "motion", label: "Motion" },
   { id: "controls", label: "Controls" },
   { id: "kinds", label: "Kind badges" },
   { id: "surfaces", label: "Surfaces" },
   { id: "status", label: "Status" },
+  { id: "progress", label: "Progress" },
 ] as const;
 
 const ICON_NOTES: Record<NavIconName, string> = {
@@ -51,16 +56,40 @@ const COLOR_TOKENS: { name: string; varName: string; group: string }[] = [
   { name: "surface", varName: "--surface", group: "Surface" },
   { name: "surface-raised", varName: "--surface-raised", group: "Surface" },
   { name: "surface-hover", varName: "--surface-hover", group: "Surface" },
+  { name: "surface-overlay", varName: "--surface-overlay", group: "Surface" },
   { name: "line", varName: "--line", group: "Line" },
   { name: "line-strong", varName: "--line-strong", group: "Line" },
   { name: "accent", varName: "--accent", group: "Accent" },
   { name: "accent-hover", varName: "--accent-hover", group: "Accent" },
   { name: "accent-fg", varName: "--accent-fg", group: "Accent" },
   { name: "accent-soft", varName: "--accent-soft", group: "Accent" },
+  { name: "accent-muted", varName: "--accent-muted", group: "Accent" },
+  { name: "accent-ring", varName: "--accent-ring", group: "Accent" },
+  { name: "accent-glow", varName: "--accent-glow", group: "Accent" },
+  { name: "lamp", varName: "--lamp", group: "Circulation" },
+  { name: "lamp-soft", varName: "--lamp-soft", group: "Circulation" },
   { name: "ok", varName: "--ok", group: "Status" },
+  { name: "ok-soft", varName: "--ok-soft", group: "Status" },
   { name: "warn", varName: "--warn", group: "Status" },
+  { name: "warn-soft", varName: "--warn-soft", group: "Status" },
   { name: "danger", varName: "--danger", group: "Status" },
+  { name: "danger-soft", varName: "--danger-soft", group: "Status" },
 ];
+
+const COLOR_GROUPS = [
+  "Text",
+  "Surface",
+  "Line",
+  "Accent",
+  "Circulation",
+  "Status",
+] as const;
+
+const MOTION_TOKENS = [
+  { name: "micro", varName: "--dur-micro", intent: "Press, checkbox, icon swap" },
+  { name: "ui", varName: "--dur", intent: "Hover, chip, toast in, pending" },
+  { name: "scene", varName: "--dur-scene", intent: "Lightbox, reading-room expand" },
+] as const;
 
 const KINDS: ItemKind[] = [
   "text",
@@ -107,8 +136,8 @@ export function DesignAssetsLab() {
           ))}
         </nav>
         <p className="mt-4 text-[0.7rem] leading-relaxed text-[var(--muted-faint)]">
-          Internal lab — iterate icons here before shipping polish. Theme toggle
-          in the header flips light/dark.
+          Living spec — every token and primitive lands here in the same PR.
+          Theme toggle flips dark / day reading room.
         </p>
       </aside>
 
@@ -355,10 +384,11 @@ export function DesignAssetsLab() {
             <p className="page-sub mt-1 max-w-2xl">
               CSS variables from{" "}
               <code className="code-inline">globals.css</code>. Swatches follow
-              the active theme.
+              the active theme. Starlight is chrome. Lamp is circulation only
+              (due-slip, dawn, reading-room ring) — not buttons or the sidebar.
             </p>
           </header>
-          {["Text", "Surface", "Line", "Accent", "Status"].map((group) => (
+          {COLOR_GROUPS.map((group) => (
             <div key={group}>
               <p className="label-quiet mb-2">{group}</p>
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5">
@@ -389,15 +419,35 @@ export function DesignAssetsLab() {
             <p className="eyebrow">Type</p>
             <h2 className="page-title mt-1 text-xl sm:text-2xl">Typography</h2>
           </header>
-          <Surface className="space-y-4 p-4 sm:p-5">
+          <Surface className="space-y-6 p-4 sm:p-5">
             <div>
               <p className="eyebrow">Eyebrow</p>
-              <h1 className="page-title mt-1">Page title</h1>
+              <h1 className="page-title mt-1">Page title · desk</h1>
               <p className="page-sub mt-1 max-w-xl">
                 Page sub — supporting line under titles. Uses muted ink and
                 constrained measure.
               </p>
             </div>
+            <div className="grid gap-4 sm:grid-cols-3">
+              <div>
+                <p className="label-quiet">Desk</p>
+                <p className="type-desk">Ask the Librarian</p>
+              </div>
+              <div>
+                <p className="label-quiet">Catalog</p>
+                <p className="type-catalog">Catalog</p>
+              </div>
+              <div>
+                <p className="label-quiet">Room</p>
+                <p className="type-room">Holding title</p>
+              </div>
+            </div>
+            <PageHeader
+              register="desk"
+              eyebrow="PageHeader"
+              title="Unused on pages this PR"
+              description="register prop: desk (default) · catalog · room. Catalog / Item / Graph migrate later."
+            />
             <p className="text-sm text-[var(--ink)]">
               Body soft —{" "}
               <span className="text-[var(--ink-soft)]">ink-soft</span> ·{" "}
@@ -412,6 +462,42 @@ export function DesignAssetsLab() {
               <Link href="/docs" className="link-accent">
                 Accent link
               </Link>
+            </p>
+          </Surface>
+        </section>
+
+        {/* ── Motion ── */}
+        <section id="motion" className="scroll-mt-24 space-y-4">
+          <header>
+            <p className="eyebrow">Feel</p>
+            <h2 className="page-title mt-1 text-xl sm:text-2xl">Motion</h2>
+            <p className="page-sub mt-1 max-w-2xl">
+              One easing family. Three durations. Nuclear{" "}
+              <code className="code-inline">prefers-reduced-motion</code> stays.
+              Helix mark does not move.
+            </p>
+          </header>
+          <Surface className="space-y-4 p-4 sm:p-5">
+            <div className="grid gap-3 sm:grid-cols-3">
+              {MOTION_TOKENS.map((t) => (
+                <div key={t.varName} className="space-y-2">
+                  <p className="text-sm font-medium text-[var(--ink)]">{t.name}</p>
+                  <code className="block text-[0.65rem] text-[var(--muted)]">
+                    {t.varName}
+                  </code>
+                  <p className="text-xs text-[var(--muted)]">{t.intent}</p>
+                  <div className="h-1.5 overflow-hidden rounded-full bg-[var(--paper-deep)]">
+                    <div
+                      className="design-lab-motion-bar h-full w-1/3 rounded-full bg-[var(--accent)]"
+                      style={{ animationDuration: `var(${t.varName})` }}
+                    />
+                  </div>
+                </div>
+              ))}
+            </div>
+            <p className="text-xs text-[var(--muted)]">
+              Ease: <code className="code-inline">--ease</code> keep ·{" "}
+              <code className="code-inline">--ease-out</code> exits.
             </p>
           </Surface>
         </section>
@@ -475,10 +561,35 @@ export function DesignAssetsLab() {
           <header>
             <p className="eyebrow">Catalog</p>
             <h2 className="page-title mt-1 text-xl sm:text-2xl">Kind badges</h2>
+            <p className="page-sub mt-1 max-w-2xl">
+              Kind is holding identity, not chrome. Foreground + background
+              tokens follow the active theme.
+            </p>
           </header>
           <div className="flex flex-wrap gap-2">
             {KINDS.map((k) => (
               <KindBadge key={k} kind={k} />
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {KINDS.map((k) => (
+              <div key={k} className="design-lab-swatch">
+                <div
+                  className="design-lab-swatch-chip"
+                  style={{ background: `var(--kind-${k}-bg)` }}
+                />
+                <div className="flex items-center justify-between gap-2 p-2">
+                  <p
+                    className="text-xs font-medium"
+                    style={{ color: `var(--kind-${k})` }}
+                  >
+                    {k}
+                  </p>
+                  <code className="text-[0.55rem] text-[var(--muted)]">
+                    --kind-{k}
+                  </code>
+                </div>
+              </div>
             ))}
           </div>
         </section>
@@ -489,20 +600,30 @@ export function DesignAssetsLab() {
             <p className="eyebrow">Chrome</p>
             <h2 className="page-title mt-1 text-xl sm:text-2xl">Surfaces</h2>
           </header>
-          <div className="grid gap-3 sm:grid-cols-3">
+          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <Surface className="p-4">
               <p className="text-sm font-medium">Raised (default)</p>
               <p className="mt-1 text-xs text-[var(--muted)]">
-                Cards, panels, admin blocks
+                Cards, desks, toolstrips — <code>--surface-raised</code>
               </p>
             </Surface>
             <Surface variant="flat" className="p-4">
               <p className="text-sm font-medium">Flat</p>
-              <p className="mt-1 text-xs text-[var(--muted)]">Quieter nesting</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Recessed lists — <code>--surface</code>
+              </p>
             </Surface>
             <Surface variant="inset" className="p-4">
               <p className="text-sm font-medium">Inset</p>
-              <p className="mt-1 text-xs text-[var(--muted)]">Wells / dig-outs</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Wells — <code>--paper-deep</code>
+              </p>
+            </Surface>
+            <Surface variant="overlay" className="p-4">
+              <p className="text-sm font-medium">Overlay</p>
+              <p className="mt-1 text-xs text-[var(--muted)]">
+                Toast / callout mix + blur 14px
+              </p>
             </Surface>
           </div>
         </section>
@@ -512,6 +633,11 @@ export function DesignAssetsLab() {
           <header>
             <p className="eyebrow">Feedback</p>
             <h2 className="page-title mt-1 text-xl sm:text-2xl">Status lines</h2>
+            <p className="page-sub mt-1 max-w-2xl">
+              <code className="code-inline">InlineStatus</code> wraps the existing
+              feedback classes. Classes stay. Toast only for off-screen jobs —
+              no production callers this PR.
+            </p>
           </header>
           <div className="space-y-2">
             <StatusLine tone="muted">Muted status</StatusLine>
@@ -523,6 +649,66 @@ export function DesignAssetsLab() {
             <StatusLine tone="danger">Danger — failed</StatusLine>
             <p className="feedback-ok">Feedback OK paragraph</p>
             <p className="feedback-err">Feedback error paragraph</p>
+            <InlineStatus tone="ok">InlineStatus ok — tag saved</InlineStatus>
+            <InlineStatus tone="warn">InlineStatus warn — already on shelf</InlineStatus>
+            <InlineStatus tone="info">InlineStatus info — shelving…</InlineStatus>
+            <InlineStatus tone="danger">InlineStatus danger — request failed</InlineStatus>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() =>
+                toast({
+                  tone: "ok",
+                  title: "Demo toast",
+                  detail: "Off-screen job completion. No filesystem paths.",
+                  href: "/catalog",
+                })
+              }
+            >
+              Push demo toast
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() =>
+                toast({
+                  tone: "danger",
+                  title: "Sticky danger",
+                  detail: "Dismiss by hand — danger does not auto-hide.",
+                })
+              }
+            >
+              Push sticky danger
+            </button>
+          </div>
+        </section>
+
+        <section id="progress" className="scroll-mt-24 space-y-4">
+          <header>
+            <p className="eyebrow">Jobs</p>
+            <h2 className="page-title mt-1 text-xl sm:text-2xl">Progress</h2>
+            <p className="page-sub mt-1 max-w-2xl">
+              Shared bar. Default copies Acquire’s 6px track. Compact is 4px for
+              the header. Production extracts land in later PRs.
+            </p>
+          </header>
+          <div className="grid gap-4 lg:grid-cols-2">
+            <ProgressBar
+              percent={42}
+              active
+              label="fetching"
+              detail="OpenAlex OA PDF"
+            />
+            <ProgressBar percent={null} active label="walking locations" />
+            <Surface className="space-y-2 p-4">
+              <p className="text-xs font-medium text-[var(--muted)]">
+                Compact (header)
+              </p>
+              <ProgressBar percent={70} active size="compact" label="backup" />
+              <ProgressBar percent={null} active size="compact" label="reindex" />
+            </Surface>
           </div>
         </section>
       </div>

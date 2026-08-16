@@ -6,13 +6,22 @@ export function PageHeader({
   description,
   actions,
   className,
+  register = "desk",
 }: {
   eyebrow?: string;
   title: string;
   description?: React.ReactNode;
   actions?: React.ReactNode;
   className?: string;
+  /** Type register. No page migrations this PR — default stays desk. */
+  register?: "desk" | "catalog" | "room";
 }) {
+  const titleClass =
+    register === "catalog"
+      ? "type-catalog"
+      : register === "room"
+        ? "type-room"
+        : "page-title type-desk";
   return (
     <div
       className={cn(
@@ -22,7 +31,7 @@ export function PageHeader({
     >
       <div className="min-w-0">
         {eyebrow ? <p className="eyebrow">{eyebrow}</p> : null}
-        <h1 className={cn("page-title", eyebrow && "mt-1")}>{title}</h1>
+        <h1 className={cn(titleClass, eyebrow && "mt-1")}>{title}</h1>
         {description ? <div className="page-sub max-w-2xl">{description}</div> : null}
       </div>
       {actions ? (

@@ -8,8 +8,27 @@ export type ThemeMode = "dark" | "light";
 const STORAGE_KEY = "helix-theme";
 const LEGACY_STORAGE_KEY = "non-os-theme";
 
+function syncThemeColorMeta() {
+  const paper = getComputedStyle(document.documentElement)
+    .getPropertyValue("--paper")
+    .trim();
+  if (!paper) return;
+  const metas = document.querySelectorAll('meta[name="theme-color"]');
+  if (metas.length === 0) {
+    const meta = document.createElement("meta");
+    meta.setAttribute("name", "theme-color");
+    meta.setAttribute("content", paper);
+    document.head.appendChild(meta);
+    return;
+  }
+  metas.forEach((meta) => {
+    meta.setAttribute("content", paper);
+  });
+}
+
 function applyTheme(mode: ThemeMode) {
   document.documentElement.dataset.theme = mode;
+  syncThemeColorMeta();
 }
 
 export function getStoredTheme(): ThemeMode | null {

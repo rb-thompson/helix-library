@@ -5,7 +5,7 @@ export const dynamic = "force-dynamic";
 export const metadata = {
   title: "Design",
   description:
-    "Helix Library design lab — nav icons, helix spinner, brand mark, tokens, and UI chrome.",
+    "Helix Library design lab — tokens, lamp, overlay, motion, type registers, and chrome.",
 };
 
 export default function DesignPage() {
@@ -15,9 +15,9 @@ export default function DesignPage() {
         <p className="eyebrow">Internal lab</p>
         <h1 className="page-title mt-1">Design assets</h1>
         <p className="page-sub max-w-2xl">
-          Single surface for reviewing Helix glyphs, motion, and chrome. Use
-          this while raising icon quality — large preview first, then sidebar
-          scale. Theme toggle (header) for light/dark.
+          Living spec for Helix craft. Swatches, material stack, lamp (circulation
+          only), type registers, and motion durations. Theme toggle in the header
+          for dark / day reading room.
         </p>
       </div>
       <DesignAssetsLab />

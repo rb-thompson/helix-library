@@ -9,13 +9,15 @@ export function Surface({
   children: React.ReactNode;
   className?: string;
   as?: "div" | "section" | "aside" | "article";
-  variant?: "raised" | "flat" | "inset";
+  variant?: "raised" | "flat" | "inset" | "overlay";
 }) {
   const v =
     variant === "flat"
       ? "surface-flat"
       : variant === "inset"
         ? "surface-inset"
-        : "surface";
+        : variant === "overlay"
+          ? "surface-overlay"
+          : "surface";
   return <Tag className={cn(v, className)}>{children}</Tag>;
 }
