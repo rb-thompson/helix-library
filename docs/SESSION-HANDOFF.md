@@ -1,6 +1,6 @@
 # Session handoff — Helix Library
 
-**Last updated:** 2026-08-16 (ship-grade hardening + speed + presence)  
+**Last updated:** 2026-08-17 (Arcade · Night Moth playable)  
 **Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`)  
 **Tip:** `origin/main` — restore UI + left sidebar + look-feel craft + `/docs` + Circulation stills + `item_events`. Lucide nav. Night moth.  
 **Status:** Daily-usable OPAC plus **ship-grade pass**: LAN Host-header fix, `realpath` media jail, SVG/HTML attachment, security headers, felt-speed (poster pool, SQLite pragmas, thumb cache), vision/EXIF facet hygiene, Lens DELETE, presentation `/docs`, night-moth clerk. Stretch: Gutenberg. Do not start embeddings.
@@ -50,7 +50,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | **Acquire `/acquire`** | arXiv; OpenAlex OA PDF; web clip; **Grokipedia**; **image URL**; YT/podcast; Grok image; Ask propose+approve for all acquire kinds; SSRF outbound; jobs + auto-tags |
 | Theme / nav | Dark/light; **light helix mark** swap; **left sidebar** (Stacks + Library ops); header is jobs + theme |
 | Shell | `.app-frame` offset by `--sidebar-rail`; `.shell-x`, `--shell-max` wider at 2xl |
-| Tests | `npm test` — **289 pass** |
+| Tests | `npm test` — **303 pass** (arcade rules + board) |
 | **Look-feel craft** | Design: [docs/designs/2026-08-look-feel-craft.md](./designs/2026-08-look-feel-craft.md). Tokens + lamp + overlay; toast/ProgressBar/InlineStatus; header adaptive poll; catalog `replace` while typing; holding folios + optimistic tags/dismiss; item room + lamp `?room=1`; Hours lamp; Ask bubbles; shared job bars; graph/collections/services chrome; **PR8 j/k browse**. `/design` is the living spec. |
 | Docs | In-app `/docs` is a presentation handbook (floor plan + workflows). Field guide: `archive/documents/Helix-Library-Field-Guide.md` |
 | Night moth | Circulation clerk (not the logo). Hours due-slip, `/docs` hero, `/design` stills, `public/og-helix.jpg` |
@@ -63,12 +63,14 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | **Deep Lens** | `/lens` + `/lens/[id]` dossier: 3D kind-object, `lens_analyses` cache, Run analysis (local/xAI), related, Your insights, Ask |
 | **Restore** | Services **Restore from snapshot** — inspect `helix-backup-v1`, type `RESTORE`, undo snapshot, ATTACH copy-in. Holdings not overwritten. `npm run restore`. LAN HTTP off unless `NON_OS_RESTORE_OK=1`. |
 | **Open events (PR6)** | `item_events`; `POST /api/items/[id]/events`; 60s dedupe; prune 500; home recent list merges with `helix-open-history`. Reading position stays client-only. |
+| **Arcade** | Sidebar **Arcade** + `/arcade` + `/arcade/night-moth`. 3D flight: regions, canals/fish, fireflies, noir towers + caches, wandering lamps, visor HUD, arts dock (Tab/Q/wheel). Scores: `arcade_scores` + local backup, initials, cabinet UI, home jacket card. `/docs#arcade`. |
 
 ---
 
 ## Git baseline
 
-**This wrap:** Discovery PR6 + craft PR8 merged to `main` (`#1`, `#2`).  
+**This wrap:** Arcade Night Moth on `ship-grade/presence`.  
+**Older landmark:** Discovery PR6 + craft PR8 on `main` (`#1`, `#2`).  
 **Older landmark:** `ba23e55` — first daily Helix ship.
 
 **Do not commit:** `.env.local`, `library.config.json`, `data/` (db, thumbs, exports), personal `archive/**`, `scripts/__pycache__/`.  
@@ -289,3 +291,22 @@ npm run dev    # http://127.0.0.1:4747
 ## Session wrap (2026-08-16 night) — ship-grade
 
 **Shipped:** LAN Host-header fix (connection IP only) + LAN Origin on mutations + timing-safe Basic auth; `realpath` media jail; HTML/SVG attachment + security headers; ffmpeg command cache + combined ffprobe + 3-wide async poster pool; SQLite pragmas; thumb cache 1d; vision-only singleton + EXIF junk hidden from facets; Lens DELETE; `/design` off the public nav; presentation `/docs` (floor plan + workflows); night-moth clerk + OG card.
+
+## Session wrap (2026-08-17) — Arcade / Night Moth
+
+**Shipped:** New nav category **Arcade**. Playable **Night Moth** at `/arcade/night-moth`:
+
+- 3D voxel flight (three.js). Mouse look, W along visor, E drink, click fires equipped art.
+- Eight regions, wandering lamps (true vs lure), canals + fish, fireflies, swaying plants, three noir towers with caches.
+- Arts dock: Tab / Q / wheel cycle **live unlocks** (XP this run counts). Click fires equipped.
+- High scores: `arcade_scores` (+ `initials` column, added on read if missing). Local `helix-arcade-night-moth-scores` backup. Dedupe by score/night/nectar/duration/initials. Cabinet UI.
+- Home + `/arcade` jacket card (`public/arcade/night-moth/jacket.jpg`). `/docs#arcade` handbook section.
+- Clerk moth (`NightMoth.tsx`) is still Circulation staff — not the game.
+
+**Code map:** `src/lib/arcade/*`, `src/components/arcade/*`, `src/app/arcade/**`, `src/app/api/arcade/**`, `src/lib/client/arcade-board.ts`, `tests/arcade-night-moth.test.ts`.
+
+**Verify:** `npm test`; smoke `/` (jacket card), `/arcade`, `/arcade/night-moth` (Tab cycles; die or leave → one cabinet row), `/docs#arcade`.
+
+**Still optional:** Gutenberg; agent `lens_analyze`; holdings sibling restore.
+
+**Do not start:** embeddings, batch-analyze, auto-apply AI tags.

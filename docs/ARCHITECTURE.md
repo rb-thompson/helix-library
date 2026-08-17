@@ -160,6 +160,8 @@ EXIF: `readExif()` via system exiftool when available.
 | `/lens` / `/lens/[id]` | Deep Lens dossier (kind-object + analysis + Your insights) |
 | `/acquire` | ILL desk (arXiv, OpenAlex, clip, Grokipedia, YT, images) |
 | `/graph` | 2D/3D knowledge map |
+| `/arcade` | After-hours cabinet |
+| `/arcade/night-moth` | Night Moth 3D voxel flight (client three.js) |
 | `/design` | Internal design-assets lab |
 
 Shared nav: `src/lib/nav.ts` (AppSidebar + Footer).  
@@ -192,6 +194,8 @@ Responsive: left sidebar at `lg+` (collapsible); hamburger drawer below `lg`; la
 | GET/POST | `/api/restore` | Sidecar status / apply (typed `RESTORE`; sync until COMMIT) |
 | POST | `/api/restore/cancel` | Best-effort cancel before copy-in |
 | DELETE | `/api/restore/session` | Drop the confirm token |
+| GET/POST | `/api/arcade/scores` | Night Moth high-score ledger |
+| GET/PUT | `/api/arcade/progress` | Persistent XP / unlocks / tutorial flag |
 
 Backup/restore live under `src/lib/backup/*`. In-app restore copies the snapshot into the open `library.db` (same inode); holdings trees are not overwritten. Restore HTTP is refused when LAN mode is on unless `NON_OS_RESTORE_OK=1`. Archives never include `.env` / API keys / SuperGrok credentials.
 

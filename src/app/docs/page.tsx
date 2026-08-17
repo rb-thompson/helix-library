@@ -24,6 +24,7 @@ const toc = [
   { id: "find", label: "Find & read" },
   { id: "bring-in", label: "Bring something in" },
   { id: "ask", label: "Ask the clerk" },
+  { id: "arcade", label: "After hours" },
   { id: "keep", label: "Keep the catalog" },
   { id: "privacy", label: "What never leaves" },
   { id: "keys", label: "Keys" },
@@ -213,6 +214,55 @@ export default function DocsPage() {
               },
             ]}
           />
+        </section>
+
+        <section id="arcade" className="scroll-mt-28">
+          <SectionTitle icon={<Library className="h-5 w-5" />} title="After hours" />
+          <p className="prose-body mt-3">
+            Arcade is not a desk that moves files. After Circulation the
+            grounds keep a second catalog of lamps.{" "}
+            <Link href="/arcade" className="link-accent">
+              Arcade
+            </Link>{" "}
+            is the cabinet;{" "}
+            <Link href="/arcade/night-moth" className="link-accent">
+              Night Moth
+            </Link>{" "}
+            is the game. Scores stay in this machine&apos;s catalog. Nothing
+            leaves the building.
+          </p>
+          <Workflow
+            label="A night"
+            steps={[
+              {
+                title: "Take the wing",
+                body: "Mouse looks. W flies where the visor points. A/D slip, S brakes, Shift dashes. Optional beginner night names the first three lamps.",
+                href: "/arcade/night-moth",
+              },
+              {
+                title: "Judge the light",
+                body: "Amber and steady is Circulation. Green that flickers is a cage. Violet that hunts you is not furniture. Lamps wander — follow the pip, not last night's map.",
+              },
+              {
+                title: "Drink or dust",
+                body: "E drinks a near lamp. Click fires the equipped art. Wheel or Tab cycles arts. Number keys select. Statuses sit as banners on the visor.",
+              },
+              {
+                title: "Leave a score",
+                body: "Dying or leaving with a score stamps the cabinet. Initials default to MTH. The home page and Arcade desk show the same high-score card. H is the jacket.",
+              },
+            ]}
+          />
+          <div className="mt-5 grid gap-3 sm:grid-cols-2">
+            <Note title="The grounds">
+              Eight regions, two canals with fish, fireflies, and three noir
+              towers. Caches in the mazes are nectar and a little wing.
+            </Note>
+            <Note title="The clerk is not the game">
+              The night moth on Hours and this handbook is Circulation staff.
+              Night Moth the game is a separate flight on the same grounds.
+            </Note>
+          </div>
         </section>
 
         <section id="ask" className="scroll-mt-28">

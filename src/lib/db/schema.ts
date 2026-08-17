@@ -254,6 +254,32 @@ export const itemEvents = sqliteTable(
   ],
 );
 
+export const arcadeScores = sqliteTable(
+  "arcade_scores",
+  {
+    id: integer("id").primaryKey({ autoIncrement: true }),
+    game: text("game").notNull(),
+    score: integer("score").notNull(),
+    night: integer("night").notNull(),
+    nectar: integer("nectar").notNull(),
+    durationMs: integer("duration_ms").notNull(),
+    abilitiesJson: text("abilities_json"),
+    createdAt: integer("created_at").notNull(),
+    initials: text("initials"),
+  },
+  (t) => [index("arcade_scores_game_score_idx").on(t.game, t.score, t.createdAt)],
+);
+
+export const arcadeProgress = sqliteTable("arcade_progress", {
+  game: text("game").primaryKey(),
+  xp: integer("xp").notNull().default(0),
+  unlockedJson: text("unlocked_json"),
+  tutorialDone: integer("tutorial_done").notNull().default(0),
+  updatedAt: integer("updated_at").notNull(),
+});
+
 export type InsightRow = typeof insights.$inferSelect;
 export type LensAnalysisRow = typeof lensAnalyses.$inferSelect;
 export type ItemEventRow = typeof itemEvents.$inferSelect;
+export type ArcadeScoreRow = typeof arcadeScores.$inferSelect;
+export type ArcadeProgressRow = typeof arcadeProgress.$inferSelect;

@@ -47,6 +47,7 @@ const ICON_NOTES: Record<NavIconName, string> = {
   services: "Lucide HardDrive — home Services tile",
   docs: "Lucide BookOpen — home Docs tile",
   design: "Lucide LayoutGrid — design lab only",
+  arcade: "Lucide Gamepad2 — Arcade / Night Moth",
 };
 
 const COLOR_TOKENS: { name: string; varName: string; group: string }[] = [

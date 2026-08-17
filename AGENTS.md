@@ -91,6 +91,7 @@ Browser → Next.js App Router (127.0.0.1:4747)
                  media (serve, preview, exif)
                  agent (local | xai tools)
                  machine probe
+                 arcade (Night Moth scores + rules)
 ```
 
 - **DB:** `./data/library.db` (WAL). Schema bootstrapped in `src/lib/db/migrate.ts` (not drizzle-kit migrate for app runtime).
@@ -113,6 +114,7 @@ src/
     locations/         # add/update/remove locations + config persist
     media/             # secure serve, preview types, exif
     machine/           # host probe
+    arcade/            # Night Moth rules + local scores
     config.ts, types.ts, nav.ts, format.ts
 public/                # helix-mark.*, hero-helix.jpg
 scripts/reindex.ts     # + optional vision_tag_images.py (gallery tooling)
@@ -141,13 +143,13 @@ npm run typecheck
 npm run test             # classify, indexer fixtures, local librarian, PDF
 npm run reindex          # if indexer/enrichment/schema touched
 npm run build            # before calling a slice “done”
-# manual smoke: /  /catalog  /graph  /catalog/{id}  /ask  /docs  /collections  /locations
+# manual smoke: /  /catalog  /graph  /catalog/{id}  /ask  /docs  /collections  /locations  /arcade  /arcade/night-moth
 # media: GET /api/media/{id}  and Range request on video
 ```
 
 ## Current status (high level)
 
-**Daily-usable Helix Library (2026-08-16 handoff):**
+**Daily-usable Helix Library (2026-08-17 handoff):**
 
 - Config + SQLite catalog + hybrid FTS/LIKE + snippets/highlights
 - Indexer + enrichment; media (unicode-safe serve); EXIF; optional `npm run watch`
@@ -162,9 +164,10 @@ npm run build            # before calling a slice “done”
 - **`/ask`** viewport chat; holding-context bridge; Grok when keyed; server-side approve
 - Responsive shell; **collapsible left sidebar**; space UI; H+helix mark (dark + light) + favicon
 - **Look-feel craft** — starlight tokens, lamp circulation, toasts, adaptive jobs poll, catalog replace-while-typing, holding folios, optimistic tags/shelves/dismiss, shared ProgressBar. Design: [look-feel craft](./docs/designs/2026-08-look-feel-craft.md)
-- Tests: `npm test` — **289 pass** (hardening + tag hygiene + Lens DELETE)
+- Tests: `npm test` — **303 pass** (incl. Night Moth rules + arcade ledger)
 - **Open events** — `item_events` dual-write with `helix-open-history`; home recent list merges
 - **Catalog j/k** — browse ring on `CatalogResults` (Enter opens; `x` in Select)
+- **Arcade `/arcade`** — Night Moth 3D voxel flight: living grounds, arts dock, cabinet high scores, jacket card on home + `/docs` After hours
 
 **Shipped:** daily OPAC + Curation + Discovery (incl. PR6) + Acquire depth + **export/backup** + **Deep Lens S2 dossier** + **restore UI** + **left sidebar** + **look-feel craft (PR1a–8)**. Designs: [discovery](./docs/designs/2026-08-discovery-reading.md), [acquire depth](./docs/designs/2026-08-acquire-depth.md), [deep lens dossier](./docs/designs/2026-08-deep-lens-dossier.md), [restore](./docs/designs/2026-08-restore.md), [look-feel craft](./docs/designs/2026-08-look-feel-craft.md).
 

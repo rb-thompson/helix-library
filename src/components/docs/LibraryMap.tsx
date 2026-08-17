@@ -12,6 +12,7 @@ const BLURBS: Record<string, string> = {
   "/acquire": "Bring a paper, clip, or tape into the stacks.",
   "/services": "Reindex, snapshot, restore the catalog.",
   "/docs": "You are here.",
+  "/arcade": "After hours. A moth, and lamps that lie.",
 };
 
 export function LibraryMap() {

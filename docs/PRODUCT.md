@@ -19,6 +19,7 @@ Public library OPAC/services mapped onto personal files and host machine limits.
 | Acquisitions / ILL | `/acquire` — arXiv, OpenAlex OA PDFs, web clips, Grokipedia, YT/podcast, Grok + remote images into Archive |
 | Ask a librarian | `/ask` (local or optional xAI); holding-context from reading room |
 | Deep Lens dossier | `/lens/[id]` — kind-object, cached analysis, related, Your insights |
+| Arcade | `/arcade` — after-hours cabinet; **Night Moth** 3D voxel flight |
 | Building | Host CPU/RAM/disk/tools |
 
 ## Scope (current)
@@ -35,6 +36,7 @@ Public library OPAC/services mapped onto personal files and host machine limits.
 - In-app Getting Started (`/docs`) including agent guide
 - Space UI (dark/light; light brand mark + themed heroes), Lucide nav, **collapsible left sidebar**, knowledge graph 2D/3D (`/graph`), kind-tinted cards
 - Night-moth Circulation clerk (character, not the logo) on Hours, `/docs`, and the design lab
+- **Arcade** (`/arcade`) — Night Moth 3D voxel game (lamps, arts, cabinet scores, jacket card on home)
 - **Restore from snapshot** on Services (inspect + typed `RESTORE` + undo snapshot); `npm run restore`
 
 ## Non-goals (v1)

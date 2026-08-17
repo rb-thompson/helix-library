@@ -20,6 +20,9 @@ import { kindLabel } from "@/lib/format";
 import { hasThumb } from "@/lib/media/thumbs";
 import { getLatestJob, isReindexRunning } from "@/lib/indexer/run";
 import { listRecentOpens } from "@/lib/catalog/events";
+import { NightMothArcadeCard } from "@/components/arcade/NightMothArcadeCard";
+import { NIGHT_MOTH_GAME_ID } from "@/lib/arcade/night-moth";
+import { listScores } from "@/lib/arcade/scores";
 import { ensureLocationsSynced } from "@/lib/locations/manage";
 
 export const dynamic = "force-dynamic";
@@ -35,6 +38,7 @@ export default function HomePage() {
   const reindexRunning = isReindexRunning();
   const rescue = getRescueSnapshot();
   const serverOpens = listRecentOpens(40);
+  const arcadeBoard = listScores(NIGHT_MOTH_GAME_ID, 5);
 
   return (
     <div className="space-y-7 sm:space-y-10">
@@ -205,7 +209,18 @@ export default function HomePage() {
           title="Docs"
           body="How it works"
         />
+        <ServiceCard
+          href="/arcade"
+          icon="arcade"
+          title="Arcade"
+          body="Night Moth after hours"
+        />
       </section>
+
+      <NightMothArcadeCard
+        scores={arcadeBoard}
+        best={arcadeBoard[0]?.score}
+      />
 
       <div className="grid gap-6 sm:gap-8 lg:grid-cols-2">
         <section className="min-w-0">
