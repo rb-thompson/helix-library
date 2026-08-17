@@ -1,11 +1,20 @@
-import { createReadStream, existsSync, statSync } from "node:fs";
+import { createReadStream, existsSync, realpathSync, statSync } from "node:fs";
 import path from "node:path";
 import { Readable } from "node:stream";
 import { eq } from "drizzle-orm";
 import { getItemById } from "@/lib/catalog/query";
 import { getDb } from "@/lib/db/client";
 import { locations } from "@/lib/db/schema";
+import { unsafeInlineContentType } from "@/lib/http/security";
 import type { CatalogItemRow } from "@/lib/types";
+
+function physicalPath(p: string): string {
+  try {
+    return realpathSync(p);
+  } catch {
+    return path.resolve(p);
+  }
+}
 
 const PREVIEWABLE_KINDS = new Set([
   "image",
@@ -43,8 +52,8 @@ export function resolveMediaItem(id: number): {
     .get();
   if (!loc || loc.enabled !== 1) return null;
 
-  const root = path.resolve(loc.rootPath);
-  const abs = path.resolve(item.path);
+  const root = physicalPath(loc.rootPath);
+  const abs = physicalPath(item.path);
   const rel = path.relative(root, abs);
   if (rel.startsWith("..") || path.isAbsolute(rel)) return null;
 
@@ -58,6 +67,15 @@ export function resolveMediaItem(id: number): {
   if (!st.isFile()) return null;
 
   return { item, absPath: abs, size: st.size };
+}
+
+/** HTML/SVG must not render inline in the OPAC (stored XSS). */
+export function mediaDisposition(
+  contentType: string,
+  asDownload: boolean,
+): "inline" | "attachment" {
+  if (asDownload || unsafeInlineContentType(contentType)) return "attachment";
+  return "inline";
 }
 
 export function contentTypeFor(item: CatalogItemRow): string {

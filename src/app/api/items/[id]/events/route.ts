@@ -34,7 +34,7 @@ export async function POST(req: Request, ctx: Ctx) {
   }
 
   const source = (body as { meta?: { source?: unknown } })?.meta?.source;
-  const meta =
+  const meta: { source: "detail" | "room" } | undefined =
     source === "detail" || source === "room" ? { source } : undefined;
 
   const result = recordItemEvent(id, kind, meta);
