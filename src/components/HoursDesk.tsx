@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { NightMoth } from "@/components/NightMoth";
 import {
   libraryHours,
   pickCartItem,
@@ -42,6 +43,7 @@ export function HoursDesk({ holdings }: { holdings: CartHolding[] }) {
       className="due-slip mt-5 max-w-xl no-underline"
       title="A holding the night clerk left out"
     >
+      <NightMoth pose="portrait" className="due-slip-moth" alt="" />
       <span className="due-slip-kicker">{hours.slipLabel}</span>
       <span className="due-slip-title">{item.title}</span>
       <span className="due-slip-line">{hours.line}</span>

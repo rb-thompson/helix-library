@@ -201,8 +201,11 @@ All data routes: `runtime = "nodejs"`, `dynamic = "force-dynamic"` where used.
 
 - Process binds loopback; no auth (acceptable only for single-user localhost).  
 - Do not change bind without adding authentication.  
+- LAN preview (`NON_OS_LAN=1`) requires Basic auth on every request. Never skip on the `Host` header (spoofable on `0.0.0.0`).  
+- LAN mutations require a same-origin `Origin`. Password compare is constant-time.  
+- Security headers: `nosniff`, `same-origin` referrer, `DENY` / `frame-ancestors 'none'`.  
 - Agent cannot leave configured roots (tools only return catalog data).  
-- Media API path-traversal checks are mandatory for any new file-serving endpoints.
+- Media API path-traversal checks use `realpath` (symlink jail). HTML/SVG download as attachment.
 
 ## Dependencies (intentional)
 

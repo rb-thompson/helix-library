@@ -385,6 +385,24 @@ function ArticlePane({
           <RefreshCw className="h-3.5 w-3.5" aria-hidden />
           Sync
         </button>
+        {lens.analysis ? (
+          <button
+            type="button"
+            className="btn btn-ghost btn-sm inline-flex items-center gap-1.5"
+            disabled={lens.busy}
+            onClick={() => {
+              if (
+                window.confirm(
+                  "Discard this compiled entry? You can compile again later.",
+                )
+              ) {
+                void lens.discard();
+              }
+            }}
+          >
+            Discard entry
+          </button>
+        ) : null}
         <label className="ml-auto flex items-center gap-1.5 font-mono text-[0.68rem] text-[var(--muted)]">
           <input
             type="checkbox"

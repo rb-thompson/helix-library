@@ -1,9 +1,9 @@
 # Session handoff — Helix Library
 
-**Last updated:** 2026-08-16 (PR6 + PR8 merged)  
+**Last updated:** 2026-08-16 (ship-grade hardening + speed + presence)  
 **Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`)  
-**Tip:** `origin/main` — restore UI + left sidebar + look-feel craft (incl. catalog j/k) + expanded `/docs` + Circulation stills + `item_events`. Lucide nav.  
-**Status:** Daily-usable OPAC. **Curation, Discovery (incl. PR6), Acquire, export/backup, Deep Lens S2, restore UI, left rail, look-feel craft (PR1a–8), handbook `/docs`, Circulation brand wave** shipped. No required leftovers. Stretch: Gutenberg. Do not start embeddings.
+**Tip:** `origin/main` — restore UI + left sidebar + look-feel craft + `/docs` + Circulation stills + `item_events`. Lucide nav. Night moth.  
+**Status:** Daily-usable OPAC plus **ship-grade pass**: LAN Host-header fix, `realpath` media jail, SVG/HTML attachment, security headers, felt-speed (poster pool, SQLite pragmas, thumb cache), vision/EXIF facet hygiene, Lens DELETE, presentation `/docs`, night-moth clerk. Stretch: Gutenberg. Do not start embeddings.
 
 Read [AGENTS.md](../AGENTS.md) first, then this file.
 
@@ -50,9 +50,10 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | **Acquire `/acquire`** | arXiv; OpenAlex OA PDF; web clip; **Grokipedia**; **image URL**; YT/podcast; Grok image; Ask propose+approve for all acquire kinds; SSRF outbound; jobs + auto-tags |
 | Theme / nav | Dark/light; **light helix mark** swap; **left sidebar** (Stacks + Library ops); header is jobs + theme |
 | Shell | `.app-frame` offset by `--sidebar-rail`; `.shell-x`, `--shell-max` wider at 2xl |
-| Tests | `npm test` — **279 pass** (item_events + catalog j/k) |
+| Tests | `npm test` — **289 pass** |
 | **Look-feel craft** | Design: [docs/designs/2026-08-look-feel-craft.md](./designs/2026-08-look-feel-craft.md). Tokens + lamp + overlay; toast/ProgressBar/InlineStatus; header adaptive poll; catalog `replace` while typing; holding folios + optimistic tags/dismiss; item room + lamp `?room=1`; Hours lamp; Ask bubbles; shared job bars; graph/collections/services chrome; **PR8 j/k browse**. `/design` is the living spec. |
-| Docs | In-app `/docs` is a full handbook (map, building, every desk, privacy, keyboard). Field guide: `archive/documents/Helix-Library-Field-Guide.md` |
+| Docs | In-app `/docs` is a presentation handbook (floor plan + workflows). Field guide: `archive/documents/Helix-Library-Field-Guide.md` |
+| Night moth | Circulation clerk (not the logo). Hours due-slip, `/docs` hero, `/design` stills, `public/og-helix.jpg` |
 | **Reading room (PR1a+1b)** | Text/code continuous + PDF.js page mode (canvas + text layer); `helix-read-position` scroll/page; `?room=1`; public unbundled pdf.min.mjs |
 | **Read → act (PR2)** | Selection toolbar Tag/Ask/Copy; `/ask?item=`; transport `holdingItemId` + quote; system appendix; local summarize → indexed body |
 | **Related (PR3)** | `getRelatedHoldings` — same folder / shared tags / co-shelved; panel on item detail; exclude missing |
@@ -195,7 +196,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 1. Gutenberg / Standard Ebooks (known-host EPUB only)  
 2. yt-dlp JS runtime (optional deno)  
-3. Lens leftovers: DELETE analyses API, agent `lens_analyze` tool  
+3. Agent `lens_analyze` tool (DELETE analyses API shipped)  
 4. Holdings restore (sibling `archive.restored-<stamp>/` + Locations remap — not live-root overwrite)  
 5. Embeddings / semantic search — **explicit non-goal**
 
@@ -281,6 +282,10 @@ npm run dev    # http://127.0.0.1:4747
 
 **Shipped:** Discovery **PR6** (`#1`) — `item_events`, POST `/api/items/[id]/events`, 60s dedupe, prune 500, home recent merge with `helix-open-history`, restore registry. Craft **PR8** (`#2`) — catalog j/k browse ring (`.is-browse`), Enter opens, `x` in Select only. Both squash-merged to `main`. Tests **279**.
 
-**Still optional:** Gutenberg; Lens leftovers; holdings restore to a sibling tree.
+**Still optional:** Gutenberg; agent `lens_analyze`; holdings restore to a sibling tree.
 
 **Do not start:** embeddings, batch-analyze, auto-apply AI tags.
+
+## Session wrap (2026-08-16 night) — ship-grade
+
+**Shipped:** LAN Host-header fix (connection IP only) + LAN Origin on mutations + timing-safe Basic auth; `realpath` media jail; HTML/SVG attachment + security headers; ffmpeg command cache + combined ffprobe + 3-wide async poster pool; SQLite pragmas; thumb cache 1d; vision-only singleton + EXIF junk hidden from facets; Lens DELETE; `/design` off the public nav; presentation `/docs` (floor plan + workflows); night-moth clerk + OG card.

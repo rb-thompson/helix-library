@@ -3,6 +3,7 @@ import { after, before, describe, it } from "node:test";
 import { searchCatalog } from "@/lib/catalog/query";
 import { ITEM_KINDS } from "@/lib/types";
 import {
+  deleteLensAnalysis,
   getLensAnalysis,
   upsertLensAnalysis,
 } from "@/lib/lens/analyses";
@@ -257,6 +258,15 @@ describe("Deep Lens S2 analyses + jobs binding", () => {
     });
     const state = getLensAnalysisState(welcomeId);
     assert.equal(state.status, "stale");
+  });
+
+  it("deleteLensAnalysis removes the cached dossier", async () => {
+    const started = await startLensAnalyze(welcomeId, { force: true });
+    assert.equal(started.ok, true);
+    assert.ok(getLensAnalysis(welcomeId));
+    assert.equal(deleteLensAnalysis(welcomeId), true);
+    assert.equal(getLensAnalysis(welcomeId), null);
+    assert.equal(deleteLensAnalysis(welcomeId), false);
   });
 
   it("buildLocalDossier is honest without body inventing entities", () => {

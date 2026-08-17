@@ -68,6 +68,14 @@ export const PRIMARY_NAV: readonly NavItem[] = [
   },
 ] as const;
 
+/** Internal lab — reachable by URL, not a public desk. */
+export const DESIGN_NAV_ITEM: NavItem = {
+  href: "/design",
+  label: "Design",
+  tip: "Icons, spinner, tokens lab",
+  icon: "design",
+};
+
 /** Ops / help — lower group in the left sidebar. */
 export const SECONDARY_NAV: readonly NavItem[] = [
   {
@@ -93,12 +101,6 @@ export const SECONDARY_NAV: readonly NavItem[] = [
     label: "Docs",
     tip: "Getting started",
     icon: "docs",
-  },
-  {
-    href: "/design",
-    label: "Design",
-    tip: "Icons, spinner, tokens lab",
-    icon: "design",
   },
 ] as const;
 

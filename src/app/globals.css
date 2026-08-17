@@ -2283,6 +2283,158 @@ html[data-theme="light"] .service-tile::before {
   }
 }
 
+/* ─── Night moth (character, not logo) ─── */
+.night-moth {
+  display: block;
+  object-fit: cover;
+  user-select: none;
+}
+
+.docs-moth-intro {
+  display: grid;
+  grid-template-columns: 5.5rem 1fr;
+  gap: 1rem 1.15rem;
+  align-items: center;
+}
+
+.docs-moth-intro__face {
+  width: 5.5rem;
+  height: 5.5rem;
+  border-radius: 999px;
+  object-position: center 28%;
+  border: 1px solid var(--line);
+  box-shadow: var(--shadow-soft);
+}
+
+.due-slip {
+  padding-left: 3.15rem;
+}
+
+.due-slip-moth {
+  position: absolute;
+  left: 0.45rem;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 999px;
+  object-position: center 30%;
+  border: 1px solid color-mix(in srgb, var(--lamp) 35%, var(--line));
+}
+
+.workflow {
+  margin-top: 1.15rem;
+  display: grid;
+  gap: 0;
+}
+
+.workflow-step {
+  display: grid;
+  grid-template-columns: 1.75rem 1fr;
+  gap: 0.75rem;
+  padding: 0.85rem 0;
+  border-top: 1px solid var(--line);
+}
+
+.workflow-step:last-child {
+  border-bottom: 1px solid var(--line);
+}
+
+.workflow-n {
+  display: flex;
+  height: 1.75rem;
+  width: 1.75rem;
+  align-items: center;
+  justify-content: center;
+  border-radius: 999px;
+  background: var(--lamp-soft);
+  color: var(--lamp);
+  font-size: 0.72rem;
+  font-weight: 700;
+}
+
+.workflow-title {
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.workflow-body {
+  margin-top: 0.2rem;
+  font-size: 0.875rem;
+  color: var(--muted);
+  line-height: 1.5;
+}
+
+.library-map {
+  margin-top: 1.15rem;
+}
+
+.library-map-kicker {
+  font-size: 0.62rem;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 0.65rem;
+}
+
+.library-map-grid {
+  display: grid;
+  gap: 0.55rem;
+  grid-template-columns: 1fr;
+}
+
+@media (min-width: 640px) {
+  .library-map-grid {
+    grid-template-columns: 1fr 1fr;
+  }
+}
+
+.library-map-desk {
+  display: flex;
+  gap: 0.7rem;
+  align-items: flex-start;
+  padding: 0.75rem 0.8rem;
+  border-radius: var(--radius);
+  border: 1px solid var(--line);
+  background: var(--surface);
+  text-decoration: none;
+  transition:
+    border-color var(--dur) var(--ease),
+    box-shadow var(--dur) var(--ease);
+}
+
+.library-map-desk:hover {
+  border-color: var(--accent-ring);
+  box-shadow: var(--shadow-lift);
+}
+
+.library-map-icon {
+  display: flex;
+  height: 2.15rem;
+  width: 2.15rem;
+  flex-shrink: 0;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.55rem;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.library-map-label {
+  display: block;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.library-map-blurb {
+  display: block;
+  margin-top: 0.15rem;
+  font-size: 0.8125rem;
+  color: var(--muted);
+  line-height: 1.4;
+}
+
 /* ─── Empty state ─── */
 .empty-state {
   border: 1px dashed var(--line-strong);

@@ -421,6 +421,26 @@ export function DesignAssetsLab() {
               label="Nameplate study"
               note="Engraved helix plate"
             />
+            <BrandStill
+              src="/brand/moth-idle.jpg"
+              label="Night moth · idle"
+              note="Circulation clerk at the cart"
+            />
+            <BrandStill
+              src="/brand/moth-reading.jpg"
+              label="Night moth · reading"
+              note="Handbook hero / Hours"
+            />
+            <BrandStill
+              src="/brand/moth-reindex.jpg"
+              label="Night moth · reindex"
+              note="Cards in the air"
+            />
+            <BrandStill
+              src="/brand/moth-portrait.jpg"
+              label="Night moth · portrait"
+              note="Due-slip badge"
+            />
           </div>
           <Surface className="flex flex-wrap items-center gap-3 p-4 sm:p-5">
             <button type="button" className="btn btn-helix">

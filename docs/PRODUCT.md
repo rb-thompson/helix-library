@@ -34,6 +34,7 @@ Public library OPAC/services mapped onto personal files and host machine limits.
 - Acquire desk: arXiv preprints, **OpenAlex** search/DOI → OA PDF only when resolvable, **web clip** URL → Markdown notes, yt-dlp media, Grok Imagine images
 - In-app Getting Started (`/docs`) including agent guide
 - Space UI (dark/light; light brand mark + themed heroes), Lucide nav, **collapsible left sidebar**, knowledge graph 2D/3D (`/graph`), kind-tinted cards
+- Night-moth Circulation clerk (character, not the logo) on Hours, `/docs`, and the design lab
 - **Restore from snapshot** on Services (inspect + typed `RESTORE` + undo snapshot); `npm run restore`
 
 ## Non-goals (v1)
