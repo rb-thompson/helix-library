@@ -6,7 +6,12 @@ import { loadConfig } from "@/lib/config";
 import { assertCatalogWritable, getDb, getSqlite } from "@/lib/db/client";
 import { itemText, items, jobs, locations } from "@/lib/db/schema";
 import { classifyKind, extensionOf } from "@/lib/indexer/classify";
-import { enrichFile, hasThumb } from "@/lib/indexer/enrich";
+import {
+  enrichFile,
+  extractVideoPosterAsync,
+  hasThumb,
+} from "@/lib/indexer/enrich";
+import { mapPool } from "@/lib/indexer/pool";
 import { contentHash } from "@/lib/indexer/hash";
 import { extractPdfTitle } from "@/lib/indexer/pdf";
 import { walkFiles } from "@/lib/indexer/walk";
@@ -207,6 +212,7 @@ async function executeReindexJob(
       }
 
       const seenPaths = new Set<string>();
+      const posterJobs: Array<{ filePath: string; itemId: number }> = [];
 
       for await (const file of walkFiles({
         root: loc.rootPath,
@@ -261,7 +267,14 @@ async function executeReindexJob(
                 existingWidth: existing.width,
                 existingHeight: existing.height,
                 existingDurationMs: existing.durationMs,
+                deferPoster: existing.kind === "video",
               });
+              if (enrichment.posterPending) {
+                posterJobs.push({
+                  filePath: file.absPath,
+                  itemId: existing.id,
+                });
+              }
               db.update(items)
                 .set({
                   width: enrichment.width,
@@ -341,7 +354,11 @@ async function executeReindexJob(
             kind,
             mime: mimeType,
             force: true,
+            deferPoster: kind === "video",
           });
+          if (enrichment.posterPending) {
+            posterJobs.push({ filePath: file.absPath, itemId });
+          }
 
           db.update(items)
             .set({
@@ -360,6 +377,12 @@ async function executeReindexJob(
         if (stats.seen % 500 === 0) {
           await new Promise((r) => setImmediate(r));
         }
+      }
+
+      if (posterJobs.length) {
+        await mapPool(posterJobs, 3, async (job) => {
+          await extractVideoPosterAsync(job.filePath, job.itemId);
+        });
       }
 
       const locationItems = db
