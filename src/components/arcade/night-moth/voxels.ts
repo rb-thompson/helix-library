@@ -8,12 +8,16 @@ import { Sky } from "three/addons/objects/Sky.js";
 import {
   ARENA_RADIUS,
   LAMPS,
-  REGIONS,
+  LAND_COLOR,
   REGION_ORDER,
+  bakeHeightField,
+  heightAt,
+  landUseAt,
   regionAt,
   type LampKind,
 } from "@/lib/arcade/night-moth";
-import { createWriter, populateRegion } from "./props";
+import { populateDistricts } from "./buildings";
+import { createWriter, populateRegion, populateWilds } from "./props";
 
 export type Track = {
   geos: THREE.BufferGeometry[];
@@ -199,17 +203,20 @@ export function buildMoth(track: Track): MothRig {
       new THREE.MeshStandardMaterial({
         color,
         metalness: 0.04,
-        roughness: 0.68,
-        emissive: em ? color : 0x000000,
-        emissiveIntensity: em,
+        roughness: 0.42,
+        emissive: color,
+        emissiveIntensity: em || 0.08,
         side: THREE.DoubleSide,
+        transparent: true,
+        opacity: 0.78,
+        depthWrite: false,
       }),
     );
 
-  const foreGeo = geo(track, new THREE.BoxGeometry(1.55, 0.045, 0.85));
-  const hindGeo = geo(track, new THREE.BoxGeometry(1.15, 0.04, 0.7));
-  const ochre = wingMat(0x8a6a3a, 0.04);
-  const dusk = wingMat(0x2a1c12);
+  const foreGeo = geo(track, new THREE.BoxGeometry(1.55, 0.03, 0.85));
+  const hindGeo = geo(track, new THREE.BoxGeometry(1.15, 0.028, 0.7));
+  const ochre = wingMat(0xa87840, 0.12);
+  const dusk = wingMat(0x2a1c12, 0.04);
 
   function wing(geoIn: THREE.BufferGeometry, material: THREE.Material, x: number, z: number) {
     const m = new THREE.Mesh(geoIn, material);
@@ -217,25 +224,36 @@ export function buildMoth(track: Track): MothRig {
     return m;
   }
 
+  function eyespot(parent: THREE.Group, x: number, z: number) {
+    const spot = box(0.22, 0.04, 0.22, 0x1a1008, { em: 0.15, emissive: 0x3a2810 });
+    spot.position.set(x, 0.09, z);
+    parent.add(spot);
+    const iris = box(0.1, 0.045, 0.1, 0xc4a05a, { em: 0.35, emissive: 0x6a4a18 });
+    iris.position.set(x, 0.1, z);
+    parent.add(iris);
+  }
+
   const leftFore = new THREE.Group();
   leftFore.add(wing(foreGeo, ochre, 0.95, 0.05));
   const lfBand = new THREE.Mesh(
-    geo(track, new THREE.BoxGeometry(1.4, 0.05, 0.14)),
+    geo(track, new THREE.BoxGeometry(1.4, 0.04, 0.12)),
     dusk,
   );
   lfBand.position.set(0.95, 0.08, 0.22);
   leftFore.add(lfBand);
+  eyespot(leftFore, 1.35, 0.05);
 
   const rightFore = new THREE.Group();
   rightFore.add(wing(foreGeo, ochre, -0.95, 0.05));
   const rfBand = lfBand.clone();
   rfBand.position.x = -0.95;
   rightFore.add(rfBand);
+  eyespot(rightFore, -1.35, 0.05);
 
   const leftHind = new THREE.Group();
-  leftHind.add(wing(hindGeo, wingMat(0x6a4e28), 0.72, -0.42));
+  leftHind.add(wing(hindGeo, wingMat(0x6a4e28, 0.06), 0.72, -0.42));
   const rightHind = new THREE.Group();
-  rightHind.add(wing(hindGeo, wingMat(0x6a4e28), -0.72, -0.42));
+  rightHind.add(wing(hindGeo, wingMat(0x6a4e28, 0.06), -0.72, -0.42));
 
   root.add(leftFore, rightFore, leftHind, rightHind);
   root.scale.setScalar(1.05);
@@ -243,13 +261,14 @@ export function buildMoth(track: Track): MothRig {
 }
 
 export function flapMoth(rig: MothRig, t: number, effort: number): void {
+  const rest = 0.28;
   const amp = 0.42 + effort * 0.55;
   const hz = 14 + effort * 10;
   const a = Math.sin(t * hz) * amp;
-  rig.leftFore.rotation.z = a;
-  rig.rightFore.rotation.z = -a;
-  rig.leftHind.rotation.z = a * 0.72;
-  rig.rightHind.rotation.z = -a * 0.72;
+  rig.leftFore.rotation.z = rest + a;
+  rig.rightFore.rotation.z = -rest - a;
+  rig.leftHind.rotation.z = rest * 0.8 + a * 0.72;
+  rig.rightHind.rotation.z = -rest * 0.8 - a * 0.72;
 }
 
 export function buildStars(track: Track, count = 1800): THREE.Points {
@@ -294,6 +313,7 @@ export type SkyRig = {
   stars: THREE.Points;
   clouds: THREE.Sprite[];
   tick: (t: number) => void;
+  setAurora: (k: number) => void;
 };
 
 /**
@@ -311,8 +331,8 @@ export function buildSky(track: Track, glowTex: THREE.Texture): SkyRig {
   u["mieCoefficient"].value = 0.004;
   u["mieDirectionalG"].value = 0.75;
   u["showSunDisc"].value = 0;
-  u["cloudCoverage"].value = 0.18;
-  u["cloudDensity"].value = 0.22;
+  u["cloudCoverage"].value = 0.06;
+  u["cloudDensity"].value = 0.12;
   u["cloudSpeed"].value = 0.00003;
   u["cloudScale"].value = 0.00018;
   u["cloudElevation"].value = 0.55;
@@ -404,10 +424,32 @@ export function buildSky(track: Track, glowTex: THREE.Texture): SkyRig {
   placeClouds("/arcade/night-moth/cloud-cirrus.jpg", 5, 38, 48);
   placeClouds("/arcade/night-moth/cloud-bank.jpg", 4, 46, 36);
 
+  const aurora = new THREE.Mesh(
+    geo(track, new THREE.SphereGeometry(420, 16, 8, 0, Math.PI * 2, 0, Math.PI * 0.42)),
+    mat(
+      track,
+      new THREE.MeshBasicMaterial({
+        color: 0x4a88aa,
+        transparent: true,
+        opacity: 0,
+        side: THREE.BackSide,
+        depthWrite: false,
+        blending: THREE.AdditiveBlending,
+        fog: false,
+      }),
+    ),
+  );
+  aurora.position.y = 40;
+  group.add(aurora);
+  let auroraK = 0;
+
   return {
     group,
     stars,
     clouds,
+    setAurora(k) {
+      auroraK = Math.max(0, Math.min(1, k));
+    },
     tick(t) {
       u["time"].value = t;
       const matStars = stars.material as THREE.PointsMaterial;
@@ -422,6 +464,10 @@ export function buildSky(track: Track, glowTex: THREE.Texture): SkyRig {
       }
       (moonHalo.material as THREE.SpriteMaterial).opacity =
         0.48 + 0.08 * Math.sin(t * 0.2);
+      const am = aurora.material as THREE.MeshBasicMaterial;
+      am.opacity = auroraK * (0.18 + 0.1 * Math.sin(t * 0.7));
+      am.color.setHSL(0.48 + 0.08 * Math.sin(t * 0.35), 0.55, 0.45);
+      aurora.rotation.y = t * 0.04;
     },
   };
 }
@@ -454,84 +500,115 @@ function punchBlack(track: Track, src: THREE.Texture, floor: number): THREE.Canv
 }
 
 export type Garden = {
-  ground: THREE.InstancedMesh;
+  ground: THREE.Mesh;
   foliage: THREE.InstancedMesh;
 };
 
-export function buildGarden(track: Track, rng: () => number): Garden {
-  const cell = 3.6;
-  const half = ARENA_RADIUS + 8;
-  const groundGeo = geo(track, new THREE.BoxGeometry(cell * 1.02, 0.55, cell * 1.02));
-  const groundMat = mat(
-    track,
-    new THREE.MeshStandardMaterial({
-      color: 0xffffff,
-      roughness: 0.92,
-      metalness: 0.04,
-    }),
-  );
-  const n = Math.floor((half * 2) / cell);
-  const ground = new THREE.InstancedMesh(groundGeo, groundMat, n * n);
-  const dummy = new THREE.Object3D();
-  const color = new THREE.Color();
-  let i = 0;
-  for (let ix = 0; ix < n; ix++) {
-    for (let iz = 0; iz < n; iz++) {
-      const x = -half + ix * cell + cell * 0.5;
-      const z = -half + iz * cell + cell * 0.5;
-      const r = Math.hypot(x, z);
-      dummy.position.set(x, -0.28 + rng() * 0.12, z);
-      dummy.rotation.set(0, rng() * 0.08, 0);
-      dummy.scale.set(1, 0.65 + rng() * 0.55, 1);
-      dummy.updateMatrix();
-      ground.setMatrixAt(i, dummy.matrix);
-      if (r > ARENA_RADIUS - 2) color.setHex(0x0a0c12);
-      else {
-        const reg = regionAt(x, z);
-        color.setHex(reg.soil);
-        const plaza = Math.hypot(x - reg.x, z - reg.z);
-        if (plaza < 9) color.lerp(new THREE.Color(reg.accent), 0.16);
-        // Paths from the court to each region — readable roads, not noise.
-        if (onPath(x, z)) color.setHex(0x2a2620);
-      }
-      ground.setColorAt(i, color);
-      i += 1;
+function grainTexture(track: Track): THREE.CanvasTexture {
+  const size = 64;
+  const c = document.createElement("canvas");
+  c.width = size;
+  c.height = size;
+  const ctx = c.getContext("2d");
+  if (!ctx) {
+    const t = new THREE.CanvasTexture(c);
+    track.tex.push(t);
+    return t;
+  }
+  const img = ctx.createImageData(size, size);
+  const d = img.data;
+  for (let y = 0; y < size; y++) {
+    for (let x = 0; x < size; x++) {
+      const n =
+        (hash2(x, y) + hash2(x + 1, y) + hash2(x, y + 1) + hash2(x + size - 1, y) + hash2(x, y + size - 1)) /
+        5;
+      const v = 168 + Math.floor(n * 70);
+      const i = (y * size + x) * 4;
+      d[i] = v;
+      d[i + 1] = v;
+      d[i + 2] = v;
+      d[i + 3] = 255;
     }
   }
-  ground.instanceMatrix.needsUpdate = true;
-  if (ground.instanceColor) ground.instanceColor.needsUpdate = true;
+  ctx.putImageData(img, 0, 0);
+  const tex = new THREE.CanvasTexture(c);
+  tex.wrapS = THREE.RepeatWrapping;
+  tex.wrapT = THREE.RepeatWrapping;
+  tex.repeat.set(2.4, 2.4);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  track.tex.push(tex);
+  return tex;
+}
+
+function hash2(x: number, y: number): number {
+  const n = Math.sin(x * 127.1 + y * 311.7) * 43758.5453;
+  return n - Math.floor(n);
+}
+
+export function buildGarden(track: Track, rng: () => number): Garden {
+  bakeHeightField();
+  const half = ARENA_RADIUS + 8;
+  const segs = 80;
+  const groundGeo = geo(track, new THREE.PlaneGeometry(half * 2, half * 2, segs, segs));
+  groundGeo.rotateX(-Math.PI / 2);
+  const pos = groundGeo.attributes.position!;
+  const colors = new Float32Array(pos.count * 3);
+  const color = new THREE.Color();
+  const accent = new THREE.Color();
+  for (let i = 0; i < pos.count; i++) {
+    const x = pos.getX(i);
+    const z = pos.getZ(i);
+    pos.setY(i, heightAt(x, z));
+    const r = Math.hypot(x, z);
+    if (r > ARENA_RADIUS - 2) color.setHex(0x0a0c12);
+    else {
+      const use = landUseAt(x, z);
+      color.setHex(LAND_COLOR[use]);
+      const reg = regionAt(x, z);
+      const plaza = Math.hypot(x - reg.x, z - reg.z);
+      if (plaza < 8 && (use === "park" || use === "plaza" || use === "yard")) {
+        color.lerp(accent.setHex(reg.accent), 0.14);
+      }
+    }
+    colors[i * 3] = color.r;
+    colors[i * 3 + 1] = color.g;
+    colors[i * 3 + 2] = color.b;
+  }
+  groundGeo.setAttribute("color", new THREE.BufferAttribute(colors, 3));
+  groundGeo.computeVertexNormals();
+  const grain = grainTexture(track);
+  grain.repeat.set(28, 28);
+  const ground = new THREE.Mesh(
+    groundGeo,
+    mat(
+      track,
+      new THREE.MeshStandardMaterial({
+        vertexColors: true,
+        map: grain,
+        roughness: 0.9,
+        metalness: 0.04,
+      }),
+    ),
+  );
 
   const folGeo = geo(track, new THREE.BoxGeometry(1, 1, 1));
   const folMat = mat(
     track,
-    new THREE.MeshStandardMaterial({
+    new THREE.MeshLambertMaterial({
       color: 0xffffff,
-      roughness: 0.84,
-      metalness: 0.06,
     }),
   );
-  const folCount = 1800;
+  const folCount = 9000;
   const foliage = new THREE.InstancedMesh(folGeo, folMat, folCount);
+  foliage.frustumCulled = true;
   const { writer, apply } = createWriter(folCount);
   for (const id of REGION_ORDER) populateRegion(writer, id, rng);
+  populateDistricts(writer, rng);
+  populateWilds(writer, rng);
   apply(foliage);
+  foliage.computeBoundingSphere();
 
   return { ground, foliage };
-}
-
-function onPath(x: number, z: number): boolean {
-  for (const id of REGION_ORDER) {
-    if (id === "court") continue;
-    const r = REGIONS[id];
-    const dx = r.x;
-    const dz = r.z;
-    const len = Math.hypot(dx, dz) || 1;
-    const t = Math.max(0, Math.min(1, (x * dx + z * dz) / (len * len)));
-    const px = dx * t;
-    const pz = dz * t;
-    if (Math.hypot(x - px, z - pz) < 2.4) return true;
-  }
-  return false;
 }
 
 export type LampRig = {
@@ -600,11 +677,11 @@ export function buildLamp(
     root.add(meshAt(cyl(0.055, 0.06, 2.15, 8), brass, 0, 1.2, 0));
     const shadeMesh = new THREE.Mesh(
       geo(track, new THREE.ConeGeometry(0.82, 0.55, 12, 1, true)),
-      emit(def.color, kind === "nectar-trap" ? 0.85 : 1.2, { side: THREE.DoubleSide }),
+      emit(def.color, kind === "nectar-trap" ? 0.55 : 0.7, { side: THREE.DoubleSide }),
     );
     shadeMesh.position.y = 2.45;
     shadeMesh.rotation.x = Math.PI;
-    if (kind === "nectar-trap") shadeMesh.rotation.z = 0.22;
+    if (kind === "nectar-trap") shadeMesh.rotation.z = 0.38;
     root.add(shadeMesh);
     root.add(meshAt(sph(0.13), emit(0xffe0a8, 1.6), 0, 2.22, 0));
     shade = shadeMesh;
@@ -666,10 +743,10 @@ export function buildLamp(
     const cy = 2.15;
     root.add(meshAt(cyl(0.52, 0.52, 0.08, 12), iron, 0, cy - 0.7, 0));
     root.add(meshAt(cyl(0.52, 0.52, 0.08, 12), iron, 0, cy + 0.7, 0));
-    for (let i = 0; i < 8; i++) {
-      const a = (i / 8) * Math.PI * 2;
-      const bar = new THREE.Mesh(cyl(0.03, 0.03, 1.45, 6), iron);
-      bar.position.set(Math.cos(a) * 0.46, cy, Math.sin(a) * 0.46);
+    for (let i = 0; i < 10; i++) {
+      const a = (i / 10) * Math.PI * 2;
+      const bar = new THREE.Mesh(cyl(0.045, 0.045, 1.55, 6), iron);
+      bar.position.set(Math.cos(a) * 0.48, cy, Math.sin(a) * 0.48);
       root.add(bar);
     }
     const tube = new THREE.Mesh(
@@ -729,8 +806,9 @@ export function buildLamp(
   pool.position.y = 0.03;
   root.add(pool);
 
-  const light = new THREE.PointLight(def.color, def.glow, 34, 1.35);
+  const light = new THREE.PointLight(def.color, def.glow, 18, 1.6);
   light.position.y = lightY;
+  light.visible = false;
   root.add(light);
 
   const glow = new THREE.Sprite(
@@ -745,7 +823,7 @@ export function buildLamp(
       }),
     ),
   );
-  const s = kind === "false-moon" ? 7.2 : kind === "helix" ? 5.6 : kind === "wisp" ? 4.6 : 4.8;
+  const s = kind === "false-moon" ? 3.6 : kind === "helix" ? 2.6 : kind === "wisp" ? 2.4 : 2.2;
   glow.scale.set(s, s, 1);
   glow.position.y = lightY;
   root.add(glow);
@@ -769,6 +847,145 @@ export function buildFriendMoth(track: Track): MothRig {
   const rig = buildMoth(track);
   rig.root.scale.setScalar(0.42);
   return rig;
+}
+
+export type SparkRig = {
+  root: THREE.Group;
+  leftWing: THREE.Object3D;
+  rightWing: THREE.Object3D;
+  abdomen: THREE.Mesh;
+  glow: THREE.Sprite;
+};
+
+/** Cage-yard mite — the things that hunt the wing. Not a lamp, not an orb. */
+export function buildSparkMite(
+  track: Track,
+  glowTex: THREE.Texture,
+  seed = 0,
+  color = 0xb8ff3a,
+): SparkRig {
+  const root = new THREE.Group();
+  const lime = color;
+  const shell = seed % 3 === 1 ? 0x1c2410 : 0x14180c;
+
+  const body = new THREE.Mesh(
+    geo(track, new THREE.BoxGeometry(0.22, 0.16, 0.34)),
+    mat(
+      track,
+      new THREE.MeshStandardMaterial({
+        color: shell,
+        roughness: 0.55,
+        metalness: 0.18,
+        emissive: lime,
+        emissiveIntensity: 0.18,
+      }),
+    ),
+  );
+  root.add(body);
+
+  const head = new THREE.Mesh(
+    geo(track, new THREE.BoxGeometry(0.16, 0.14, 0.16)),
+    mat(
+      track,
+      new THREE.MeshStandardMaterial({ color: 0x1a160c, roughness: 0.6 }),
+    ),
+  );
+  head.position.set(0, 0.02, 0.22);
+  root.add(head);
+
+  for (const x of [-0.06, 0.06]) {
+    const jaw = new THREE.Mesh(
+      geo(track, new THREE.BoxGeometry(0.03, 0.03, 0.12)),
+      mat(track, new THREE.MeshStandardMaterial({ color: 0x3a2810, roughness: 0.5 })),
+    );
+    jaw.position.set(x, -0.02, 0.3);
+    jaw.rotation.y = x > 0 ? -0.35 : 0.35;
+    root.add(jaw);
+  }
+
+  const abdomen = new THREE.Mesh(
+    geo(track, new THREE.BoxGeometry(0.2, 0.18, 0.42)),
+    mat(
+      track,
+      new THREE.MeshStandardMaterial({
+        color: lime,
+        emissive: lime,
+        emissiveIntensity: 1.35,
+        roughness: 0.28,
+        metalness: 0.12,
+      }),
+    ),
+  );
+  abdomen.position.set(0, -0.02, -0.32);
+  root.add(abdomen);
+
+  const band = new THREE.Mesh(
+    geo(track, new THREE.BoxGeometry(0.22, 0.05, 0.08)),
+    mat(
+      track,
+      new THREE.MeshStandardMaterial({
+        color: 0x6a8828,
+        emissive: lime,
+        emissiveIntensity: 0.6,
+      }),
+    ),
+  );
+  band.position.set(0, 0.04, -0.18);
+  root.add(band);
+
+  const wingMat = mat(
+    track,
+    new THREE.MeshStandardMaterial({
+      color: lime,
+      emissive: lime,
+      emissiveIntensity: 0.55,
+      transparent: true,
+      opacity: 0.55,
+      side: THREE.DoubleSide,
+      roughness: 0.35,
+    }),
+  );
+  const wingGeo = geo(track, new THREE.BoxGeometry(0.72, 0.02, 0.38));
+  const leftWing = new THREE.Group();
+  const lw = new THREE.Mesh(wingGeo, wingMat);
+  lw.position.set(0.42, 0.06, -0.04);
+  leftWing.add(lw);
+  const rightWing = new THREE.Group();
+  const rw = new THREE.Mesh(wingGeo, wingMat);
+  rw.position.set(-0.42, 0.06, -0.04);
+  rightWing.add(rw);
+  root.add(leftWing, rightWing);
+
+  const glow = new THREE.Sprite(
+    mat(
+      track,
+      new THREE.SpriteMaterial({
+        map: glowTex,
+        color: lime,
+        transparent: true,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+        opacity: 0.7,
+      }),
+    ),
+  );
+  glow.scale.set(1.6, 1.2, 1);
+  glow.position.set(0, 0, -0.28);
+  root.add(glow);
+  root.scale.setScalar(0.92);
+  return { root, leftWing, rightWing, abdomen, glow };
+}
+
+export function flapSpark(rig: SparkRig, t: number, effort: number, stunned: boolean): void {
+  const amp = stunned ? 0.08 : 0.7 + effort * 0.45;
+  const hz = stunned ? 4 : 22 + effort * 10;
+  const a = Math.sin(t * hz) * amp;
+  rig.leftWing.rotation.z = a;
+  rig.rightWing.rotation.z = -a;
+  const em = stunned ? 0.35 : 0.95 + 0.45 * Math.sin(t * 18);
+  const matAb = rig.abdomen.material as THREE.MeshStandardMaterial;
+  matAb.emissiveIntensity = em;
+  (rig.glow.material as THREE.SpriteMaterial).opacity = stunned ? 0.2 : 0.45 + 0.3 * Math.max(0, Math.sin(t * 14));
 }
 
 export function makeFxRing(
@@ -806,7 +1023,7 @@ export type ParticlePool = {
   tick: (dt: number) => void;
 };
 
-export function buildParticles(track: Track, cap = 720): ParticlePool {
+export function buildParticles(track: Track, cap = 280): ParticlePool {
   const g = geo(track, new THREE.OctahedronGeometry(0.55));
   const m = mat(
     track,
@@ -874,7 +1091,11 @@ export function buildParticles(track: Track, cap = 720): ParticlePool {
       if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
     },
     tick(dt) {
+      let live = 0;
       for (let i = 0; i < cap; i++) {
+        if (lives[i]! <= 0) continue;
+        live += 1;
+        lives[i]! -= dt;
         if (lives[i]! <= 0) {
           dummy.scale.setScalar(0);
           dummy.position.set(0, -40, 0);
@@ -882,7 +1103,6 @@ export function buildParticles(track: Track, cap = 720): ParticlePool {
           mesh.setMatrixAt(i, dummy.matrix);
           continue;
         }
-        lives[i]! -= dt;
         px[i]! += vx[i]! * dt;
         py[i]! += vy[i]! * dt;
         pz[i]! += vz[i]! * dt;
@@ -900,8 +1120,10 @@ export function buildParticles(track: Track, cap = 720): ParticlePool {
         );
         mesh.setColorAt(i, color);
       }
-      mesh.instanceMatrix.needsUpdate = true;
-      if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      if (live > 0) {
+        mesh.instanceMatrix.needsUpdate = true;
+        if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+      }
     },
   };
 }

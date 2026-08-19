@@ -27,7 +27,6 @@ import {
   nightClearScore,
   sipOutcome,
   scatterRegionId,
-  sparkKillScore,
   nextAbility,
   nextUnlock,
   unlockedAbilities,
@@ -35,15 +34,37 @@ import {
   BONUS_NECTAR,
   BONUS_SCORE,
   BONUS_XP,
+  auroraScoreMul,
   bearingDeg,
+  buildingColliders,
   compassLabel,
+  districtLabel,
+  heightAt,
+  indexColliders,
+  lampCollider,
+  nearbyColliders,
+  maxFlyY,
+  minFlyY,
+  miteScore,
+  MITES,
+  composeFauna,
+  pickLampSocket,
   regionAt,
   REGIONS,
+  resolveSphere,
+  supportY,
   type AbilityId,
+  type Collider,
+  type ColliderIndex,
   type ConditionId,
   type LampKind,
+  type MiteHue,
 } from "@/lib/arcade/night-moth";
+import { createAbilityFx, type AbilityFx, type PollenMesh } from "./ability-fx";
 import { createMothAudio, type MothAudio } from "./audio";
+import { buildHabitat, type Habitat } from "./habitat";
+import { createLife, type HudEvent, type LifeWorld } from "./life";
+import { buildWorldExtras } from "./world";
 import {
   buildFriendMoth,
   buildGarden,
@@ -51,18 +72,22 @@ import {
   buildMoth,
   buildParticles,
   buildSky,
+  buildSparkMite,
   createTrack,
   disposeTrack,
   flapMoth,
+  flapSpark,
+  geo,
   glowTexture,
   makeFxRing,
+  mat,
   type LampRig,
   type MothRig,
   type ParticlePool,
   type SkyRig,
+  type SparkRig,
   type Track,
 } from "./voxels";
-import { buildHabitat, type Habitat } from "./habitat";
 
 export type HudCondition = {
   id: ConditionId;
@@ -91,6 +116,7 @@ export type HudLamp = {
   safe: boolean | null;
   range: number;
   canSip: boolean;
+  shape: string;
 };
 
 export type HudBlip = {
@@ -100,6 +126,7 @@ export type HudBlip = {
   safe: boolean | null;
   drunk: boolean;
   lure: boolean;
+  tone?: "lamp" | "mite" | "beetle" | "boss" | "bloom" | "web";
 };
 
 export type EngineMode = "boot" | "title" | "playing" | "paused" | "dead";
@@ -128,11 +155,18 @@ export type EngineSnapshot = {
   pointerLocked: boolean;
   region: string;
   heading: string;
+  headingDeg: number;
+  posX: number;
+  posZ: number;
   objective: string;
   trueLeft: number;
   pipDeg: number | null;
   pipDist: number | null;
   blips: HudBlip[];
+  event: HudEvent;
+  webProgress: number;
+  aurora: number;
+  hasFired: boolean;
 };
 
 export type RunResult = {
@@ -191,14 +225,19 @@ type SparkEnt = {
   pos: THREE.Vector3;
   vel: THREE.Vector3;
   hp: number;
-  mesh: THREE.Mesh;
+  rig: SparkRig;
+  stun: number;
+  phase: number;
+  hue: MiteHue;
 };
 
 type CloudEnt = {
   pos: THREE.Vector3;
   radius: number;
   life: number;
+  maxLife: number;
   damage: number;
+  fx: PollenMesh;
 };
 
 type DustBolt = {
@@ -241,6 +280,17 @@ export class NightMothEngine {
   private glowTex: THREE.Texture;
   private sky: SkyRig;
   private habitat: Habitat;
+  private life: LifeWorld;
+  private colliders: Collider[];
+  private colliderIndex: ColliderIndex;
+  private abilityFx: AbilityFx;
+  private tmp3 = new THREE.Vector3();
+  private up = new THREE.Vector3(0, 1, 0);
+  private nearbyScratch: Collider[] = [];
+  private exposure = 1.42;
+  private camKick = 0;
+  private veiledFx = false;
+  private chitinFx = false;
   private visorLight: THREE.SpotLight;
   private visorTarget: THREE.Object3D;
   private particles: ParticlePool;
@@ -252,8 +302,6 @@ export class NightMothEngine {
   private bolts: DustBolt[] = [];
   private friends: FriendEnt[] = [];
   private rings: FxRing[] = [];
-  private sparkGeo: THREE.BufferGeometry;
-  private sparkMat: THREE.MeshBasicMaterial;
   private dustGeo: THREE.BoxGeometry;
   private dustMat: THREE.MeshBasicMaterial;
   private dustTipMat: THREE.SpriteMaterial;
@@ -303,6 +351,8 @@ export class NightMothEngine {
   private disposed = false;
   private lampSeq = 1;
   private rng = mulberry32(0x51a7);
+  private hasFired = false;
+  private mothShadow: THREE.Mesh | null = null;
 
   constructor(mount: HTMLElement, hooks: EngineHooks) {
     this.mountEl = mount;
@@ -319,15 +369,17 @@ export class NightMothEngine {
     this.camera = new THREE.PerspectiveCamera(64, w / h, 0.15, 1800);
     this.camera.position.set(0, 6, 16);
 
+    const dpr = Math.min(window.devicePixelRatio || 1, 1.25);
     this.renderer = new THREE.WebGLRenderer({
-      antialias: true,
+      antialias: dpr < 1.15,
       alpha: false,
       powerPreference: "high-performance",
     });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, 1.75));
+    this.renderer.setPixelRatio(dpr);
     this.renderer.setSize(w, h, false);
     this.renderer.toneMapping = THREE.ACESFilmicToneMapping;
-    this.renderer.toneMappingExposure = 1.42;
+    this.renderer.toneMappingExposure = 1.2;
+    this.exposure = 1.2;
     this.renderer.outputColorSpace = THREE.SRGBColorSpace;
     mount.appendChild(this.renderer.domElement);
     this.renderer.domElement.tabIndex = 0;
@@ -337,12 +389,12 @@ export class NightMothEngine {
     this.renderer.domElement.style.outline = "none";
     this.renderer.domElement.style.cursor = "crosshair";
 
-    const hemi = new THREE.HemisphereLight(0x6a88b8, 0x1a1410, 0.72);
+    const hemi = new THREE.HemisphereLight(0x9ab0d0, 0x2a2218, 1.08);
     this.scene.add(hemi);
-    const moonKey = new THREE.DirectionalLight(0xc8d4e8, 0.55);
-    moonKey.position.set(-40, 50, -20);
+    const moonKey = new THREE.DirectionalLight(0xd8e0ee, 1.45);
+    moonKey.position.set(-92, 78, -168);
     this.scene.add(moonKey);
-    this.scene.add(new THREE.AmbientLight(0x3a4860, 0.42));
+    this.scene.add(new THREE.AmbientLight(0x3a4860, 0.28));
 
     this.glowTex = glowTexture(this.track);
     this.sky = buildSky(this.track, this.glowTex);
@@ -352,9 +404,26 @@ export class NightMothEngine {
     this.scene.add(garden.foliage);
     this.habitat = buildHabitat(this.track, this.glowTex);
     this.scene.add(this.habitat.group);
+    this.scene.add(buildWorldExtras(this.track));
+    this.colliders = buildingColliders();
+    this.colliderIndex = indexColliders(this.colliders);
+    this.life = createLife(this.scene, this.track, this.glowTex);
 
     this.moth = buildMoth(this.track);
     this.scene.add(this.moth.root);
+    const shadowGeo = geo(this.track, new THREE.CircleGeometry(0.55, 16));
+    const shadowMat = mat(
+      this.track,
+      new THREE.MeshBasicMaterial({
+        color: 0x000000,
+        transparent: true,
+        opacity: 0.32,
+        depthWrite: false,
+      }),
+    );
+    this.mothShadow = new THREE.Mesh(shadowGeo, shadowMat);
+    this.mothShadow.rotation.x = -Math.PI / 2;
+    this.scene.add(this.mothShadow);
 
     this.visorTarget = new THREE.Object3D();
     this.scene.add(this.visorTarget);
@@ -365,15 +434,11 @@ export class NightMothEngine {
 
     this.particles = buildParticles(this.track);
     this.scene.add(this.particles.mesh);
+    this.abilityFx = createAbilityFx(this.track, this.scene, this.glowTex, this.particles);
 
-    this.sparkGeo = new THREE.SphereGeometry(0.22, 8, 6);
-    this.sparkMat = new THREE.MeshBasicMaterial({
-      color: 0xb8ff6a,
-      toneMapped: false,
-    });
     this.dustGeo = new THREE.BoxGeometry(0.16, 0.16, 0.16);
     this.dustMat = new THREE.MeshBasicMaterial({
-      color: 0xe8b86a,
+      color: 0xb87838,
       toneMapped: false,
     });
     this.dustTipMat = new THREE.SpriteMaterial({
@@ -384,8 +449,8 @@ export class NightMothEngine {
       depthWrite: false,
       opacity: 0.95,
     });
-    this.track.geos.push(this.sparkGeo, this.dustGeo);
-    this.track.mats.push(this.sparkMat, this.dustMat, this.dustTipMat);
+    this.track.geos.push(this.dustGeo);
+    this.track.mats.push(this.dustMat, this.dustTipMat);
 
     this.audio = createMothAudio();
 
@@ -420,6 +485,7 @@ export class NightMothEngine {
     this.pitch = -0.06;
     this.invuln = 1;
     this.nightClosing = 0;
+    this.hasFired = false;
     this.mode = "playing";
     this.say(
       opts.tutorial
@@ -455,6 +521,21 @@ export class NightMothEngine {
   togglePause(): void {
     if (this.mode === "playing") this.pause();
     else if (this.mode === "paused") this.resume();
+  }
+
+  setExposure(n: number): void {
+    const v = Math.max(0.7, Math.min(2.2, n));
+    this.exposure = v;
+    this.renderer.toneMappingExposure = v;
+  }
+
+  setGameVolume(n: number): void {
+    this.audio.setVolume(Math.max(0, Math.min(1, n)));
+  }
+
+  captureFrame(): string {
+    this.renderer.render(this.scene, this.camera);
+    return this.renderer.domElement.toDataURL("image/jpeg", 0.88);
   }
 
   toTitle(): void {
@@ -682,6 +763,10 @@ export class NightMothEngine {
     if (k === " " || k === "e") e.preventDefault();
 
     if (k === "e" || k === "r") this.trySip(false);
+    if (k === " " && this.has("webbed")) {
+      e.preventDefault();
+      this.life.mashWeb();
+    }
     if (k === "shift") this.dash();
     if (k === "f") this.fire(this.selected);
     if (e.key === "Tab" || k === "tab") {
@@ -721,10 +806,12 @@ export class NightMothEngine {
   private tick(dt: number): void {
     this.titleT += dt;
     this.particles.tick(dt);
+    this.abilityFx.tick(dt, this.pos, this.look, this.moth.root);
     this.sky.tick(this.titleT + this.timeMs / 1000);
     this.habitat.tick(this.titleT + this.timeMs / 1000, dt);
     this.tickMeteors(dt);
     this.animateLamps(dt);
+    this.tickLampLights();
     this.tickRelocate(dt);
     this.tickBonuses();
 
@@ -747,6 +834,7 @@ export class NightMothEngine {
     this.tickCds(dt);
     this.tickFlight(dt);
     this.tickSparks(dt);
+    this.tickLife(dt);
     this.tickBolts(dt);
     this.tickFriends(dt);
     this.tickRings(dt);
@@ -795,6 +883,13 @@ export class NightMothEngine {
     const dazed = this.has("dazed") ? 0.62 : 1;
     const accel = 36 * glow * pollen * dazed;
 
+    if (this.has("webbed")) {
+      this.vel.multiplyScalar(Math.exp(-6 * dt));
+      this.orientMoth();
+      this.aimVisor();
+      return;
+    }
+
     const thrusting = this.keys.has("w") || this.keys.has("arrowup");
     const braking = this.keys.has("s") || this.keys.has("arrowdown");
     if (thrusting) {
@@ -811,9 +906,12 @@ export class NightMothEngine {
     }
     if (this.keys.has(" ")) this.vel.y += 18 * dt;
 
-    // Hover: moths do not fall out of the night unless you dive.
+    const solids = this.gatherSolids(this.pos.x, this.pos.z);
+    const perch = this.perchFrom(this.pos.x, this.pos.y, this.pos.z, solids);
+    const onRoof = perch > minFlyY(this.pos.x, this.pos.z) + 0.8;
+    const hover = perch + (onRoof ? 0.85 : 2.8);
     if (!thrusting && Math.abs(this.pitch) < 0.12) {
-      this.vel.y += (4.4 - this.pos.y) * 1.6 * dt;
+      this.vel.y += (hover - this.pos.y) * 1.6 * dt;
     } else if (!thrusting) {
       this.vel.y -= 3.2 * dt;
     }
@@ -832,6 +930,23 @@ export class NightMothEngine {
 
     this.pos.addScaledVector(this.vel, dt);
 
+    const near = this.gatherSolids(this.pos.x, this.pos.z);
+    const resolved = resolveSphere(
+      this.pos.x,
+      this.pos.y,
+      this.pos.z,
+      this.vel.x,
+      this.vel.y,
+      this.vel.z,
+      0.55,
+      near,
+    );
+    this.pos.set(resolved.x, resolved.y, resolved.z);
+    this.vel.set(resolved.vx, resolved.vy, resolved.vz);
+    if (resolved.hit && resolved.kind === "solid" && this.vel.length() > 8) {
+      this.say("Brick. The wing turns.");
+    }
+
     const r = Math.hypot(this.pos.x, this.pos.z);
     if (r > ARENA_RADIUS) {
       const k = ARENA_RADIUS / r;
@@ -839,9 +954,17 @@ export class NightMothEngine {
       this.pos.z *= k;
       this.vel.x *= -0.25;
       this.vel.z *= -0.25;
-      this.say("The grounds end. Turn back.");
     }
-    this.pos.y = Math.max(1.35, Math.min(28, this.pos.y));
+    const floor = this.perchFrom(this.pos.x, this.pos.y, this.pos.z, near);
+    const ceil = maxFlyY(this.pos.x, this.pos.z);
+    if (this.pos.y < floor) {
+      this.pos.y = floor;
+      this.vel.y = Math.max(0, this.vel.y);
+    }
+    if (this.pos.y > ceil) {
+      this.pos.y = ceil;
+      this.vel.y = Math.min(0, this.vel.y);
+    }
 
     this.stamina = Math.min(MAX_STAMINA, this.stamina + 17 * dt);
     if (this.has("heavy-pollen")) this.hp = Math.min(MAX_HP, this.hp + 3.2 * dt);
@@ -850,16 +973,66 @@ export class NightMothEngine {
     this.orientMoth();
     this.aimVisor();
 
-    const camOff = this.tmp
-      .copy(this.look)
-      .multiplyScalar(-8.2)
-      .add(new THREE.Vector3(0, 2.15, 0));
-    const desired = this.tmp2.copy(this.pos).add(camOff);
-    this.camera.position.lerp(desired, 1 - Math.exp(-6.2 * dt));
+    this.camKick = Math.max(0, this.camKick - dt * 4.5);
+    this.placeCamera(dt);
+    if (this.mothShadow) {
+      this.mothShadow.position.set(this.pos.x, floor - 0.5, this.pos.z);
+    }
+  }
+
+  private gatherSolids(x: number, z: number): Collider[] {
+    const near = nearbyColliders(this.colliderIndex, x, z, 14, this.nearbyScratch);
+    for (const l of this.lamps) {
+      if (l.collapse > 0) continue;
+      near.push(lampCollider(l.pos.x, l.pos.z, heightAt(l.pos.x, l.pos.z)));
+    }
+    return near;
+  }
+
+  private perchFrom(x: number, y: number, z: number, boxes: readonly Collider[]): number {
+    const dirt = minFlyY(x, z);
+    const roof = supportY(x, y, z, 0.55, boxes);
+    return roof != null ? Math.max(dirt, roof + 0.55) : dirt;
+  }
+
+  private placeCamera(dt: number): void {
+    const want = 6.2;
+    this.tmp.copy(this.look).multiplyScalar(-want);
+    this.tmp.y += 1.85;
+    if (this.camKick > 0) {
+      this.tmp.x += (Math.random() - 0.5) * this.camKick * 0.55;
+      this.tmp.y += (Math.random() - 0.5) * this.camKick * 0.35;
+      this.tmp.z += (Math.random() - 0.5) * this.camKick * 0.55;
+    }
+    const dest = this.tmp2.copy(this.pos).add(this.tmp);
+    const fromX = this.pos.x;
+    const fromY = this.pos.y + 0.55;
+    const fromZ = this.pos.z;
+    const dx = dest.x - fromX;
+    const dy = dest.y - fromY;
+    const dz = dest.z - fromZ;
+    let goodX = fromX + dx * 0.35;
+    let goodY = fromY + dy * 0.35;
+    let goodZ = fromZ + dz * 0.35;
+    const boxes = this.nearbyScratch;
+    for (let i = 8; i >= 3; i--) {
+      const t = i / 8;
+      const px = fromX + dx * t;
+      const py = fromY + dy * t;
+      const pz = fromZ + dz * t;
+      const hit = resolveSphere(px, py, pz, 0, 0, 0, 0.42, boxes);
+      if (!hit.hit) {
+        goodX = px;
+        goodY = py;
+        goodZ = pz;
+        break;
+      }
+    }
+    this.camera.position.lerp(this.tmp3.set(goodX, goodY, goodZ), 1 - Math.exp(-6.8 * dt));
     this.camera.lookAt(
-      this.pos.x + this.look.x * 3.2,
-      this.pos.y + 0.25 + this.look.y * 3.2,
-      this.pos.z + this.look.z * 3.2,
+      this.pos.x + this.look.x * 2.4,
+      this.pos.y + 0.2 + this.look.y * 2.4,
+      this.pos.z + this.look.z * 2.4,
     );
   }
 
@@ -918,15 +1091,25 @@ export class NightMothEngine {
   }
 
   private tickConditions(dt: number): void {
-    for (const [id, t] of [...this.conditions.entries()]) {
+    for (const [id, t] of this.conditions) {
       const next = t - dt;
       if (next <= 0) this.conditions.delete(id);
       else this.conditions.set(id, next);
     }
+    const veiled = this.has("veiled");
+    if (veiled !== this.veiledFx) {
+      this.veiledFx = veiled;
+      this.abilityFx.veil(this.moth.root, veiled);
+    }
+    const chitin = this.has("chitin");
+    if (chitin !== this.chitinFx) {
+      this.chitinFx = chitin;
+      this.abilityFx.chitin(this.moth.root, chitin);
+    }
   }
 
   private tickCds(dt: number): void {
-    for (const [id, t] of [...this.cds.entries()]) {
+    for (const [id, t] of this.cds) {
       const next = t - dt;
       if (next <= 0) this.cds.delete(id);
       else this.cds.set(id, next);
@@ -934,30 +1117,66 @@ export class NightMothEngine {
   }
 
   private tickSparks(dt: number): void {
+    const t = this.timeMs / 1000;
     for (const s of this.sparks) {
-      if (this.has("veiled")) {
+      s.stun = Math.max(0, s.stun - dt);
+      if (s.stun > 0) {
+        s.vel.multiplyScalar(Math.exp(-4 * dt));
+      } else if (this.has("veiled")) {
         s.vel.multiplyScalar(Math.exp(-1.2 * dt));
       } else {
+        const def = MITES[s.hue];
         this.tmp.copy(this.pos).sub(s.pos);
         const d = this.tmp.length() || 1;
-        this.tmp.multiplyScalar((4.2 / d) * dt);
+        if (def.gait === "orbit") {
+          this.tmp.cross(this.up).normalize().multiplyScalar(def.accel * dt);
+          this.tmp2.copy(this.pos).sub(s.pos).multiplyScalar((0.8 / d) * dt);
+          this.tmp.add(this.tmp2);
+        } else if (def.gait === "pack") {
+          this.tmp.multiplyScalar((def.accel / d) * dt);
+          for (const o of this.sparks) {
+            if (o === s || o.hue !== "purple") continue;
+            this.tmp2.copy(o.pos).sub(s.pos).multiplyScalar(0.35 * dt);
+            this.tmp.add(this.tmp2);
+            break;
+          }
+        } else {
+          this.tmp.multiplyScalar((def.accel / d) * dt);
+        }
         s.vel.add(this.tmp);
       }
       s.vel.multiplyScalar(Math.exp(-0.8 * dt));
       s.pos.addScaledVector(s.vel, dt);
-      s.pos.y = Math.max(1.2, s.pos.y);
-      s.mesh.position.copy(s.pos);
-      s.mesh.rotation.y += dt * 4;
+      s.pos.y = Math.max(minFlyY(s.pos.x, s.pos.z), s.pos.y);
+      s.rig.root.position.copy(s.pos);
+      const spd = Math.hypot(s.vel.x, s.vel.z);
+      if (spd > 0.08) {
+        s.rig.root.rotation.y = Math.atan2(s.vel.x, s.vel.z);
+      }
+      s.rig.root.rotation.x = Math.max(-0.35, Math.min(0.35, s.vel.y * 0.08));
+      const effort = s.stun > 0 ? 0.1 : Math.min(1, 0.45 + spd * 0.12);
+      flapSpark(s.rig, t + s.phase, effort, s.stun > 0);
+      if (s.stun <= 0 && Math.random() < dt * 3) {
+        this.tmp3.set(
+          s.pos.x + (Math.random() - 0.5) * 0.3,
+          s.pos.y + 0.05,
+          s.pos.z + (Math.random() - 0.5) * 0.3,
+        );
+        this.tmp2.set((Math.random() - 0.5) * 1.2, 0.4, (Math.random() - 0.5) * 1.2);
+        this.particles.spawn(this.tmp3, MITES[s.hue].color, this.tmp2, 0.22, 0.06);
+      }
       if (s.pos.distanceTo(this.pos) < 1.05 && this.invuln <= 0) {
-        this.hurt(9, "A spark finds the wing.");
+        this.hurt(MITES[s.hue].contact, `${MITES[s.hue].name} finds the wing.`);
         this.apply("dazed", 1.2);
       }
     }
   }
 
   private tickClouds(dt: number): void {
+    const keep: CloudEnt[] = [];
     for (const c of this.clouds) {
       c.life -= dt;
+      this.abilityFx.tickPollen(c.fx, c.life, c.maxLife, c.pos, dt);
       for (const s of this.sparks) {
         if (s.pos.distanceTo(c.pos) < c.radius) s.hp -= c.damage * dt;
       }
@@ -965,10 +1184,12 @@ export class NightMothEngine {
         if (!isLure(l.kind) || l.drunk) continue;
         if (l.pos.distanceTo(c.pos) < c.radius + 0.6) l.hp -= c.damage * dt;
       }
+      if (c.life > 0) keep.push(c);
+      else this.abilityFx.dropPollen(c.fx);
     }
     this.reapSparks();
     this.reapLamps();
-    this.clouds = this.clouds.filter((c) => c.life > 0);
+    this.clouds = keep;
   }
 
   private tickLureContact(dt: number): void {
@@ -999,7 +1220,7 @@ export class NightMothEngine {
     if (this.lamps.length && trues.length === 0 && this.nightClosing <= 0) {
       this.nightClosing = 2.2;
       const bonus = nightClearScore(Math.max(1, this.night));
-      this.score += bonus;
+      this.grantScore(bonus);
       this.say(`Night ${this.night} folds. The next lamps wake.`);
       this.audio.night();
       this.hp = Math.min(MAX_HP, this.hp + 18);
@@ -1042,22 +1263,38 @@ export class NightMothEngine {
   }
 
   private trySip(fromSiphon: boolean): void {
+    if (!fromSiphon) {
+      const bloom = this.life.pollinate(this.pos);
+      if (bloom) {
+        this.nectar += bloom.nectar;
+        this.grantScore(bloom.score);
+        this.runXp += bloom.xp;
+        if (bloom.moonlit > 0) this.apply("moonlit", bloom.moonlit);
+        this.apply("nectar-glow", 6);
+        this.say(`${bloom.name} takes the dust. The night pays.`);
+        this.burst(this.pos, 0xf4f0e0, 14, 0.5);
+        this.emit();
+        return;
+      }
+    }
     const range = fromSiphon ? SIPHON_RANGE : SIP_RANGE;
     const lamp = this.nearestLamp(range);
     if (!lamp || lamp.drunk) return;
+    if (this.pos.distanceTo(lamp.pos) < 1.1) return;
     if (lamp.inert > 0 && isLure(lamp.kind)) {
       this.say("Inert. The light is only furniture now.");
       return;
     }
     const out = sipOutcome(lamp.kind, Math.max(1, this.night), Math.max(1, this.combo));
     this.audio.sip(isTrueLamp(lamp.kind));
+    if (fromSiphon) this.abilityFx.siphon(this.pos, lamp.pos);
     if (isTrueLamp(lamp.kind)) {
       lamp.drunk = true;
       lamp.sipFlash = 1;
       lamp.rig.light.intensity = 0.15;
       this.hp = Math.min(MAX_HP, this.hp + out.hp);
       this.nectar = Math.max(0, this.nectar + out.nectar);
-      this.score += out.score;
+      this.grantScore(out.score);
       this.runXp += out.xp;
       this.combo = applyCombo(this.combo, "true-sip");
       for (const c of out.conditions) this.apply(c.id);
@@ -1086,6 +1323,7 @@ export class NightMothEngine {
     this.stamina -= def.stamina;
     this.cds.set(id, def.cooldown);
     this.selected = id;
+    this.hasFired = true;
     this.audio.strike();
 
     const charged = this.has("charged");
@@ -1098,11 +1336,15 @@ export class NightMothEngine {
         break;
       case "wing-cleave":
         this.sphereHit(this.pos.clone().addScaledVector(this.look, 2.1), 2.6, dmg);
-        this.spray(0xd8c9a8, 10);
+        this.abilityFx.cleave(this.pos, this.look);
         break;
       case "pheromone-read":
         this.apply("moonlit", 8);
         for (const l of this.lamps) l.known = true;
+        this.abilityFx.pheromone(
+          this.pos,
+          this.lamps.filter((l) => !l.drunk).map((l) => l.pos),
+        );
         this.say("The air tells on every lamp.");
         break;
       case "lunar-veil":
@@ -1116,13 +1358,17 @@ export class NightMothEngine {
       case "sonic-pulse":
         this.sphereHit(this.pos.clone(), 8.2, dmg);
         this.conditions.delete("drawn");
-        this.burst(this.pos, 0xa8c4e8, 28, 1.2);
+        this.abilityFx.pulse(this.pos);
+        this.camKick = 0.22;
+        for (const s of this.sparks) {
+          if (s.pos.distanceTo(this.pos) < 8.2) s.stun = 0.45;
+        }
         break;
       case "ashen-dive": {
         this.vel.addScaledVector(this.look, 18);
         this.lineHit(this.pos, this.look, 15, 1.3, dmg);
         this.hurt(7, "Recoil along the thorax.");
-        this.spray(0xff6a3a, 20);
+        this.abilityFx.dive(this.pos, this.look);
         break;
       }
       case "night-chitin":
@@ -1131,8 +1377,9 @@ export class NightMothEngine {
         break;
       case "pollen-bomb": {
         const at = this.pos.clone().addScaledVector(this.look, 5);
-        this.clouds.push({ pos: at, radius: 4.2, life: 5.5, damage: dmg });
-        this.burst(at, 0xd4b46a, 22, 1);
+        const fx = this.abilityFx.pollen(at, 4.2);
+        this.clouds.push({ pos: at, radius: 4.2, life: 5.5, maxLife: 5.5, damage: dmg, fx });
+        this.burst(at, 0xd4b46a, 18, 0.8);
         break;
       }
       case "helix-spiral": {
@@ -1159,7 +1406,7 @@ export class NightMothEngine {
             ? `Spiral through ${threaded}. The lures forget themselves.`
             : "A helix with nothing to thread.",
         );
-        this.burst(this.pos, 0x6ee7d0, 36, 1.4);
+        this.abilityFx.helix(this.pos, this.look);
         break;
       }
     }
@@ -1168,8 +1415,8 @@ export class NightMothEngine {
 
   private launchDust(dmg: number): void {
     const muzzle = this.pos.clone().addScaledVector(this.look, 1.35);
-    this.burst(muzzle, 0xffd080, 18, 0.28);
-    this.spray(0xe8b86a, 10);
+    this.burst(muzzle, 0xc47a3a, 8, 0.18);
+    this.spray(0x8a5a28, 6);
     // One tight bolt down the reticle, two flanking motes so the swarm is readable.
     const spreads = [
       new THREE.Vector3(0, 0, 0),
@@ -1183,7 +1430,7 @@ export class NightMothEngine {
       dir.y += spreads[i]!.y;
       dir.normalize();
       const group = new THREE.Group();
-      for (let m = 0; m < 7; m++) {
+      for (let m = 0; m < 4; m++) {
         const mote = new THREE.Mesh(this.dustGeo, this.dustMat);
         mote.position.set(
           (Math.random() - 0.5) * 0.55,
@@ -1255,6 +1502,7 @@ export class NightMothEngine {
           hit = true;
         }
       }
+      if (this.life.applyRadius(b.pos, b.radius, b.dmg)) hit = true;
       if (hit || b.life <= 0 || b.pos.y < 0.4) {
         if (hit) this.fxHit(b.pos, 0xffc060);
         else this.burst(b.pos, 0xc4a05a, 10, 0.3);
@@ -1286,6 +1534,7 @@ export class NightMothEngine {
       if (d > range || d < 0.01) continue;
       if (this.tmp.normalize().dot(this.look) >= cosMin) l.hp -= dmg;
     }
+    this.life.applyCone(this.pos, this.look, range, cosMin, dmg);
     this.reapSparks();
     this.reapLamps();
   }
@@ -1301,6 +1550,7 @@ export class NightMothEngine {
       if (!isLure(l.kind) || l.drunk) continue;
       if (l.pos.distanceTo(at) <= radius + 0.8) l.hp -= dmg;
     }
+    this.life.applyRadius(at, radius, dmg);
     this.reapSparks();
     this.reapLamps();
   }
@@ -1323,6 +1573,7 @@ export class NightMothEngine {
         l.hp -= dmg;
       }
     }
+    this.life.applyRay(origin, dir, len, radius, dmg);
     this.reapSparks();
     this.reapLamps();
   }
@@ -1334,10 +1585,10 @@ export class NightMothEngine {
         keep.push(s);
         continue;
       }
-      this.scene.remove(s.mesh);
-      this.score += sparkKillScore(Math.max(1, this.night), Math.max(1, this.combo));
+      this.scene.remove(s.rig.root);
+      this.grantScore(miteScore(s.hue, Math.max(1, this.night), Math.max(1, this.combo)));
       this.combo = applyCombo(this.combo, "spark");
-      this.fxDeath(s.pos, 0xb8ff6a, "spark");
+      this.fxDeath(s.pos, MITES[s.hue].color, "spark");
     }
     this.sparks = keep;
   }
@@ -1362,10 +1613,50 @@ export class NightMothEngine {
     }
   }
 
+  private grantScore(n: number): void {
+    this.score += Math.round(n * auroraScoreMul(this.life.aurora() > 0.25));
+  }
+
+  private tickLife(dt: number): void {
+    this.life.tick(dt, {
+      pos: this.pos,
+      vel: this.vel,
+      look: this.look,
+      night: Math.max(1, this.night),
+      t: this.timeMs / 1000,
+      veiled: this.has("veiled"),
+      invuln: this.invuln,
+      rng: () => this.rng(),
+      particles: this.particles,
+      hurt: (n, msg) => this.hurt(n, msg),
+      apply: (id, dur) => this.apply(id, dur),
+      say: (msg) => this.say(msg),
+      addScore: (n) => this.grantScore(n),
+      addXp: (n) => {
+        this.runXp += n;
+      },
+      addNectar: (n) => {
+        this.nectar = Math.max(0, this.nectar + n);
+      },
+      combo: (e) => {
+        this.combo = applyCombo(this.combo, e);
+      },
+      mash: false,
+    });
+    this.sky.setAurora(this.life.aurora());
+    const extra = this.life.takeMiteSwarm();
+    for (let i = 0; i < extra; i++) {
+      const hue: MiteHue = i % 3 === 0 ? "purple" : i % 2 === 0 ? "blue" : "green";
+      this.spawnSpark(hue, this.pos.x, this.pos.z);
+    }
+  }
+
   private hurt(amount: number, msg: string): void {
     if (amount <= 0) return;
     if (this.has("chitin")) {
       this.conditions.delete("chitin");
+      this.chitinFx = false;
+      this.abilityFx.chitin(this.moth.root, false);
       this.say("The shell takes it.");
       this.invuln = 0.4;
       return;
@@ -1437,15 +1728,43 @@ export class NightMothEngine {
     if (!l) return null;
     const known = l.known || this.has("moonlit") || this.tutorial;
     const d = this.pos.distanceTo(l.pos);
+    const def = LAMPS[l.kind];
     return {
-      name: known ? LAMPS[l.kind].name : "Uncertain light",
+      name: known ? def.name : def.shape,
       kind: known ? l.kind : "unknown",
-      tell: known ? LAMPS[l.kind].tell : "Watch the pulse. Color lies. Motion does not.",
+      tell: known ? def.tell : "",
       known,
       safe: known ? isTrueLamp(l.kind) : null,
       range: d,
-      canSip: d <= SIP_RANGE && !l.drunk,
+      canSip: d <= SIP_RANGE && d >= 1.1 && !l.drunk,
+      shape: def.shape,
     };
+  }
+
+  private tickLampLights(): void {
+    const budget = 4;
+    for (const l of this.lamps) l.rig.light.visible = false;
+    const live = this.lamps.filter((l) => !l.drunk && l.collapse <= 0);
+    if (live.length === 0) return;
+    const look = this.nearestLamp(INSPECT_RANGE);
+    if (look && !look.drunk && look.collapse <= 0) look.rig.light.visible = true;
+    let on = look && look.rig.light.visible ? 1 : 0;
+    while (on < budget) {
+      let best = -1;
+      let bestD = Infinity;
+      for (let i = 0; i < live.length; i++) {
+        const l = live[i]!;
+        if (l.rig.light.visible) continue;
+        const d = this.pos.distanceToSquared(l.pos);
+        if (d < bestD) {
+          bestD = d;
+          best = i;
+        }
+      }
+      if (best < 0) break;
+      live[best]!.rig.light.visible = true;
+      on += 1;
+    }
   }
 
   private animateLamps(dt: number): void {
@@ -1456,11 +1775,18 @@ export class NightMothEngine {
       const wobble = def.irregular ? Math.sin(t * 7.3 + l.id) * 0.35 : 0;
       const pulse = 0.62 + 0.38 * Math.sin(t * def.pulseHz * Math.PI * 2 + l.id + wobble);
       const dim = l.drunk || l.inert > 0 ? 0.12 : 1;
-      l.rig.light.intensity = def.glow * pulse * dim;
-      const flash = l.sipFlash > 0 ? 1 + l.sipFlash * 1.6 : 1;
+      l.rig.light.intensity = def.glow * (0.32 + 0.42 * pulse) * dim;
+      const flash = l.sipFlash > 0 ? 1 + l.sipFlash * 0.8 : 1;
       if (l.sipFlash > 0) l.sipFlash = Math.max(0, l.sipFlash - dt * 1.8);
-      const s = l.rig.glowBase * (0.72 + pulse * 0.38) * Math.max(0.18, dim) * flash;
+      const s = l.rig.glowBase * (0.42 + pulse * 0.22) * Math.max(0.18, dim) * flash;
       l.rig.glow.scale.set(s, s, 1);
+      const shade = l.rig.shade;
+      if (shade && "material" in shade) {
+        const sm = (shade as THREE.Mesh).material as THREE.MeshStandardMaterial;
+        if (sm && sm.emissiveIntensity !== undefined) {
+          sm.emissiveIntensity = (0.45 + pulse * 0.55) * dim;
+        }
+      }
       for (let p = 0; p < l.rig.petals.length; p++) {
         const pet = l.rig.petals[p]!;
         const a = t * (l.kind === "wisp" ? 1.6 : 0.7) + p * 1.2 + l.id;
@@ -1475,23 +1801,15 @@ export class NightMothEngine {
         l.rig.root.scale.setScalar(k);
         if (l.collapse > 0.55) l.rig.root.visible = false;
       }
-      if (l.kind === "furnace" && !l.drunk && Math.random() < dt * 6) {
-        this.particles.spawn(
-          l.pos.clone().setY(l.pos.y + 2.6),
-          0xff5a28,
-          new THREE.Vector3((Math.random() - 0.5) * 0.4, 1.8, (Math.random() - 0.5) * 0.4),
-          0.7,
-          0.1,
-        );
+      if (l.kind === "furnace" && !l.drunk && Math.random() < dt * 2.2) {
+        this.tmp3.set(l.pos.x, l.pos.y + 2.6, l.pos.z);
+        this.tmp2.set((Math.random() - 0.5) * 0.4, 1.8, (Math.random() - 0.5) * 0.4);
+        this.particles.spawn(this.tmp3, 0xff5a28, this.tmp2, 0.7, 0.1);
       }
-      if (l.kind === "zapper" && !l.drunk && Math.random() < dt * 10) {
-        this.particles.spawn(
-          l.pos.clone().setY(l.pos.y + 2.5),
-          0x88ff44,
-          new THREE.Vector3((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2),
-          0.25,
-          0.08,
-        );
+      if (l.kind === "zapper" && !l.drunk && Math.random() < dt * 3) {
+        this.tmp3.set(l.pos.x, l.pos.y + 2.5, l.pos.z);
+        this.tmp2.set((Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2, (Math.random() - 0.5) * 2);
+        this.particles.spawn(this.tmp3, 0x88ff44, this.tmp2, 0.25, 0.08);
       }
     }
   }
@@ -1622,7 +1940,7 @@ export class NightMothEngine {
       if (this.pos.distanceTo(b.mesh.position) > 1.8) continue;
       b.taken = true;
       b.mesh.visible = false;
-      this.score += BONUS_SCORE * Math.max(1, this.night);
+      this.grantScore(BONUS_SCORE * Math.max(1, this.night));
       this.nectar += BONUS_NECTAR;
       this.runXp += BONUS_XP;
       this.hp = Math.min(MAX_HP, this.hp + 10);
@@ -1724,24 +2042,23 @@ export class NightMothEngine {
       used.push(p);
       this.placeLamp(kind, p);
     }
-    for (let i = 0; i < mix.sparks; i++) {
-      this.spawnSpark();
+    const fauna = composeFauna(night, () => this.rng());
+    for (let i = 0; i < fauna.mites.length; i++) {
+      const hue = fauna.mites[i]!;
+      const home =
+        hue === "purple" ? REGIONS.fen : hue === "blue" ? REGIONS.stacks : REGIONS.yard;
+      this.spawnSpark(hue, home.x, home.z);
     }
+    this.life.spawnNight(night, () => this.rng());
   }
 
   private pickLampPos(used: THREE.Vector3[], regionId: keyof typeof REGIONS): THREE.Vector3 {
-    const reg = REGIONS[regionId];
-    for (let tries = 0; tries < 28; tries++) {
-      const ang = this.rng() * Math.PI * 2;
-      const rad = 5 + this.rng() * (reg.radius * 0.78);
-      const p = new THREE.Vector3(reg.x + Math.cos(ang) * rad, 0, reg.z + Math.sin(ang) * rad);
-      if (used.every((u) => u.distanceTo(p) > 10)) return p;
-    }
-    return new THREE.Vector3(
-      reg.x + (this.rng() - 0.5) * 16,
-      0,
-      reg.z + (this.rng() - 0.5) * 16,
+    const picked = pickLampSocket(
+      used.map((u) => ({ x: u.x, z: u.z })),
+      regionId,
+      () => this.rng(),
     );
+    return new THREE.Vector3(picked.x, heightAt(picked.x, picked.z), picked.z);
   }
 
   private placeTitleLamp(): void {
@@ -1750,6 +2067,9 @@ export class NightMothEngine {
   }
 
   private placeLamp(kind: LampKind, pos: THREE.Vector3): void {
+    const grounded = pos.clone();
+    grounded.y = heightAt(grounded.x, grounded.z);
+    pos.copy(grounded);
     const rig = buildLamp(this.track, kind, this.glowTex);
     rig.root.position.copy(pos);
     this.scene.add(rig.root);
@@ -1770,38 +2090,41 @@ export class NightMothEngine {
     if (isTrueLamp(kind)) this.spawnFriends(this.lamps[this.lamps.length - 1]!);
   }
 
-  private spawnSpark(): void {
-    const yard = REGIONS.yard;
+  private spawnSpark(hue: MiteHue = "green", ox = 0, oz = 0): void {
+    const def = MITES[hue];
     const ang = this.rng() * Math.PI * 2;
     const rad = 6 + this.rng() * 28;
-    const pos = new THREE.Vector3(
-      yard.x + Math.cos(ang) * rad,
-      2 + this.rng() * 5,
-      yard.z + Math.sin(ang) * rad,
-    );
-    const mesh = new THREE.Mesh(this.sparkGeo, this.sparkMat);
-    mesh.position.copy(pos);
-    this.scene.add(mesh);
+    const x = ox + Math.cos(ang) * rad;
+    const z = oz + Math.sin(ang) * rad;
+    const pos = new THREE.Vector3(x, minFlyY(x, z) + this.rng() * 4, z);
+    const rig = buildSparkMite(this.track, this.glowTex, Math.floor(this.rng() * 8), def.color);
+    rig.root.position.copy(pos);
+    this.scene.add(rig.root);
     this.sparks.push({
       pos,
       vel: new THREE.Vector3((this.rng() - 0.5) * 2, 0, (this.rng() - 0.5) * 2),
-      hp: 18,
-      mesh,
+      hp: def.hp,
+      rig,
+      stun: 0,
+      phase: this.rng() * Math.PI * 2,
+      hue,
     });
   }
 
   private clearEntities(): void {
     for (const l of this.lamps) this.scene.remove(l.rig.root);
-    for (const s of this.sparks) this.scene.remove(s.mesh);
+    for (const s of this.sparks) this.scene.remove(s.rig.root);
     for (const b of this.bolts) this.scene.remove(b.group);
     for (const f of this.friends) this.scene.remove(f.rig.root);
     for (const r of this.rings) this.scene.remove(r.sprite);
+    for (const c of this.clouds) this.abilityFx.dropPollen(c.fx);
     this.lamps = [];
     this.sparks = [];
     this.clouds = [];
     this.bolts = [];
     this.friends = [];
     this.rings = [];
+    this.life.clear();
   }
 
   private emit(): void {
@@ -1844,6 +2167,7 @@ export class NightMothEngine {
       message: this.message,
       flash: this.flash,
       pointerLocked: this.pointerLocked,
+      hasFired: this.hasFired,
       ...this.navHud(),
     });
   }
@@ -1851,11 +2175,17 @@ export class NightMothEngine {
   private navHud(): {
     region: string;
     heading: string;
+    headingDeg: number;
+    posX: number;
+    posZ: number;
     objective: string;
     trueLeft: number;
     pipDeg: number | null;
     pipDist: number | null;
     blips: HudBlip[];
+    event: HudEvent;
+    webProgress: number;
+    aurora: number;
   } {
     const heading = ((Math.atan2(this.look.x, -this.look.z) * 180) / Math.PI + 360) % 360;
     const region = regionAt(this.pos.x, this.pos.z);
@@ -1874,10 +2204,10 @@ export class NightMothEngine {
     const objective = this.tutorial
       ? TUTORIAL_HINTS[this.tutorialStep] ?? TUTORIAL_HINTS[4]!
       : nearestTrue
-        ? `${trues.length} true lamp${trues.length === 1 ? "" : "s"} still lit · ${regionAt(nearestTrue.pos.x, nearestTrue.pos.z).name} ${Math.round(pipDist ?? 0)}m ${compassLabel(bearingDeg(this.pos.x, this.pos.z, nearestTrue.pos.x, nearestTrue.pos.z))}`
+        ? `${trues.length} lit`
         : this.lamps.length
-          ? "All true lamps drunk. The next night is waking."
-          : "The grounds are still.";
+          ? "All true lamps drunk."
+          : "";
     const blips: HudBlip[] = this.lamps.map((l) => ({
       dx: l.pos.x - this.pos.x,
       dz: l.pos.z - this.pos.z,
@@ -1885,15 +2215,34 @@ export class NightMothEngine {
       safe: l.known || this.has("moonlit") || this.tutorial ? isTrueLamp(l.kind) : null,
       drunk: l.drunk,
       lure: isLure(l.kind),
+      tone: "lamp" as const,
     }));
+    for (const extra of this.life.blips(this.pos.x, this.pos.z)) {
+      blips.push({
+        dx: extra.dx,
+        dz: extra.dz,
+        known: true,
+        safe: extra.tone === "bloom" ? true : extra.tone === "boss" ? false : null,
+        drunk: false,
+        lure: extra.tone === "boss" || extra.tone === "beetle" || extra.tone === "web",
+        tone: extra.tone,
+      });
+    }
+    const ev = this.life.event();
     return {
-      region: region.name,
+      region: districtLabel(this.pos.x, this.pos.z, region.name),
       heading: compassLabel(heading),
+      headingDeg: heading,
+      posX: this.pos.x,
+      posZ: this.pos.z,
       objective,
       trueLeft: trues.length,
       pipDeg,
       pipDist,
       blips,
+      event: ev,
+      webProgress: this.life.webProgress(),
+      aurora: this.life.aurora(),
     };
   }
 }

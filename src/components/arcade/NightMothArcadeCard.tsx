@@ -1,37 +1,53 @@
 import Link from "next/link";
-import { ArcadeCabinet } from "@/components/arcade/ArcadeCabinet";
+import { Orbitron } from "next/font/google";
 import type { ArcadeScore } from "@/lib/arcade/scores";
+import { cn } from "@/lib/cn";
+
+const jacketType = Orbitron({
+  subsets: ["latin"],
+  weight: ["600", "700"],
+});
 
 export function NightMothArcadeCard({
   scores,
   best,
+  className,
 }: {
   scores: ArcadeScore[];
   best?: number;
+  className?: string;
 }) {
-  const top = scores.slice(0, 5);
+  const top = best ?? scores[0]?.score;
   return (
-    <Link href="/arcade/night-moth" className="nm-feature">
-      <div className="nm-feature-art">
+    <Link href="/arcade/night-moth" className={cn("nm-dash-card", className)}>
+      <span className="nm-dash-card__art">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src="/arcade/night-moth/jacket.jpg"
-          alt="Night Moth — after-hours flight. Not every lamp is Circulation."
-          className="nm-feature-jacket"
+          alt=""
+          className="nm-dash-card__jacket"
         />
-        <div className="nm-feature-spine">
-          <p className="nm-feature-kicker">Helix Arcade</p>
-          <h2 className="nm-feature-title">Night Moth</h2>
-          <p className="nm-feature-tag">
-            Not every lamp is Circulation. Fly. Judge. Drink. Dust.
-          </p>
-        </div>
-      </div>
-      <ArcadeCabinet
-        scores={top}
-        highlight={best}
-        marquee={["NOW PLAYING", "NIGHT MOTH", "INSERT WING"]}
-      />
+        <span className={`${jacketType.className} nm-dash-card__mark`}>
+          NIGHT MOTH
+        </span>
+      </span>
+      <span className="nm-dash-card__copy">
+        <span className="eyebrow">Arcade</span>
+        <span className={`${jacketType.className} nm-dash-card__title`}>
+          Night Moth
+        </span>
+        <span className="nm-dash-card__tag">
+          Not every lamp is Circulation.
+        </span>
+        {top != null ? (
+          <span className="chip chip-stat nm-dash-card__chip">
+            <span className="chip-label">Best</span>
+            <span className="chip-value">{top.toLocaleString()}</span>
+          </span>
+        ) : (
+          <span className="nm-dash-card__go">Play →</span>
+        )}
+      </span>
     </Link>
   );
 }

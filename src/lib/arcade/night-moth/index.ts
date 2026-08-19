@@ -10,6 +10,29 @@ export {
 } from "./regions";
 
 export {
+  districtAt,
+  districtLabel,
+  landUseAt,
+  pickLampSocket,
+  ACRE_LANES,
+  DISTRICT,
+  LAND_COLOR,
+  LAMP_SOCKETS,
+  LOTS,
+  MAP_MASSES,
+  STREET_HALF,
+  WALK_HALF,
+  WARD_EW,
+  WARD_NS,
+  type DistrictDef,
+  type DistrictId,
+  type LampSocket,
+  type LandUse,
+  type Lot,
+  type PrefabId,
+} from "./districts";
+
+export {
   ABILITIES,
   ABILITY_ORDER,
   ARENA_RADIUS,
@@ -34,6 +57,92 @@ export {
   type LampDef,
   type LampKind,
 } from "./catalog";
+
+export {
+  CAVES,
+  POOLS,
+  RETREAT,
+  WATERWAYS,
+  bakeHeightField,
+  caveAt,
+  computeHeightAt,
+  distToWaterway,
+  featureAt,
+  heightAt,
+  isWater,
+  resetHeightField,
+  maxFlyY,
+  minFlyY,
+  waterDepthAt,
+  waterwayPoint,
+  type CaveDef,
+  type TerrainFeature,
+  type Waterway,
+} from "./terrain";
+
+export {
+  buildingColliders,
+  colliderForLot,
+  lampCollider,
+  indexColliders,
+  nearbyColliders,
+  resolveSphere,
+  supportY,
+  type Collider,
+  type ColliderIndex,
+  type ColliderKind,
+  type HitResult,
+} from "./collision";
+
+export {
+  BEETLE,
+  BLOOMS,
+  BLOOM_SITES,
+  BOSSES,
+  DRAGONFLY,
+  MITES,
+  MITE_ORDER,
+  POLLINATE_RANGE,
+  SPIDER,
+  WEB_RADIUS,
+  WEB_SITES,
+  WEB_TRIGGER_Y,
+  beetleScore,
+  canEscapeBoss,
+  composeFauna,
+  infestationCount,
+  miteForNight,
+  miteScore,
+  spiderScore,
+  type BloomDef,
+  type BloomSite,
+  type BossId,
+  type FaunaMix,
+  type FoeId,
+  type FriendId,
+  type MiteDef,
+  type MiteHue,
+  type WebSite,
+} from "./fauna";
+
+export {
+  auroraScoreMul,
+  composeEvents,
+  eventDuration,
+  eventLine,
+  eventTitle,
+  isBossEvent,
+  type EventPlan,
+  type NightEventKind,
+} from "./events";
+
+export {
+  SHOT_TAGS,
+  parseShotBody,
+  shotFilename,
+  slugRegion,
+  type ShotPayload,
+} from "./shot";
 
 export {
   abilityDamage,

@@ -28,7 +28,8 @@ export type SipOutcome = {
       | "burn"
       | "drawn"
       | "confused"
-      | "heavy-pollen";
+      | "heavy-pollen"
+      | "webbed";
     duration?: number;
   }>;
   fatal?: boolean;

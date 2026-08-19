@@ -38,7 +38,8 @@ export type ConditionId =
   | "burn"
   | "drawn"
   | "confused"
-  | "heavy-pollen";
+  | "heavy-pollen"
+  | "webbed";
 
 export type LampAlignment = "true" | "lure";
 
@@ -49,6 +50,8 @@ export type LampDef = {
   /** Hex without #, night-garden pigment. */
   color: number;
   glow: number;
+  /** What the object looks like before you know its name. */
+  shape: string;
   /** Field-guide tell — what a careful moth notices. */
   tell: string;
   pulseHz: number;
@@ -84,6 +87,7 @@ export const LAMPS: Record<LampKind, LampDef> = {
     id: "circulation",
     name: "Circulation",
     alignment: "true",
+    shape: "Desk lamp",
     color: 0xe8a85a,
     glow: 2.6,
     tell: "Warm amber. Steady. Other moths rest, they do not circle.",
@@ -96,6 +100,7 @@ export const LAMPS: Record<LampKind, LampDef> = {
     id: "reading",
     name: "Reading lamp",
     alignment: "true",
+    shape: "Copper cone",
     color: 0xc47a3a,
     glow: 2.2,
     tell: "Copper cone, aimed down. Slow breath, never a stutter.",
@@ -108,6 +113,7 @@ export const LAMPS: Record<LampKind, LampDef> = {
     id: "archive",
     name: "Archive",
     alignment: "true",
+    shape: "Silver column",
     color: 0xc8d4e8,
     glow: 2.5,
     tell: "Moon-silver, tall and thin. Cool to the eye.",
@@ -120,6 +126,7 @@ export const LAMPS: Record<LampKind, LampDef> = {
     id: "helix",
     name: "Helix lamp",
     alignment: "true",
+    shape: "Double coil",
     color: 0x6ee7d0,
     glow: 3.1,
     tell: "Phosphor teal, a double coil. You will not mistake it twice.",
@@ -132,6 +139,7 @@ export const LAMPS: Record<LampKind, LampDef> = {
     id: "zapper",
     name: "Cage",
     alignment: "lure",
+    shape: "Wire cage",
     color: 0x6dff4a,
     glow: 2.8,
     tell: "Sick green. Sixty-cycle flicker. A grid, not a shade.",
@@ -144,6 +152,7 @@ export const LAMPS: Record<LampKind, LampDef> = {
     id: "furnace",
     name: "Furnace mouth",
     alignment: "lure",
+    shape: "Iron mouth",
     color: 0xff3a1a,
     glow: 3.0,
     tell: "Crimson, irregular. Heat climbs. The air above it wavers.",
@@ -156,6 +165,7 @@ export const LAMPS: Record<LampKind, LampDef> = {
     id: "wisp",
     name: "Will-o'-wisp",
     alignment: "lure",
+    shape: "Moving core",
     color: 0xb44cff,
     glow: 2.6,
     tell: "Violet. It moves. If it hunts you, it is not a lamp.",
@@ -168,6 +178,7 @@ export const LAMPS: Record<LampKind, LampDef> = {
     id: "false-moon",
     name: "False moon",
     alignment: "lure",
+    shape: "Round disc",
     color: 0xf4f0e0,
     glow: 3.6,
     tell: "Bone-white, too round, too bright. No crater. No kindness.",
@@ -180,6 +191,7 @@ export const LAMPS: Record<LampKind, LampDef> = {
     id: "nectar-trap",
     name: "Off-beat lantern",
     alignment: "lure",
+    shape: "Desk lamp",
     color: 0xe0a050,
     glow: 2.5,
     tell: "Amber — almost Circulation. The pulse misses a step.",
@@ -398,6 +410,13 @@ export const CONDITIONS: Record<ConditionId, ConditionDef> = {
     tone: "mixed",
     summary: "Slow. A little regen — a trap that pretends to nurse.",
     duration: 6,
+  },
+  webbed: {
+    id: "webbed",
+    name: "Webbed",
+    tone: "bane",
+    summary: "A spider has you. Mash Space before the silk finishes.",
+    duration: 3.2,
   },
 };
 

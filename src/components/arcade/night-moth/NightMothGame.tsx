@@ -17,7 +17,7 @@ import {
   NIGHT_MOTH_GAME_ID,
   nextUnlock,
 } from "@/lib/arcade/night-moth";
-import { ArcadeCabinet } from "@/components/arcade/ArcadeCabinet";
+import { ArcadeCabinet, NightMothCabinet } from "@/components/arcade/ArcadeCabinet";
 import type { ArcadeProgress, ArcadeScore } from "@/lib/arcade/scores";
 import {
   mergeBoards,
@@ -25,8 +25,19 @@ import {
   rememberScore,
   sanitizeInitials,
 } from "@/lib/client/arcade-board";
+import {
+  readArcadePrefs,
+  writeArcadePrefs,
+  type ArcadePrefs,
+} from "@/lib/client/arcade-prefs";
+import { toast } from "@/lib/client/toasts";
 import { HelixSpinner } from "@/components/icons/HelixSpinner";
-import { cn } from "@/lib/cn";
+import { NightMothHud } from "./NightMothHud";
+import {
+  NightMothRadioStrip,
+  NightMothSettings,
+  type RadioStation,
+} from "./NightMothRadio";
 import type { EngineSnapshot, RunResult } from "./engine";
 import type { NightMothHandle } from "./NightMothCanvas";
 
@@ -43,7 +54,7 @@ const NightMothCanvas = dynamic(
   },
 );
 
-type Overlay = "none" | "title" | "howto" | "scores" | "pause" | "dead";
+type Overlay = "none" | "title" | "howto" | "scores" | "pause" | "dead" | "settings";
 
 export function NightMothGame({
   initialScores,
@@ -60,10 +71,20 @@ export function NightMothGame({
   const [result, setResult] = useState<RunResult | null>(null);
   const [beginner, setBeginner] = useState(!initialProgress.tutorialDone);
   const [initials, setInitials] = useState("MTH");
+  const [prefs, setPrefs] = useState<ArcadePrefs>(() => readArcadePrefs());
+  const [stations, setStations] = useState<RadioStation[]>([]);
+  const [stationsLoading, setStationsLoading] = useState(false);
+  const [radioOn, setRadioOn] = useState(false);
+  const audioRef = useRef<HTMLAudioElement | null>(null);
+  const radioTouched = useRef(false);
+  const settingsFrom = useRef<Overlay>("title");
   const loggedRef = useRef<string | null>(null);
 
   const onReady = useCallback((h: NightMothHandle) => {
     handleRef.current = h;
+    const p = readArcadePrefs();
+    h.setExposure(p.brightness);
+    h.setGameVolume(p.gameVolume);
   }, []);
 
   const pullBoard = useCallback(async () => {
@@ -82,6 +103,7 @@ export function NightMothGame({
 
   const logRun = useCallback(
     async (r: RunResult, tag = initials) => {
+      if (r.score < 1) return;
       const key = `${r.score}-${r.night}-${r.durationMs}`;
       if (loggedRef.current === key) return;
       loggedRef.current = key;
@@ -125,6 +147,91 @@ export function NightMothGame({
     void pullBoard();
   }, [pullBoard]);
 
+  const pullStations = useCallback(async () => {
+    setStationsLoading(true);
+    try {
+      const res = await fetch("/api/arcade/radio");
+      const json = (await res.json()) as { stations?: RadioStation[] };
+      if (json.stations) setStations(json.stations);
+    } catch {
+      /* keep last list */
+    } finally {
+      setStationsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void pullStations();
+  }, [pullStations]);
+
+  useEffect(() => {
+    handleRef.current?.setExposure(prefs.brightness);
+    handleRef.current?.setGameVolume(prefs.gameVolume);
+  }, [prefs.brightness, prefs.gameVolume]);
+
+  const currentStationId = prefs.radioIds[Math.min(prefs.radioIndex, Math.max(0, prefs.radioIds.length - 1))] ?? null;
+
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    el.volume = prefs.radioVolume;
+  }, [prefs.radioVolume]);
+
+  useEffect(() => {
+    const el = audioRef.current;
+    if (!el) return;
+    if (currentStationId == null) {
+      el.pause();
+      el.removeAttribute("src");
+      setRadioOn(false);
+      return;
+    }
+    const src = `/api/media/${currentStationId}`;
+    if (el.getAttribute("data-id") !== String(currentStationId)) {
+      el.src = src;
+      el.setAttribute("data-id", String(currentStationId));
+      if (radioTouched.current) {
+        void el.play().then(
+          () => setRadioOn(true),
+          () => setRadioOn(false),
+        );
+      }
+    }
+  }, [currentStationId]);
+
+  const setRadioIndex = useCallback(
+    (index: number) => {
+      if (prefs.radioIds.length === 0) return;
+      const next = ((index % prefs.radioIds.length) + prefs.radioIds.length) % prefs.radioIds.length;
+      setPrefs(writeArcadePrefs({ ...prefs, radioIndex: next }));
+    },
+    [prefs],
+  );
+
+  const openSettings = useCallback(() => {
+    setOverlay((o) => {
+      settingsFrom.current = o === "settings" ? settingsFrom.current : o;
+      if (snap?.mode === "playing") handleRef.current?.pause();
+      return "settings";
+    });
+    void pullStations();
+  }, [pullStations, snap?.mode]);
+
+  const closeSettings = useCallback(() => {
+    const from = settingsFrom.current;
+    if (from === "none" && snap?.mode === "paused") {
+      handleRef.current?.resume();
+      setOverlay("none");
+      return;
+    }
+    if (from === "pause") setOverlay("pause");
+    else if (from === "howto") setOverlay("howto");
+    else if (snap?.mode === "playing") {
+      handleRef.current?.resume();
+      setOverlay("none");
+    } else setOverlay(from === "settings" ? "title" : from);
+  }, [snap?.mode]);
+
   const persistProgress = useCallback(
     async (xp: number, tutorialDone: boolean) => {
       setProgress((prev) => ({
@@ -156,9 +263,17 @@ export function NightMothGame({
     () => ({
       onSnapshot: (s: EngineSnapshot) => {
         setSnap(s);
-        if (s.mode === "playing" && overlay !== "howto") setOverlay("none");
-        if (s.mode === "paused") setOverlay("pause");
-        if (s.mode === "title") setOverlay((o) => (o === "howto" || o === "scores" ? o : "title"));
+        if (s.mode === "playing" && overlay !== "howto" && overlay !== "settings") {
+          setOverlay("none");
+        }
+        if (s.mode === "paused") {
+          setOverlay((o) => (o === "settings" || o === "howto" ? o : "pause"));
+        }
+        if (s.mode === "title") {
+          setOverlay((o) =>
+            o === "howto" || o === "scores" || o === "settings" ? o : "title",
+          );
+        }
       },
       onDeath: (r: RunResult) => {
         setResult(r);
@@ -186,8 +301,83 @@ export function NightMothGame({
     [progress.unlocked, progress.xp],
   );
 
+  const fileShot = useCallback(async () => {
+    const h = handleRef.current;
+    if (!h) return;
+    try {
+      const dataUrl = h.captureFrame();
+      const res = await fetch("/api/arcade/shot", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({
+          dataUrl,
+          region: snap?.region ?? "grounds",
+          night: snap?.night ?? 1,
+        }),
+      });
+      const json = (await res.json()) as { itemId?: number; error?: string };
+      if (!res.ok) throw new Error(json.error ?? "Could not file the shot");
+      toast({
+        tone: "ok",
+        title: "Shot filed to the archive",
+        detail: "Tagged night-moth · screenshot · arcade",
+        href: json.itemId ? `/catalog/${json.itemId}` : "/catalog",
+      });
+    } catch (err) {
+      toast({
+        tone: "warn",
+        title: "The visor could not keep that frame",
+        detail: err instanceof Error ? err.message : "Unknown error",
+      });
+    }
+  }, [snap?.night, snap?.region]);
+
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape" && overlay === "settings") {
+        e.preventDefault();
+        closeSettings();
+        return;
+      }
+      const el = e.target as HTMLElement | null;
+      if (el?.closest("input, textarea, select, [contenteditable='true']")) return;
+
+      if (e.key === "[" || e.key === "]") {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        if (prefs.radioIds.length === 0) return;
+        e.preventDefault();
+        e.stopPropagation();
+        radioTouched.current = true;
+        setRadioIndex(prefs.radioIndex + (e.key === "]" ? 1 : -1));
+        return;
+      }
+      if (e.key === "m" || e.key === "M") {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        e.preventDefault();
+        const audio = audioRef.current;
+        if (!audio || currentStationId == null) {
+          openSettings();
+          return;
+        }
+        radioTouched.current = true;
+        if (audio.paused) void audio.play();
+        else audio.pause();
+        return;
+      }
+      if (e.key === "F8") {
+        e.preventDefault();
+        void fileShot();
+        return;
+      }
+      if (e.key === "o" || e.key === "O") {
+        if (e.metaKey || e.ctrlKey || e.altKey) return;
+        const el = e.target as HTMLElement | null;
+        if (el?.closest("input, textarea")) return;
+        e.preventDefault();
+        if (overlay === "settings") closeSettings();
+        else openSettings();
+        return;
+      }
       if (e.key === "h" || e.key === "H" || e.key === "?") {
         if (e.metaKey || e.ctrlKey || e.altKey) return;
         const el = e.target as HTMLElement | null;
@@ -207,76 +397,115 @@ export function NightMothGame({
         });
       }
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [snap?.mode]);
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
+  }, [snap?.mode, overlay, openSettings, closeSettings, prefs.radioIds.length, prefs.radioIndex, setRadioIndex, currentStationId, fileShot]);
 
   const next = nextUnlock(progress.xp);
   const playing = snap?.mode === "playing" || snap?.mode === "paused";
 
   return (
     <div className="nm-play">
+      <audio
+        ref={audioRef}
+        preload="none"
+        onEnded={() => {
+          if (prefs.radioIds.length > 1) setRadioIndex(prefs.radioIndex + 1);
+          else setRadioOn(false);
+        }}
+        onPlay={() => setRadioOn(true)}
+        onPause={() => setRadioOn(false)}
+      />
       <NightMothCanvas hooks={hooks} onReady={onReady} />
 
       {snap && playing ? (
-        <PlayHud
+        <NightMothHud
           snap={snap}
           onCycle={(d) => handleRef.current?.cycleAbility(d)}
           onSelect={(id) => handleRef.current?.selectAbility(id)}
+          radio={
+            <NightMothRadioStrip
+              prefs={prefs}
+              stations={stations}
+              playing={radioOn}
+              onPrev={() => {
+                radioTouched.current = true;
+                setRadioIndex(prefs.radioIndex - 1);
+              }}
+              onNext={() => {
+                radioTouched.current = true;
+                setRadioIndex(prefs.radioIndex + 1);
+              }}
+              onToggle={() => {
+                const el = audioRef.current;
+                if (!el) return;
+                if (currentStationId == null) {
+                  openSettings();
+                  return;
+                }
+                radioTouched.current = true;
+                if (el.paused) void el.play().then(
+                  () => setRadioOn(true),
+                  () => setRadioOn(false),
+                );
+                else el.pause();
+              }}
+              onOpenSettings={openSettings}
+            />
+          }
         />
       ) : null}
 
       {overlay === "title" ? (
         <div className="nm-overlay">
-          <div className="nm-card nm-card--title">
-            <p className="eyebrow">Arcade · after hours</p>
-            <h1 className="nm-title">Night Moth</h1>
-            <p className="nm-lede">
-              Not every lamp is Circulation. The grounds run from the court to
-              the fen — grove, stacks, terrace, yard, hollow, plaza. Fly where
-              the visor points. Drink what is true. Dust what is not.
-            </p>
-            <div className="nm-actions">
-              <button
-                type="button"
-                className="btn btn-helix"
-                onClick={() => start(beginner)}
-              >
-                {beginner ? "First night" : "Begin flight"}
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setOverlay("howto")}
-              >
-                Field guide
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => {
-                  void pullBoard();
-                  setOverlay("scores");
-                }}
-              >
-                High scores
-              </button>
+          <NightMothCabinet marquee={["AFTER HOURS", "NIGHT MOTH", "ARCADE"]}>
+            <div className="nm-cab-body">
+              <p className="nm-cab-run-k">Not every lamp is Circulation</p>
+              <h1 className="nm-title">Night Moth</h1>
+              <div className="nm-actions">
+                <button
+                  type="button"
+                  className="btn btn-helix"
+                  onClick={() => start(beginner)}
+                >
+                  {beginner ? "First night" : "Begin flight"}
+                </button>
+              </div>
+              <p className="nm-meta nm-title-links">
+                <button type="button" onClick={() => setOverlay("howto")}>
+                  Field guide
+                </button>
+                {" · "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    void pullBoard();
+                    setOverlay("scores");
+                  }}
+                >
+                  High scores
+                </button>
+                {" · "}
+                <button type="button" onClick={openSettings}>
+                  Settings
+                </button>
+              </p>
+              <label className="nm-check">
+                <input
+                  type="checkbox"
+                  checked={beginner}
+                  onChange={(e) => setBeginner(e.target.checked)}
+                />
+                Optional beginner night — three lamps, named.
+              </label>
+              <p className="nm-meta">
+                Persistent XP {progress.xp}
+                {next
+                  ? ` · ${next.remaining} to ${next.name}`
+                  : " · every ability is open"}
+              </p>
             </div>
-            <label className="nm-check">
-              <input
-                type="checkbox"
-                checked={beginner}
-                onChange={(e) => setBeginner(e.target.checked)}
-              />
-              Optional beginner night — three lamps, named.
-            </label>
-            <p className="nm-meta">
-              Persistent XP {progress.xp}
-              {next
-                ? ` · ${next.remaining} to ${next.name}`
-                : " · every ability is open"}
-            </p>
-          </div>
+          </NightMothCabinet>
         </div>
       ) : null}
 
@@ -304,41 +533,59 @@ export function NightMothGame({
 
       {overlay === "pause" ? (
         <div className="nm-overlay nm-overlay--thin">
-          <div className="nm-card">
-            <p className="eyebrow">Still air</p>
-            <h2 className="nm-h2">Paused</h2>
-            <p className="nm-lede">
-              The lamps wait. They do not grow kinder.
-            </p>
-            <div className="nm-actions">
-              <button
-                type="button"
-                className="btn btn-helix"
-                onClick={() => handleRef.current?.resume()}
-              >
-                Resume
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => setOverlay("howto")}
-              >
-                Field guide
-              </button>
-              <button
-                type="button"
-                className="btn btn-secondary"
-                onClick={() => {
-                  const run = handleRef.current?.snapshotRun();
-                  if (run && run.score > 0) void logRun(run);
-                  handleRef.current?.toTitle();
-                  setOverlay("title");
-                }}
-              >
-                Leave the grounds
-              </button>
+          <NightMothCabinet marquee={["STILL AIR", "PAUSED", "NIGHT MOTH"]}>
+            <div className="nm-cab-body">
+              <p className="nm-lede">
+                The lamps wait. They do not grow kinder.
+              </p>
+              <div className="nm-actions">
+                <button
+                  type="button"
+                  className="btn btn-helix"
+                  onClick={() => handleRef.current?.resume()}
+                >
+                  Resume
+                </button>
+              </div>
+              <p className="nm-meta nm-title-links">
+                <button type="button" onClick={() => setOverlay("howto")}>
+                  Field guide
+                </button>
+                {" · "}
+                <button type="button" onClick={openSettings}>
+                  Settings
+                </button>
+                {" · "}
+                <button
+                  type="button"
+                  onClick={() => {
+                    const run = handleRef.current?.snapshotRun();
+                    if (run && run.score > 0) void logRun(run);
+                    handleRef.current?.toTitle();
+                    setOverlay("title");
+                  }}
+                >
+                  Leave the grounds
+                </button>
+              </p>
             </div>
-          </div>
+          </NightMothCabinet>
+        </div>
+      ) : null}
+
+      {overlay === "settings" ? (
+        <div className="nm-overlay">
+          <NightMothSettings
+            prefs={prefs}
+            stations={stations}
+            loading={stationsLoading}
+            onChange={(next) => {
+              setPrefs(next);
+              handleRef.current?.setExposure(next.brightness);
+              handleRef.current?.setGameVolume(next.gameVolume);
+            }}
+            onClose={closeSettings}
+          />
         </div>
       ) : null}
 
@@ -394,260 +641,57 @@ export function NightMothGame({
   );
 }
 
-function PlayHud({
-  snap,
-  onCycle,
-  onSelect,
-}: {
-  snap: EngineSnapshot;
-  onCycle: (dir: 1 | -1) => void;
-  onSelect: (id: EngineSnapshot["selected"]) => void;
-}) {
-  const pip = snap.pipDeg;
-  const pipClamped = pip == null ? 0 : Math.max(-34, Math.min(34, pip * 0.38));
-  return (
-    <div className="nm-hud" aria-live="polite">
-      <div className="nm-visor" aria-hidden>
-        <span className="nm-visor-corner is-tl" />
-        <span className="nm-visor-corner is-tr" />
-        <span className="nm-visor-corner is-bl" />
-        <span className="nm-visor-corner is-br" />
-        <span className="nm-reticle" />
-      </div>
-      <div
-        className="nm-flash"
-        style={{ opacity: snap.flash * 0.55 }}
-        aria-hidden
-      />
-      <div className="nm-hud-top">
-        <div className="nm-stat">
-          <span className="nm-stat-k">Night</span>
-          <span className="nm-stat-v">{snap.tutorial ? "0 · lesson" : snap.night}</span>
-        </div>
-        <div className="nm-stat">
-          <span className="nm-stat-k">Score</span>
-          <span className="nm-stat-v">{snap.score.toLocaleString()}</span>
-        </div>
-        <div className="nm-stat">
-          <span className="nm-stat-k">Combo</span>
-          <span className="nm-stat-v">×{Math.max(1, snap.combo)}</span>
-        </div>
-        <div className="nm-stat">
-          <span className="nm-stat-k">Nectar</span>
-          <span className="nm-stat-v">{snap.nectar}</span>
-        </div>
-      </div>
-
-      <div className="nm-compass">
-        <span className="nm-compass-h">{snap.heading}</span>
-        <span className="nm-compass-r">{snap.region}</span>
-        {pip != null ? (
-          <span
-            className="nm-pip"
-            style={{ transform: `translateX(${pipClamped}px)` }}
-            title="Nearest true lamp"
-          />
-        ) : null}
-      </div>
-
-      <p className="nm-objective">{snap.objective}</p>
-
-      {snap.nearest ? (
-        <div
-          className={cn(
-            "nm-lamp",
-            snap.nearest.canSip && "is-sip",
-            snap.nearest.known && snap.nearest.safe === true && "is-true",
-            snap.nearest.known && snap.nearest.safe === false && "is-lure",
-          )}
-        >
-          <p className="nm-lamp-name">{snap.nearest.name}</p>
-          <p className="nm-lamp-tell">{snap.nearest.tell}</p>
-          {snap.nearest.canSip ? (
-            <p className="nm-lamp-act">E — drink this lamp</p>
-          ) : (
-            <p className="nm-lamp-act">
-              {snap.nearest.range.toFixed(0)}m · fly closer
-            </p>
-          )}
-        </div>
-      ) : null}
-
-      <Radar blips={snap.blips} heading={snap.heading} />
-
-      {snap.tutorial ? (
-        <div className="nm-tutor">
-          <p className="nm-tutor-k">Beginner night</p>
-          <p>{snap.tutorialHint}</p>
-        </div>
-      ) : null}
-
-      {snap.message ? <p className="nm-toast">{snap.message}</p> : null}
-
-      <p className="nm-lock">
-        {snap.pointerLocked
-          ? "W fly · E drink · click fires equipped art · wheel / Tab cycle · Esc pause"
-          : "Drag to look, or click to lock · W flies · wheel cycles arts"}
-      </p>
-
-      <div className="nm-hud-bot">
-        <div className="nm-bars">
-          <Bar label="Wing" value={snap.hp} max={snap.maxHp} tone="hp" />
-          <Bar label="Stamina" value={snap.stamina} max={100} tone="st" />
-        </div>
-        {snap.conditions.length > 0 ? (
-          <ul className="nm-status">
-            {snap.conditions.map((c) => (
-              <li key={c.id} className={`nm-status-item is-${c.tone}`}>
-                <span className="nm-status-name">{c.name}</span>
-                <span className="nm-status-how">{CONDITIONS[c.id].summary}</span>
-                <span className="nm-status-bar">
-                  <span
-                    style={{
-                      width: `${Math.min(100, (c.remaining / CONDITIONS[c.id].duration) * 100)}%`,
-                    }}
-                  />
-                </span>
-              </li>
-            ))}
-          </ul>
-        ) : null}
-        <div className="nm-dock">
-          <button type="button" className="nm-dock-step" onClick={() => onCycle(-1)}>
-            ← Q
-          </button>
-          <div className="nm-dock-main">
-            <p className="nm-dock-k">
-              Equipped · {ABILITIES[snap.selected].key} · click to fire
-            </p>
-            <p className="nm-dock-name">{ABILITIES[snap.selected].name}</p>
-            <p className="nm-dock-how">{ABILITIES[snap.selected].how}</p>
-          </div>
-          <button type="button" className="nm-dock-step" onClick={() => onCycle(1)}>
-            Tab →
-          </button>
-        </div>
-        <ul className="nm-abs">
-          {snap.abilities
-            .filter((a) => a.unlocked)
-            .map((a) => (
-              <li key={a.id}>
-                <button
-                  type="button"
-                  className={cn("nm-ab", a.selected && "is-on", !a.ready && "is-cd")}
-                  title={ABILITIES[a.id].how}
-                  onClick={() => onSelect(a.id)}
-                >
-                  <span className="nm-ab-k">{a.key}</span>
-                  <span className="nm-ab-n">{a.name}</span>
-                  {!a.ready ? (
-                    <span className="nm-ab-cd">{a.cooldown.toFixed(1)}</span>
-                  ) : null}
-                </button>
-              </li>
-            ))}
-        </ul>
-      </div>
-    </div>
-  );
-}
-
-function Radar({
-  blips,
-}: {
-  blips: EngineSnapshot["blips"];
-  heading: string;
-}) {
-  const scale = 3.2;
-  return (
-    <div className="nm-radar" aria-hidden>
-      <span className="nm-radar-you" />
-      {blips.slice(0, 36).map((b, i) => {
-        const x = Math.max(-46, Math.min(46, b.dx / scale));
-        const y = Math.max(-46, Math.min(46, -b.dz / scale));
-        const tone = b.drunk
-          ? "is-dead"
-          : b.safe === true
-            ? "is-true"
-            : b.safe === false
-              ? "is-lure"
-              : "is-unk";
-        return (
-          <span
-            key={i}
-            className={`nm-radar-blip ${tone}`}
-            style={{ transform: `translate(${x}px, ${y}px)` }}
-          />
-        );
-      })}
-    </div>
-  );
-}
-
-function Bar({
-  label,
-  value,
-  max,
-  tone,
-}: {
-  label: string;
-  value: number;
-  max: number;
-  tone: "hp" | "st";
-}) {
-  const pct = Math.max(0, Math.min(100, (value / max) * 100));
-  return (
-    <div className="nm-bar">
-      <span className="nm-bar-l">{label}</span>
-      <span className="nm-bar-track">
-        <span className={`nm-bar-fill is-${tone}`} style={{ width: `${pct}%` }} />
-      </span>
-    </div>
-  );
-}
-
 function FieldGuide({ xp, onClose }: { xp: number; onClose: () => void }) {
   return (
-    <div className="nm-jacket">
+    <NightMothCabinet
+      wide
+      className="nm-cab--guide"
+      marquee={["NIGHT MOTH", "FIELD GUIDE", "JACKET"]}
+    >
       <header className="nm-jacket-cover">
-        <p className="nm-jacket-kicker">Helix Arcade · instruction jacket</p>
-        <h2>Night Moth</h2>
-        <p className="nm-jacket-tag">
-          Not every lamp is Circulation. Fly. Judge. Drink. Dust. Leave a
-          score on the desk.
-        </p>
-        <button type="button" className="btn btn-secondary" onClick={onClose}>
+        <div>
+          <p className="nm-jacket-tag">
+            Fly. Judge. Drink. Dust. Leave a score on the desk.
+          </p>
+        </div>
+        <button type="button" className="btn btn-helix" onClick={onClose}>
           Close
         </button>
       </header>
 
-      <section className="nm-jacket-panel">
-        <h3>1 · How to fly</h3>
-        <ol className="nm-jacket-steps">
-          <li>
-            <kbd>Mouse</kbd> looks. <kbd>W</kbd> flies where the visor points.
-          </li>
-          <li>
-            <kbd>A</kbd> <kbd>D</kbd> slip. <kbd>S</kbd> brakes. <kbd>Shift</kbd> dashes.
-          </li>
-          <li>
-            <kbd>E</kbd> drinks a near lamp. True lamps heal. Lures bite.
-          </li>
-          <li>
-            <kbd>Click</kbd> fires the equipped art. Scroll or <kbd>Tab</kbd> /{" "}
-            <kbd>Q</kbd> cycles. Number keys select.
-          </li>
-          <li>
-            Amber pip = next true lamp. Radar is north-up. Towers hide caches.
-          </li>
-        </ol>
-      </section>
+      <div className="nm-jacket-grid">
+        <section className="nm-jacket-panel">
+          <h3>1 · How to fly</h3>
+          <ol className="nm-jacket-steps">
+            <li>
+              <kbd>Mouse</kbd> looks. <kbd>W</kbd> flies where the visor points.
+            </li>
+            <li>
+              <kbd>A</kbd> <kbd>D</kbd> slip. <kbd>S</kbd> brakes.{" "}
+              <kbd>Shift</kbd> dashes.
+            </li>
+            <li>
+              <kbd>E</kbd> drinks a near lamp. True lamps heal. Lures bite.
+            </li>
+            <li>
+              <kbd>Click</kbd> fires the equipped art. Scroll or <kbd>Tab</kbd> /{" "}
+              <kbd>Q</kbd> cycles. Number keys select.
+            </li>
+            <li>
+              Amber pip = next true lamp. Radar is north-up. Roofs are solid —
+              you can perch.
+            </li>
+            <li>
+              <kbd>O</kbd> settings. <kbd>[</kbd> <kbd>]</kbd> radio.{" "}
+              <kbd>F8</kbd> files a shot.
+            </li>
+          </ol>
+        </section>
         <section className="nm-jacket-panel">
           <h3>2 · Lamps</h3>
           <p>
-            Lamps wander. A Circulation may wake in the fen. Color is a rumor;
-            pulse is evidence; motion is a confession. Small moths on a lamp
-            are friends. They are not prey.
+            Judge the shade, not the card. Color is a rumor; pulse is evidence;
+            motion is a confession. Small moths on a lamp are friends.
           </p>
           <ul className="nm-bestiary">
             {LAMP_ORDER.map((id) => {
@@ -663,7 +707,9 @@ function FieldGuide({ xp, onClose }: { xp: number; onClose: () => void }) {
                     <span className="nm-align">
                       {l.alignment === "true" ? "true" : "lure"}
                     </span>
-                    <em>{l.tell}</em>
+                    <em>
+                      {l.shape}. {l.tell}
+                    </em>
                   </span>
                 </li>
               );
@@ -673,8 +719,8 @@ function FieldGuide({ xp, onClose }: { xp: number; onClose: () => void }) {
         <section className="nm-jacket-panel">
           <h3>3 · Arts</h3>
           <p>
-            Equip with the wheel or the dock. Click fires whatever is
-            equipped. XP stays after death.
+            Equip with the wheel or the dock. Click fires whatever is equipped.
+            XP stays after death.
           </p>
           <ul className="nm-ab-list">
             {ABILITY_ORDER.map((id) => {
@@ -685,7 +731,13 @@ function FieldGuide({ xp, onClose }: { xp: number; onClose: () => void }) {
                   <span className="nm-ab-k">{a.key}</span>
                   <span>
                     <strong>{a.name}</strong>
-                    <em>{open ? `${a.how} ${a.summary}` : `Locked · ${a.xp} XP`}</em>
+                    {open ? (
+                      <em>
+                        {a.how} {a.summary}
+                      </em>
+                    ) : (
+                      <em>Locked · {a.xp} XP</em>
+                    )}
                   </span>
                 </li>
               );
@@ -714,12 +766,73 @@ function FieldGuide({ xp, onClose }: { xp: number; onClose: () => void }) {
         <section className="nm-jacket-panel">
           <h3>5 · The grounds</h3>
           <p>
-            Eight regions, two canals with fish, fireflies, and three noir
-            towers. Climb the neon frames for caches — nectar, score, a little
-            wing. Lamps reshuffle. Follow the pip, not the last place you
-            drank.
+            The Ward is streets and stoops. The Acre is farm, orchard, and the
+            boiler hill. The retreat west of court is archive and chill — fly
+            there to lose a bat. Waterways run fen to plaza. The rim is
+            mountains. A cave opens under the hollow. Brick, trees, and roofs
+            hold the wing.
           </p>
         </section>
-    </div>
+        <section className="nm-jacket-panel">
+          <h3>6 · Life after Hours</h3>
+          <ul className="nm-ab-list">
+            <li>
+              <span className="nm-cond is-mixed">foe</span>
+              <span>
+                <strong>Mites</strong>
+                <em>Green dart, purple pack, blue orbit. Dust them.</em>
+              </span>
+            </li>
+            <li>
+              <span className="nm-cond is-mixed">foe</span>
+              <span>
+                <strong>Ground beetles</strong>
+                <em>One wanderer on the dirt. Stay off the soil.</em>
+              </span>
+            </li>
+            <li>
+              <span className="nm-cond is-bane">trap</span>
+              <span>
+                <strong>Spider webs</strong>
+                <em>Invisible until you fly low into silk. Mash Space.</em>
+              </span>
+            </li>
+            <li>
+              <span className="nm-cond is-boon">friend</span>
+              <span>
+                <strong>Honeysuckle &amp; moonflower</strong>
+                <em>E to pollinate. Night bloom pays nectar.</em>
+              </span>
+            </li>
+            <li>
+              <span className="nm-cond is-boon">friend</span>
+              <span>
+                <strong>Dragonflies</strong>
+                <em>Over the water. Fly with them for a little glow.</em>
+              </span>
+            </li>
+            <li>
+              <span className="nm-cond is-bane">boss</span>
+              <span>
+                <strong>Bat</strong>
+                <em>Announced. Kill it or reach the retreat.</em>
+              </span>
+            </li>
+            <li>
+              <span className="nm-cond is-bane">boss</span>
+              <span>
+                <strong>Wasp</strong>
+                <em>Announced. No escape. Kill it.</em>
+              </span>
+            </li>
+          </ul>
+          <p>
+            Auroras arrive unannounced and sweeten the score. Infestations
+            shout. <kbd>[</kbd> <kbd>]</kbd> tune the radio. <kbd>M</kbd> plays.{" "}
+            <kbd>F8</kbd> files a shot to the archive.
+          </p>
+        </section>
+      </div>
+    </NightMothCabinet>
   );
 }

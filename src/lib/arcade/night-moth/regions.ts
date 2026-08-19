@@ -50,7 +50,7 @@ export const REGIONS: Record<RegionId, RegionDef> = {
     soil: 0x162016,
     accent: 0xc47a3a,
     homeLamp: "reading",
-    blurb: "Copper cones under the canopy. Heat that mends.",
+    blurb: "An orchard on The Acre. Copper cones under the canopy.",
   },
   stacks: {
     id: "stacks",
@@ -61,7 +61,7 @@ export const REGIONS: Record<RegionId, RegionDef> = {
     soil: 0x161820,
     accent: 0xc8d4e8,
     homeLamp: "archive",
-    blurb: "Moon-silver columns. The shelves remember.",
+    blurb: "A courtyard in The Ward. Moon-silver columns. The shelves remember.",
   },
   terrace: {
     id: "terrace",
@@ -72,7 +72,7 @@ export const REGIONS: Record<RegionId, RegionDef> = {
     soil: 0x121c1c,
     accent: 0x6ee7d0,
     homeLamp: "helix",
-    blurb: "The building's mark, left out after Hours.",
+    blurb: "A rooftop in The Ward. The building's mark, left out after Hours.",
   },
   yard: {
     id: "yard",
@@ -94,7 +94,7 @@ export const REGIONS: Record<RegionId, RegionDef> = {
     soil: 0x1c1410,
     accent: 0xff3a1a,
     homeLamp: "furnace",
-    blurb: "A boiler door left ajar.",
+    blurb: "The Acre's boiler shed. A door left ajar.",
   },
   fen: {
     id: "fen",

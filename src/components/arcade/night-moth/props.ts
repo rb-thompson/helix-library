@@ -4,7 +4,7 @@
  */
 
 import * as THREE from "three";
-import { REGIONS, type RegionId } from "@/lib/arcade/night-moth";
+import { REGIONS, heightAt, type RegionId } from "@/lib/arcade/night-moth";
 
 export type PropWriter = {
   add: (
@@ -144,12 +144,21 @@ export function lowWall(w: PropWriter, x: number, z: number, yaw: number, len: n
 }
 
 export function populateRegion(w: PropWriter, id: RegionId, rng: () => number): void {
+  const ground: PropWriter = {
+    add(x, y, z, sx, sy, sz, rotY, color) {
+      w.add(x, y + heightAt(x, z), z, sx, sy, sz, rotY, color);
+    },
+  };
+  populateRegionOn(ground, id, rng);
+}
+
+function populateRegionOn(w: PropWriter, id: RegionId, rng: () => number): void {
   const r = REGIONS[id];
   if (id === "grove") {
-    for (let i = 0; i < 16; i++) {
-      const a = (i / 16) * Math.PI * 2 + 0.2;
-      const rad = 12 + (i % 3) * 7;
-      tree(w, r.x + Math.cos(a) * rad, r.z + Math.sin(a) * rad, rng);
+    // Orchard trees are authored in The Acre district. A few extra under the canopy.
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + 0.4;
+      tree(w, r.x + Math.cos(a) * 6, r.z + Math.sin(a) * 6, rng);
     }
   } else if (id === "stacks") {
     for (let row = 0; row < 3; row++) {
@@ -198,13 +207,10 @@ export function populateRegion(w: PropWriter, id: RegionId, rng: () => number): 
     fenceRail(w, r.x - hw, r.z, Math.PI / 2, 24);
     fenceRail(w, r.x + hw, r.z, Math.PI / 2, 24);
   } else if (id === "hollow") {
-    for (let i = 0; i < 10; i++) {
-      const a = rng() * Math.PI * 2;
-      const rad = 5 + rng() * 16;
-      rock(w, r.x + Math.cos(a) * rad, r.z + Math.sin(a) * rad, rng);
+    for (let i = 0; i < 5; i++) {
+      const a = (i / 5) * Math.PI * 2 + 0.3;
+      rock(w, r.x + Math.cos(a) * 11, r.z + Math.sin(a) * 11, rng);
     }
-    chimney(w, r.x + 3, r.z - 2);
-    chimney(w, r.x - 5, r.z + 4);
   } else if (id === "fen") {
     for (let i = 0; i < 28; i++) {
       const a = rng() * Math.PI * 2;
@@ -228,4 +234,41 @@ export function populateRegion(w: PropWriter, id: RegionId, rng: () => number): 
       }
     }
   }
+}
+
+/** Fill empty soil so the rim and acre don't read as undeveloped. */
+export function populateWilds(w: PropWriter, rng: () => number): void {
+  const ground: PropWriter = {
+    add(x, y, z, sx, sy, sz, rotY, color) {
+      w.add(x, y + heightAt(x, z), z, sx, sy, sz, rotY, color);
+    },
+  };
+  for (let i = 0; i < 36; i++) {
+    const a = rng() * Math.PI * 2;
+    const rad = 40 + rng() * 118;
+    const x = Math.cos(a) * rad;
+    const z = Math.sin(a) * rad;
+    if (Math.hypot(x, z) < 28) continue;
+    const feat = Math.hypot(x, z) > 138 ? "ridge" : rng() > 0.55 ? "tree" : "rock";
+    if (feat === "ridge") {
+      pine(ground, x, z, rng);
+    } else if (feat === "tree") {
+      if (x < -16) tree(ground, x, z, rng);
+      else rock(ground, x, z, rng);
+    } else {
+      rock(ground, x, z, rng);
+    }
+  }
+  // Cave mouth rubble.
+  for (let i = 0; i < 8; i++) {
+    rock(ground, -102 + (rng() - 0.5) * 8, 88 + (rng() - 0.5) * 6, rng);
+  }
+}
+
+export function pine(w: PropWriter, x: number, z: number, rng: () => number): void {
+  const h = 3.4 + rng() * 2.4;
+  w.add(x, h * 0.45, z, 0.28, h, 0.28, 0, BARK);
+  w.add(x, h * 0.55, z, 2.1, h * 0.55, 2.1, rng() * 0.4, LEAF_C);
+  w.add(x, h * 0.85, z, 1.45, h * 0.35, 1.45, 0.2, LEAF_A);
+  w.add(x, h + 0.35, z, 0.85, 0.7, 0.85, 0.1, LEAF_B);
 }

@@ -10,6 +10,7 @@ export type MothAudio = {
   night: () => void;
   death: () => void;
   setMuted: (m: boolean) => void;
+  setVolume: (n: number) => void;
   dispose: () => void;
 };
 
@@ -28,13 +29,15 @@ export function createMothAudio(): MothAudio {
       night: noop,
       death: noop,
       setMuted: noop,
+      setVolume: noop,
       dispose: noop,
     };
   }
 
   const ctx = new Ctx();
   const master = ctx.createGain();
-  master.gain.value = 0.22;
+  let gain = 0.22;
+  master.gain.value = gain;
   master.connect(ctx.destination);
 
   const drone = ctx.createOscillator();
@@ -116,9 +119,13 @@ export function createMothAudio(): MothAudio {
     death() {
       beep(220, 0.7, "sine", 0.1, 55);
     },
+    setVolume(n) {
+      gain = 0.22 * Math.max(0, Math.min(1, n));
+      if (!muted) master.gain.setTargetAtTime(gain, ctx.currentTime, 0.05);
+    },
     setMuted(m) {
       muted = m;
-      master.gain.setTargetAtTime(m ? 0 : 0.22, ctx.currentTime, 0.05);
+      master.gain.setTargetAtTime(m ? 0 : gain, ctx.currentTime, 0.05);
     },
     dispose() {
       try {

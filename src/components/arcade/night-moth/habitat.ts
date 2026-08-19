@@ -3,7 +3,13 @@
  */
 
 import * as THREE from "three";
-import { REGIONS } from "@/lib/arcade/night-moth";
+import {
+  POOLS,
+  REGIONS,
+  WATERWAYS,
+  heightAt,
+  waterwayPoint,
+} from "@/lib/arcade/night-moth";
 import { geo, mat, type Track } from "./voxels";
 
 export type BonusOrb = {
@@ -25,41 +31,58 @@ export function buildHabitat(track: Track, glowTex: THREE.Texture): Habitat {
   const waterMat = mat(
     track,
     new THREE.MeshStandardMaterial({
-      color: 0x0a2430,
-      emissive: 0x123848,
-      emissiveIntensity: 0.35,
-      roughness: 0.18,
-      metalness: 0.55,
+      color: 0x081820,
+      emissive: 0x1a3040,
+      emissiveIntensity: 0.22,
+      roughness: 0.08,
+      metalness: 0.72,
       transparent: true,
-      opacity: 0.72,
+      opacity: 0.78,
     }),
   );
 
-  function canal(x: number, z: number, sx: number, sz: number) {
-    const mesh = new THREE.Mesh(geo(track, new THREE.BoxGeometry(sx, 0.16, sz)), waterMat);
-    mesh.position.set(x, 0.02, z);
+  function waterSlab(x: number, z: number, sx: number, sz: number, yaw: number) {
+    const mesh = new THREE.Mesh(geo(track, new THREE.BoxGeometry(sx, 0.18, sz)), waterMat);
+    mesh.position.set(x, heightAt(x, z) + 0.06, z);
+    mesh.rotation.y = yaw;
     group.add(mesh);
-    const rim = mat(
-      track,
-      new THREE.MeshStandardMaterial({ color: 0x2a2824, roughness: 0.8, metalness: 0.1 }),
-    );
-    if (sx > sz) {
-      group.add(edge(x, z - sz / 2, sx, 0.22, rim));
-      group.add(edge(x, z + sz / 2, sx, 0.22, rim));
-    } else {
-      group.add(edge(x - sx / 2, z, 0.22, sz, rim));
-      group.add(edge(x + sx / 2, z, 0.22, sz, rim));
-    }
-  }
-  function edge(x: number, z: number, sx: number, sz: number, m: THREE.Material) {
-    const e = new THREE.Mesh(geo(track, new THREE.BoxGeometry(sx, 0.28, sz)), m);
-    e.position.set(x, 0.12, z);
-    return e;
   }
 
-  // Fen → court (east-west) and plaza → court (north-south)
-  canal(-55, 8, 130, 7.2);
-  canal(4, -62, 7.2, 112);
+  for (const way of WATERWAYS) {
+    for (let i = 0; i < way.pts.length - 1; i++) {
+      const a = way.pts[i]!;
+      const b = way.pts[i + 1]!;
+      const mx = (a[0] + b[0]) / 2;
+      const mz = (a[1] + b[1]) / 2;
+      const len = Math.hypot(b[0] - a[0], b[1] - a[1]);
+      const yaw = Math.atan2(b[0] - a[0], b[1] - a[1]);
+      waterSlab(mx, mz, way.half * 2, Math.max(1.2, len + 0.4), yaw);
+    }
+  }
+  for (const p of POOLS) {
+    const mesh = new THREE.Mesh(
+      geo(track, new THREE.CylinderGeometry(p.r, p.r, 0.16, 16)),
+      waterMat,
+    );
+    mesh.position.set(p.x, heightAt(p.x, p.z) + 0.05, p.z);
+    group.add(mesh);
+  }
+
+  const moonGlint = new THREE.Mesh(
+    geo(track, new THREE.CircleGeometry(7.5, 20)),
+    mat(
+      track,
+      new THREE.MeshBasicMaterial({
+        color: 0xc8d0e0,
+        transparent: true,
+        opacity: 0.22,
+        depthWrite: false,
+      }),
+    ),
+  );
+  moonGlint.rotation.x = -Math.PI / 2;
+  moonGlint.position.set(4, heightAt(4, -62) + 0.12, -62);
+  group.add(moonGlint);
 
   const fishGeo = geo(track, new THREE.ConeGeometry(0.12, 0.48, 6));
   const fishMat = mat(
@@ -72,17 +95,25 @@ export function buildHabitat(track: Track, glowTex: THREE.Texture): Habitat {
       metalness: 0.3,
     }),
   );
-  type Fish = { mesh: THREE.Mesh; path: 0 | 1; u: number; speed: number; amp: number };
+  type Fish = {
+    mesh: THREE.Mesh;
+    way: number;
+    u: number;
+    speed: number;
+    amp: number;
+    phase: number;
+  };
   const fish: Fish[] = [];
-  for (let i = 0; i < 18; i++) {
+  for (let i = 0; i < 12; i++) {
     const mesh = new THREE.Mesh(fishGeo, fishMat);
     group.add(mesh);
     fish.push({
       mesh,
-      path: i < 10 ? 0 : 1,
+      way: i % WATERWAYS.length,
       u: Math.random(),
-      speed: 0.04 + Math.random() * 0.05,
-      amp: 0.35 + Math.random() * 0.3,
+      speed: 0.035 + Math.random() * 0.05,
+      amp: 0.28 + Math.random() * 0.35,
+      phase: Math.random() * Math.PI * 2,
     });
   }
 
@@ -93,7 +124,7 @@ export function buildHabitat(track: Track, glowTex: THREE.Texture): Habitat {
   );
   type Bug = { mesh: THREE.Mesh; ox: number; oy: number; oz: number; ph: number };
   const bugs: Bug[] = [];
-  for (let i = 0; i < 56; i++) {
+  for (let i = 0; i < 18; i++) {
     const mesh = new THREE.Mesh(bugGeo, bugMat);
     group.add(mesh);
     bugs.push({
@@ -132,48 +163,49 @@ export function buildHabitat(track: Track, glowTex: THREE.Texture): Habitat {
   function tower(tx: number, tz: number, floors: number, neon: number) {
     const dark = mat(
       track,
-      new THREE.MeshStandardMaterial({ color: 0x12141a, roughness: 0.7, metalness: 0.25 }),
+      new THREE.MeshStandardMaterial({ color: 0x16181e, roughness: 0.72, metalness: 0.22 }),
     );
     const edge = mat(
       track,
       new THREE.MeshStandardMaterial({
         color: neon,
         emissive: neon,
-        emissiveIntensity: 0.85,
+        emissiveIntensity: 0.7,
         roughness: 0.3,
       }),
     );
+    const pane = mat(
+      track,
+      new THREE.MeshBasicMaterial({ color: neon, transparent: true, opacity: 0.22 }),
+    );
+    const bodyH = 3.1 + floors * 3.4;
+    const shell = new THREE.Mesh(geo(track, new THREE.BoxGeometry(7.6, bodyH, 7.6)), dark);
+    shell.position.set(tx, bodyH * 0.5, tz);
+    group.add(shell);
+    const cap = new THREE.Mesh(geo(track, new THREE.BoxGeometry(8.0, 0.28, 8.0)), dark);
+    cap.position.set(tx, bodyH + 0.12, tz);
+    group.add(cap);
     for (let f = 0; f < floors; f++) {
-      const y = 3.2 + f * 3.4;
-      const plat = new THREE.Mesh(geo(track, new THREE.BoxGeometry(7.2, 0.18, 7.2)), dark);
-      plat.position.set(tx, y, tz);
-      group.add(plat);
-      for (const [sx, sz] of [
-        [-3.4, -3.4],
-        [3.4, -3.4],
-        [-3.4, 3.4],
-        [3.4, 3.4],
+      const y = 2.4 + f * 3.4;
+      for (const [sx, sz, rx, rz] of [
+        [0, 3.85, 5.2, 0.08],
+        [0, -3.85, 5.2, 0.08],
+        [3.85, 0, 0.08, 5.2],
+        [-3.85, 0, 0.08, 5.2],
       ] as const) {
-        const post = new THREE.Mesh(geo(track, new THREE.BoxGeometry(0.16, 3.4, 0.16)), dark);
-        post.position.set(tx + sx, y + 1.7, tz + sz);
-        group.add(post);
-        const strip = new THREE.Mesh(geo(track, new THREE.BoxGeometry(0.05, 3.4, 0.05)), edge);
-        strip.position.set(tx + sx, y + 1.7, tz + sz);
-        group.add(strip);
+        const win = new THREE.Mesh(geo(track, new THREE.BoxGeometry(rx, 1.15, rz)), pane);
+        win.position.set(tx + sx, y, tz + sz);
+        group.add(win);
       }
-      // Maze walls — gap on alternating sides
-      const wallA = new THREE.Mesh(geo(track, new THREE.BoxGeometry(5.2, 1.6, 0.16)), dark);
-      wallA.position.set(tx + (f % 2 === 0 ? -0.6 : 0.6), y + 0.9, tz + (f % 2 === 0 ? 1.8 : -1.8));
-      group.add(wallA);
-      const wallB = new THREE.Mesh(geo(track, new THREE.BoxGeometry(0.16, 1.6, 4.4)), dark);
-      wallB.position.set(tx + (f % 2 === 0 ? 2.1 : -2.1), y + 0.9, tz);
-      group.add(wallB);
+      const strip = new THREE.Mesh(geo(track, new THREE.BoxGeometry(7.7, 0.06, 7.7)), edge);
+      strip.position.set(tx, y + 1.4, tz);
+      group.add(strip);
     }
-    const top = 3.2 + floors * 3.4;
+    const top = bodyH + 0.4;
     bonuses.push(makeBonus(track, group, glowTex, new THREE.Vector3(tx, top + 0.6, tz), neon));
     if (floors > 3) {
       bonuses.push(
-        makeBonus(track, group, glowTex, new THREE.Vector3(tx + 2.2, 3.2 + 3.4 + 0.5, tz - 2), neon),
+        makeBonus(track, group, glowTex, new THREE.Vector3(tx + 2.2, 6.2, tz - 2), neon),
       );
     }
   }
@@ -188,16 +220,16 @@ export function buildHabitat(track: Track, glowTex: THREE.Texture): Habitat {
     tick(t, dt) {
       void dt;
       for (const f of fish) {
-        f.u = (f.u + f.speed * 0.016) % 1;
-        if (f.path === 0) {
-          const x = -118 + f.u * 128;
-          f.mesh.position.set(x, 0.18 + Math.sin(t * 3 + f.u * 8) * 0.05, 8 + Math.sin(f.u * 12) * f.amp);
-          f.mesh.rotation.y = -Math.PI / 2;
-        } else {
-          const z = -118 + f.u * 112;
-          f.mesh.position.set(4 + Math.sin(f.u * 10) * f.amp, 0.18 + Math.sin(t * 2.4 + f.u * 7) * 0.05, z);
-          f.mesh.rotation.y = Math.PI;
-        }
+        f.u = (f.u + f.speed * dt) % 1;
+        const way = WATERWAYS[f.way] ?? WATERWAYS[0]!;
+        const p = waterwayPoint(way, f.u);
+        const side = Math.sin(t * 1.4 + f.phase) * f.amp;
+        const hx = Math.cos(p.heading);
+        const hz = -Math.sin(p.heading);
+        const x = p.x + hx * side;
+        const z = p.z + hz * side;
+        f.mesh.position.set(x, heightAt(x, z) + 0.22 + Math.sin(t * 3 + f.phase) * 0.05, z);
+        f.mesh.rotation.y = p.heading;
         f.mesh.rotation.z = Math.sin(t * 8 + f.u * 20) * 0.25;
       }
       for (const b of bugs) {
@@ -208,7 +240,6 @@ export function buildHabitat(track: Track, glowTex: THREE.Texture): Habitat {
           b.oz + Math.cos(t * 0.28 + b.ph) * 6,
         );
         b.mesh.scale.setScalar(0.6 + pulse);
-        (b.mesh.material as THREE.MeshBasicMaterial).color.setHSL(0.22, 0.85, 0.35 + pulse * 0.35);
       }
       for (const p of plants) {
         p.mesh.rotation.z = Math.sin(t * 1.1 + p.ph) * 0.22;

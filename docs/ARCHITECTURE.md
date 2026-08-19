@@ -14,19 +14,20 @@
 │  Web surface (Next.js 15 App Router + React 19)             │
 │  /  /catalog  /catalog/[id]  /graph  /collections           │
 │  /locations  /acquire  /services  /ask  /docs  /lens        │
+│  /arcade  /arcade/night-moth                                │
 │  AppShell left rail · Header (jobs + theme) · Footer        │
 └───────────────────────────┬─────────────────────────────────┘
                             │ RSC / fetch
 ┌───────────────────────────▼─────────────────────────────────┐
 │  API routes (Node runtime)                                  │
 │  reindex · media · thumbs · locations · collections · tags  │
-│  ask · threads · bulk · acquire · backup · restore · insights · lens  │
+│  ask · threads · bulk · acquire · backup · restore · insights · lens · arcade  │
 └───────────────────────────┬─────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
 │  Library core (`src/lib`)                                   │
 │  config · db · indexer · catalog · collections · locations  │
-│  media · agent · machine · graph · acquire · lens · backup  │
+│  media · agent · machine · graph · acquire · lens · backup · arcade  │
 └───────────────┬─────────────────────────────┬───────────────┘
                 │                             │
                 ▼                             ▼
@@ -194,8 +195,10 @@ Responsive: left sidebar at `lg+` (collapsible); hamburger drawer below `lg`; la
 | GET/POST | `/api/restore` | Sidecar status / apply (typed `RESTORE`; sync until COMMIT) |
 | POST | `/api/restore/cancel` | Best-effort cancel before copy-in |
 | DELETE | `/api/restore/session` | Drop the confirm token |
-| GET/POST | `/api/arcade/scores` | Night Moth high-score ledger |
+| GET/POST | `/api/arcade/scores` | Night Moth high-score ledger (score 0 is not stored) |
 | GET/PUT | `/api/arcade/progress` | Persistent XP / unlocks / tutorial flag |
+| GET | `/api/arcade/radio` | Catalog audio holdings for the visor playlist |
+| POST | `/api/arcade/shot` | F8 screenshot → `archive/images/` + tags |
 
 Backup/restore live under `src/lib/backup/*`. In-app restore copies the snapshot into the open `library.db` (same inode); holdings trees are not overwritten. Restore HTTP is refused when LAN mode is on unless `NON_OS_RESTORE_OK=1`. Archives never include `.env` / API keys / SuperGrok credentials.
 

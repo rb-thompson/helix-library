@@ -228,35 +228,39 @@ export default function DocsPage() {
             <Link href="/arcade/night-moth" className="link-accent">
               Night Moth
             </Link>{" "}
-            is the game. Scores stay in this machine&apos;s catalog. Nothing
-            leaves the building.
+            is the game. Scores stay in this machine&apos;s catalog.{" "}
+            <kbd>F8</kbd> files a still to Archive. Nothing leaves the
+            building.
           </p>
           <Workflow
             label="A night"
             steps={[
               {
                 title: "Take the wing",
-                body: "Mouse looks. W flies where the visor points. A/D slip, S brakes, Shift dashes. Optional beginner night names the first three lamps.",
+                body: "Click the canvas to lock look, or drag. W flies where the visor points. A/D slip, S brakes, Shift dashes. Space climbs. Roofs hold — you can perch. Optional beginner night names the first three lamps.",
                 href: "/arcade/night-moth",
               },
               {
                 title: "Judge the light",
-                body: "Amber and steady is Circulation. Green that flickers is a cage. Violet that hunts you is not furniture. Lamps wander — follow the pip, not last night's map.",
+                body: "Read the shade, not the card. A desk lamp that pulses steady is Circulation. A wire cage flickers green. A moving core is not furniture. Follow the pip, not last night's map.",
               },
               {
                 title: "Drink or dust",
-                body: "E drinks a near lamp. Click fires the equipped art. Wheel or Tab cycles arts. Number keys select. Statuses sit as banners on the visor.",
+                body: "E drinks beside a true lamp — not through it. Click fires the equipped art. Wheel or Tab cycles. Number keys select. Green, purple, and blue mites hunt; webs wait if you fly low.",
               },
               {
                 title: "Leave a score",
-                body: "Dying or leaving with a score stamps the cabinet. Initials default to MTH. The home page and Arcade desk show the same high-score card. H is the jacket.",
+                body: "Dying or leaving with a score stamps the gold cabinet. Zeroes are not stored. Initials default to MTH. H is the field guide. O is settings (library radio, game and music gain).",
               },
             ]}
           />
           <div className="mt-5 grid gap-3 sm:grid-cols-2">
             <Note title="The grounds">
-              Eight regions, two canals with fish, fireflies, and three noir
-              towers. Caches in the mazes are nectar and a little wing.
+              The Ward (streets) and The Acre (farm, orchard, boiler). Rim
+              mountains, a cave under the hollow, waterways with fish.
+              Honeysuckle and moonflower take pollination. A bat can be lost at
+              the retreat; a wasp cannot. Title, pause, settings, and scores
+              share one cabinet frame.
             </Note>
             <Note title="The clerk is not the game">
               The night moth on Hours and this handbook is Circulation staff.

@@ -81,7 +81,7 @@ export function listScores(
     .prepare(
       `SELECT id, game, score, night, nectar, duration_ms, abilities_json, created_at, initials
        FROM arcade_scores
-       WHERE game = ?
+       WHERE game = ? AND score > 0
        ORDER BY score DESC, created_at ASC
        LIMIT ?`,
     )
@@ -108,6 +108,19 @@ export function submitScore(input: SubmitScoreInput): ArcadeScore {
   const abilities = parseAbilityList(input.abilities);
   const initials = clampInitials(input.initials);
   const createdAt = Date.now();
+  if (score < 1) {
+    return {
+      id: 0,
+      game,
+      score,
+      night,
+      nectar,
+      durationMs,
+      abilities,
+      createdAt,
+      initials,
+    };
+  }
 
   const sqlite = arcadeSqlite();
   const inserted = sqlite.transaction(() => {

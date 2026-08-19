@@ -1,8 +1,32 @@
 "use client";
 
 import type { ReactNode } from "react";
+import { cn } from "@/lib/cn";
 import type { ArcadeScore } from "@/lib/arcade/scores";
 import type { RunResult } from "@/components/arcade/night-moth/engine";
+
+export function NightMothCabinet({
+  marquee,
+  children,
+  wide,
+  className,
+}: {
+  marquee: [string, string, string];
+  children: ReactNode;
+  wide?: boolean;
+  className?: string;
+}) {
+  return (
+    <div className={cn("nm-cab", wide && "nm-cab--wide", className)}>
+      <div className="nm-cab-marquee">
+        <span>{marquee[0]}</span>
+        <span>{marquee[1]}</span>
+        <span>{marquee[2]}</span>
+      </div>
+      {children}
+    </div>
+  );
+}
 
 export function formatDuration(ms: number): string {
   const s = Math.max(0, Math.round(ms / 1000));
@@ -21,7 +45,7 @@ export function ArcadeCabinet({
   xpLine,
   actions,
   onBack,
-  marquee = ["HIGH SCORES", "NIGHT MOTH", "HIGH SCORES"],
+  marquee = ["NIGHT MOTH", "HIGH SCORES", "CABINET"],
 }: {
   scores: ArcadeScore[];
   highlight?: number;
@@ -35,12 +59,7 @@ export function ArcadeCabinet({
   marquee?: [string, string, string];
 }) {
   return (
-    <div className="nm-cab">
-      <div className="nm-cab-marquee">
-        <span>{marquee[0]}</span>
-        <span>{marquee[1]}</span>
-        <span>{marquee[2]}</span>
-      </div>
+    <NightMothCabinet marquee={marquee}>
       {result ? (
         <div className="nm-cab-run">
           <p className="nm-cab-run-k">This flight</p>
@@ -91,12 +110,12 @@ export function ArcadeCabinet({
         <div className="nm-actions">
           {actions}
           {onBack ? (
-            <button type="button" className="btn btn-secondary" onClick={onBack}>
+            <button type="button" className="btn btn-helix" onClick={onBack}>
               Back
             </button>
           ) : null}
         </div>
       ) : null}
-    </div>
+    </NightMothCabinet>
   );
 }

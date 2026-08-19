@@ -15,6 +15,9 @@ export type NightMothHandle = {
   toTitle: () => void;
   selectAbility: (id: StartOpts["unlocked"][number]) => void;
   cycleAbility: (dir: 1 | -1) => void;
+  setExposure: (n: number) => void;
+  setGameVolume: (n: number) => void;
+  captureFrame: () => string;
   snapshotRun: () => {
     score: number;
     night: number;
@@ -52,6 +55,9 @@ export function NightMothCanvas({
       toTitle: () => engine.toTitle(),
       selectAbility: (id) => engine.selectAbility(id),
       cycleAbility: (dir) => engine.cycleAbility(dir),
+      setExposure: (n) => engine.setExposure(n),
+      setGameVolume: (n) => engine.setGameVolume(n),
+      captureFrame: () => engine.captureFrame(),
       snapshotRun: () => engine.snapshotRun(),
     });
     const ro = new ResizeObserver(() => engine.resize());
