@@ -47,6 +47,7 @@ const ICON_NOTES: Record<NavIconName, string> = {
   services: "Lucide HardDrive — home Services tile",
   docs: "Lucide BookOpen — home Docs tile",
   design: "Lucide LayoutGrid — design lab only",
+  arcade: "Lucide Gamepad2 — Arcade / Night Moth",
 };
 
 const COLOR_TOKENS: { name: string; varName: string; group: string }[] = [
@@ -420,6 +421,26 @@ export function DesignAssetsLab() {
               src="/brand/plate-helix.jpg"
               label="Nameplate study"
               note="Engraved helix plate"
+            />
+            <BrandStill
+              src="/brand/moth-idle.jpg"
+              label="Night moth · idle"
+              note="Circulation clerk at the cart"
+            />
+            <BrandStill
+              src="/brand/moth-reading.jpg"
+              label="Night moth · reading"
+              note="Handbook hero / Hours"
+            />
+            <BrandStill
+              src="/brand/moth-reindex.jpg"
+              label="Night moth · reindex"
+              note="Cards in the air"
+            />
+            <BrandStill
+              src="/brand/moth-portrait.jpg"
+              label="Night moth · portrait"
+              note="Due-slip badge"
             />
           </div>
           <Surface className="flex flex-wrap items-center gap-3 p-4 sm:p-5">

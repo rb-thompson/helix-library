@@ -1,9 +1,9 @@
 # Session handoff — Helix Library
 
-**Last updated:** 2026-08-16 (PR6 + PR8 merged)  
+**Last updated:** 2026-08-19 (Night Moth presence + tight craft)  
 **Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`)  
-**Tip:** `origin/main` — restore UI + left sidebar + look-feel craft (incl. catalog j/k) + expanded `/docs` + Circulation stills + `item_events`. Lucide nav.  
-**Status:** Daily-usable OPAC. **Curation, Discovery (incl. PR6), Acquire, export/backup, Deep Lens S2, restore UI, left rail, look-feel craft (PR1a–8), handbook `/docs`, Circulation brand wave** shipped. No required leftovers. Stretch: Gutenberg. Do not start embeddings.
+**Tip:** `origin/ship-grade/presence` — Arcade Night Moth world, fauna, craft. `origin/main` is still Discovery PR6 + craft PR8.  
+**Status:** Daily-usable OPAC plus **ship-grade pass** plus **Night Moth** as a real after-hours game (Ward/Acre, collision, moon key, cabinet menus). Stretch: Gutenberg. Do not start embeddings.
 
 Read [AGENTS.md](../AGENTS.md) first, then this file.
 
@@ -50,9 +50,10 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | **Acquire `/acquire`** | arXiv; OpenAlex OA PDF; web clip; **Grokipedia**; **image URL**; YT/podcast; Grok image; Ask propose+approve for all acquire kinds; SSRF outbound; jobs + auto-tags |
 | Theme / nav | Dark/light; **light helix mark** swap; **left sidebar** (Stacks + Library ops); header is jobs + theme |
 | Shell | `.app-frame` offset by `--sidebar-rail`; `.shell-x`, `--shell-max` wider at 2xl |
-| Tests | `npm test` — **279 pass** (item_events + catalog j/k) |
+| Tests | `npm test` — **317 pass** (Night Moth terrain, fauna, collision, cabinet, shot parse) |
 | **Look-feel craft** | Design: [docs/designs/2026-08-look-feel-craft.md](./designs/2026-08-look-feel-craft.md). Tokens + lamp + overlay; toast/ProgressBar/InlineStatus; header adaptive poll; catalog `replace` while typing; holding folios + optimistic tags/dismiss; item room + lamp `?room=1`; Hours lamp; Ask bubbles; shared job bars; graph/collections/services chrome; **PR8 j/k browse**. `/design` is the living spec. |
-| Docs | In-app `/docs` is a full handbook (map, building, every desk, privacy, keyboard). Field guide: `archive/documents/Helix-Library-Field-Guide.md` |
+| Docs | In-app `/docs` is a presentation handbook (floor plan + workflows). Field guide: `archive/documents/Helix-Library-Field-Guide.md` |
+| Night moth | Circulation clerk (not the logo). Hours due-slip, `/docs` hero, `/design` stills, `public/og-helix.jpg` |
 | **Reading room (PR1a+1b)** | Text/code continuous + PDF.js page mode (canvas + text layer); `helix-read-position` scroll/page; `?room=1`; public unbundled pdf.min.mjs |
 | **Read → act (PR2)** | Selection toolbar Tag/Ask/Copy; `/ask?item=`; transport `holdingItemId` + quote; system appendix; local summarize → indexed body |
 | **Related (PR3)** | `getRelatedHoldings` — same folder / shared tags / co-shelved; panel on item detail; exclude missing |
@@ -62,12 +63,14 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 | **Deep Lens** | `/lens` + `/lens/[id]` dossier: 3D kind-object, `lens_analyses` cache, Run analysis (local/xAI), related, Your insights, Ask |
 | **Restore** | Services **Restore from snapshot** — inspect `helix-backup-v1`, type `RESTORE`, undo snapshot, ATTACH copy-in. Holdings not overwritten. `npm run restore`. LAN HTTP off unless `NON_OS_RESTORE_OK=1`. |
 | **Open events (PR6)** | `item_events`; `POST /api/items/[id]/events`; 60s dedupe; prune 500; home recent list merges with `helix-open-history`. Reading position stays client-only. |
+| **Arcade** | Sidebar **Arcade** + `/arcade` + `/arcade/night-moth`. 3D flight on **The Ward / The Acre**: authored lots, roofs you can perch on, rim mountains, cave, waterways + fish. True/lure lamps with shape tells. Fauna (mites green/purple/blue, beetles, webs, bloom, dragonflies). Events: bat (escape to retreat), wasp, infestations, silent aurora. HUD visor + radar. Radio from catalog audio. **F8** files a shot to archive. Menus share the gold cabinet frame. Jacket card on home. Design: [night-moth-tight](./designs/2026-08-night-moth-tight.md). `/docs#arcade`. |
 
 ---
 
 ## Git baseline
 
-**This wrap:** Discovery PR6 + craft PR8 merged to `main` (`#1`, `#2`).  
+**This wrap:** Night Moth presence + tight craft on `ship-grade/presence` (PR `#5`).  
+**Older landmark:** Discovery PR6 + craft PR8 on `main` (`#1`, `#2`).  
 **Older landmark:** `ba23e55` — first daily Helix ship.
 
 **Do not commit:** `.env.local`, `library.config.json`, `data/` (db, thumbs, exports), personal `archive/**`, `scripts/__pycache__/`.  
@@ -195,7 +198,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 1. Gutenberg / Standard Ebooks (known-host EPUB only)  
 2. yt-dlp JS runtime (optional deno)  
-3. Lens leftovers: DELETE analyses API, agent `lens_analyze` tool  
+3. Agent `lens_analyze` tool (DELETE analyses API shipped)  
 4. Holdings restore (sibling `archive.restored-<stamp>/` + Locations remap — not live-root overwrite)  
 5. Embeddings / semantic search — **explicit non-goal**
 
@@ -221,7 +224,7 @@ npm run dev    # http://127.0.0.1:4747
 # optional: yt-dlp, ffmpeg, exiftool; XAI_API_KEY for Grok Ask/images
 ```
 
-**Smoke:** home → **sidebar** (collapse, `[`, reload keeps collapsed; phone hamburger drawer) → catalog (**j/k** browse ring, Enter opens, `x` in Select) → **text** holding (scroll restore) → **PDF** holding (page nav, text select, reload restores page; Network 206 Range) → Tag/Ask from selection → related panel → smart shelf filter → `/graph` 2D/3D (fullscreen still covers rail) → `/ask?item=` → theme toggle (light mark) → `/docs#services` → `/acquire` → `/lens/{id}` (kind-object + Run analysis) → `/services` inspect a catalog archive **without** applying → mini player (play audio/video, navigate away, bar persists) → open a holding, reload home, **Recently opened** still lists it (server `item_events`).
+**Smoke:** home → **sidebar** (collapse, `[`, reload keeps collapsed; phone hamburger drawer) → catalog (**j/k** browse ring, Enter opens, `x` in Select) → **text** holding (scroll restore) → **PDF** holding (page nav, text select, reload restores page; Network 206 Range) → Tag/Ask from selection → related panel → smart shelf filter → `/graph` 2D/3D (fullscreen still covers rail) → `/ask?item=` → theme toggle (light mark) → `/docs#services` → `/acquire` → `/lens/{id}` (kind-object + Run analysis) → `/services` inspect a catalog archive **without** applying → mini player (play audio/video, navigate away, bar persists) → open a holding, reload home, **Recently opened** still lists it (server `item_events`) → `/arcade/night-moth` (land on a Ward roof; H jacket; gold cabinet title).
 
 ---
 
@@ -281,6 +284,47 @@ npm run dev    # http://127.0.0.1:4747
 
 **Shipped:** Discovery **PR6** (`#1`) — `item_events`, POST `/api/items/[id]/events`, 60s dedupe, prune 500, home recent merge with `helix-open-history`, restore registry. Craft **PR8** (`#2`) — catalog j/k browse ring (`.is-browse`), Enter opens, `x` in Select only. Both squash-merged to `main`. Tests **279**.
 
-**Still optional:** Gutenberg; Lens leftovers; holdings restore to a sibling tree.
+**Still optional:** Gutenberg; agent `lens_analyze`; holdings restore to a sibling tree.
+
+**Do not start:** embeddings, batch-analyze, auto-apply AI tags.
+
+## Session wrap (2026-08-16 night) — ship-grade
+
+**Shipped:** LAN Host-header fix (connection IP only) + LAN Origin on mutations + timing-safe Basic auth; `realpath` media jail; HTML/SVG attachment + security headers; ffmpeg command cache + combined ffprobe + 3-wide async poster pool; SQLite pragmas; thumb cache 1d; vision-only singleton + EXIF junk hidden from facets; Lens DELETE; `/design` off the public nav; presentation `/docs` (floor plan + workflows); night-moth clerk + OG card.
+
+## Session wrap (2026-08-17) — Arcade / Night Moth
+
+**Shipped:** New nav category **Arcade**. Playable **Night Moth** at `/arcade/night-moth`:
+
+- 3D voxel flight (three.js). Mouse look, W along visor, E drink, click fires equipped art.
+- Eight regions, wandering lamps (true vs lure), canals + fish, fireflies, swaying plants, three noir towers with caches.
+- Arts dock: Tab / Q / wheel cycle **live unlocks** (XP this run counts). Click fires equipped.
+- High scores: `arcade_scores` (+ `initials` column, added on read if missing). Local `helix-arcade-night-moth-scores` backup. Dedupe by score/night/nectar/duration/initials. Cabinet UI.
+- Home + `/arcade` jacket card (`public/arcade/night-moth/jacket.jpg`). `/docs#arcade` handbook section.
+- Clerk moth (`NightMoth.tsx`) is still Circulation staff — not the game.
+
+**Code map:** `src/lib/arcade/*`, `src/components/arcade/*`, `src/app/arcade/**`, `src/app/api/arcade/**`, `src/lib/client/arcade-board.ts`, `tests/arcade-night-moth.test.ts`.
+
+**Verify:** `npm test`; smoke `/` (jacket card), `/arcade`, `/arcade/night-moth` (Tab cycles; die or leave → one cabinet row), `/docs#arcade`.
+
+**Still optional:** Gutenberg; agent `lens_analyze`; holdings sibling restore.
+
+**Do not start:** embeddings, batch-analyze, auto-apply AI tags.
+
+## Session wrap (2026-08-18–19) — Night Moth presence + tight craft
+
+**Shipped on `ship-grade/presence`:** Night Moth is no longer a Roblox cabinet. Same score loop, a place you fly.
+
+- **World:** The Ward (streets/stoops) and The Acre (farm/orchard/boiler). Authored lots + sockets. Height field (hills, rim mountains, cave under the hollow). Waterways with fish. Collision: brick, trees, hedges, lamps, **roofs you can perch on**. Hover no longer sucks you through a building.
+- **Life:** Mite colours (green dart, purple pack, blue orbit). Ground beetles. Invisible webs until you fly low (mash Space). Honeysuckle / moonflower (E pollinate). Dragonflies on water. Bat (defeat or retreat). Wasp (no escape). Infestations + unannounced aurora.
+- **Feel:** Moon is a key light. Water is glass. Moth has translucent wings. Lamps show **shape** until known. Scale dust is ochre flakes. HUD says each fact once; critical wing pulses; pointer-lock hint matches drag-look. **F8** files a JPEG to `archive/images/` tagged `night-moth` / `screenshot` / `arcade`. Radio from catalog audio (`[` `]` / `M`). Game + music sliders.
+- **Menus:** Title, pause, settings, field guide, and high scores share the gold **cabinet** frame (wood bezel, amber marquee). Field guide is two columns.
+- **Perf:** One displaced ground plane, baked height, 4 lamp lights, collider grid, pixel-ratio cap. Do not run `next build` while `next dev` shares `.next`.
+
+**Code map:** `src/lib/arcade/night-moth/{terrain,districts,collision,fauna,events,shot}.ts`, `src/components/arcade/night-moth/{buildings,life,world,NightMothHud,NightMothRadio}.ts(x)`, `src/app/api/arcade/{radio,shot}/`, `src/lib/client/arcade-prefs.ts`. Design: [2026-08-night-moth-tight.md](./designs/2026-08-night-moth-tight.md).
+
+**Verify:** `npm test` (**317**). Smoke `/` jacket, `/arcade`, `/arcade/night-moth` (land on a Ward roof; H for jacket; O settings; F8 shot), `/docs#arcade`.
+
+**Still optional:** Gutenberg; agent `lens_analyze`; holdings sibling restore; home-layout retreat from photo ref; Sketchfab/MagicaVoxel hero meshes.
 
 **Do not start:** embeddings, batch-analyze, auto-apply AI tags.

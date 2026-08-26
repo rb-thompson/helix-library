@@ -130,6 +130,27 @@ export function useLensAnalysis(opts: {
     }
   }
 
+  const discard = useCallback(async () => {
+    setBusy(true);
+    setError(null);
+    try {
+      const res = await fetch(`/api/lens/analyses?itemId=${opts.itemId}`, {
+        method: "DELETE",
+      });
+      const data = (await res.json()) as LensAnalysisApi & { deleted?: boolean };
+      if (!res.ok || !data.ok) {
+        throw new Error(data.error ?? `Discard failed (${res.status})`);
+      }
+      setStatus("missing");
+      setAnalysis(null);
+      setJobId(null);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : String(err));
+    } finally {
+      setBusy(false);
+    }
+  }, [opts.itemId]);
+
   return {
     status,
     analysis,
@@ -143,5 +164,6 @@ export function useLensAnalysis(opts: {
     run,
     toggleAuto,
     applyTag,
+    discard,
   };
 }

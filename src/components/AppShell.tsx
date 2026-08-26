@@ -76,6 +76,7 @@ export function AppShell({ children }: { children: ReactNode }) {
     function onKey(e: KeyboardEvent) {
       if (e.key !== "[") return;
       if (e.metaKey || e.ctrlKey || e.altKey) return;
+      if (document.querySelector(".nm-play")) return;
       const el = e.target as HTMLElement | null;
       if (el?.closest("input, textarea, select, [contenteditable='true']")) {
         return;

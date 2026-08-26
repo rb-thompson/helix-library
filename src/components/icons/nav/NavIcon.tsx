@@ -6,6 +6,7 @@ import {
   FolderOpen,
   HardDrive,
   Layers,
+  Gamepad2,
   LayoutGrid,
   MessageCircle,
   Network,
@@ -32,6 +33,7 @@ const ICONS: Record<NavIconName, LucideIcon> = {
   services: HardDrive,
   docs: BookOpen,
   design: LayoutGrid,
+  arcade: Gamepad2,
 };
 
 export function NavIcon({

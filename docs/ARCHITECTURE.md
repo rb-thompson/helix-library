@@ -14,19 +14,20 @@
 │  Web surface (Next.js 15 App Router + React 19)             │
 │  /  /catalog  /catalog/[id]  /graph  /collections           │
 │  /locations  /acquire  /services  /ask  /docs  /lens        │
+│  /arcade  /arcade/night-moth                                │
 │  AppShell left rail · Header (jobs + theme) · Footer        │
 └───────────────────────────┬─────────────────────────────────┘
                             │ RSC / fetch
 ┌───────────────────────────▼─────────────────────────────────┐
 │  API routes (Node runtime)                                  │
 │  reindex · media · thumbs · locations · collections · tags  │
-│  ask · threads · bulk · acquire · backup · restore · insights · lens  │
+│  ask · threads · bulk · acquire · backup · restore · insights · lens · arcade  │
 └───────────────────────────┬─────────────────────────────────┘
                             │
 ┌───────────────────────────▼─────────────────────────────────┐
 │  Library core (`src/lib`)                                   │
 │  config · db · indexer · catalog · collections · locations  │
-│  media · agent · machine · graph · acquire · lens · backup  │
+│  media · agent · machine · graph · acquire · lens · backup · arcade  │
 └───────────────┬─────────────────────────────┬───────────────┘
                 │                             │
                 ▼                             ▼
@@ -160,6 +161,8 @@ EXIF: `readExif()` via system exiftool when available.
 | `/lens` / `/lens/[id]` | Deep Lens dossier (kind-object + analysis + Your insights) |
 | `/acquire` | ILL desk (arXiv, OpenAlex, clip, Grokipedia, YT, images) |
 | `/graph` | 2D/3D knowledge map |
+| `/arcade` | After-hours cabinet |
+| `/arcade/night-moth` | Night Moth 3D voxel flight (client three.js) |
 | `/design` | Internal design-assets lab |
 
 Shared nav: `src/lib/nav.ts` (AppSidebar + Footer).  
@@ -192,6 +195,10 @@ Responsive: left sidebar at `lg+` (collapsible); hamburger drawer below `lg`; la
 | GET/POST | `/api/restore` | Sidecar status / apply (typed `RESTORE`; sync until COMMIT) |
 | POST | `/api/restore/cancel` | Best-effort cancel before copy-in |
 | DELETE | `/api/restore/session` | Drop the confirm token |
+| GET/POST | `/api/arcade/scores` | Night Moth high-score ledger (score 0 is not stored) |
+| GET/PUT | `/api/arcade/progress` | Persistent XP / unlocks / tutorial flag |
+| GET | `/api/arcade/radio` | Catalog audio holdings for the visor playlist |
+| POST | `/api/arcade/shot` | F8 screenshot → `archive/images/` + tags |
 
 Backup/restore live under `src/lib/backup/*`. In-app restore copies the snapshot into the open `library.db` (same inode); holdings trees are not overwritten. Restore HTTP is refused when LAN mode is on unless `NON_OS_RESTORE_OK=1`. Archives never include `.env` / API keys / SuperGrok credentials.
 
@@ -201,8 +208,11 @@ All data routes: `runtime = "nodejs"`, `dynamic = "force-dynamic"` where used.
 
 - Process binds loopback; no auth (acceptable only for single-user localhost).  
 - Do not change bind without adding authentication.  
+- LAN preview (`NON_OS_LAN=1`) requires Basic auth on every request. Never skip on the `Host` header (spoofable on `0.0.0.0`).  
+- LAN mutations require a same-origin `Origin`. Password compare is constant-time.  
+- Security headers: `nosniff`, `same-origin` referrer, `DENY` / `frame-ancestors 'none'`.  
 - Agent cannot leave configured roots (tools only return catalog data).  
-- Media API path-traversal checks are mandatory for any new file-serving endpoints.
+- Media API path-traversal checks use `realpath` (symlink jail). HTML/SVG download as attachment.
 
 ## Dependencies (intentional)
 

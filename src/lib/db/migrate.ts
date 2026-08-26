@@ -296,4 +296,29 @@ export function migrate(sqlite: Database.Database): void {
     CREATE INDEX IF NOT EXISTS item_events_item_at_idx ON item_events(item_id, at);
     CREATE INDEX IF NOT EXISTS item_events_at_idx ON item_events(at);
   `);
+
+  // Arcade: local high scores + meta unlocks (no holdings)
+  sqlite.exec(`
+    CREATE TABLE IF NOT EXISTS arcade_scores (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      game TEXT NOT NULL,
+      score INTEGER NOT NULL,
+      night INTEGER NOT NULL,
+      nectar INTEGER NOT NULL,
+      duration_ms INTEGER NOT NULL,
+      abilities_json TEXT,
+      created_at INTEGER NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS arcade_scores_game_score_idx
+      ON arcade_scores(game, score DESC, created_at ASC);
+
+    CREATE TABLE IF NOT EXISTS arcade_progress (
+      game TEXT PRIMARY KEY,
+      xp INTEGER NOT NULL DEFAULT 0,
+      unlocked_json TEXT,
+      tutorial_done INTEGER NOT NULL DEFAULT 0,
+      updated_at INTEGER NOT NULL
+    );
+  `);
+  ensureColumn(sqlite, "arcade_scores", "initials", "TEXT");
 }

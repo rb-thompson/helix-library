@@ -20,6 +20,7 @@ import { kindLabel } from "@/lib/format";
 import { hasThumb } from "@/lib/media/thumbs";
 import { getLatestJob, isReindexRunning } from "@/lib/indexer/run";
 import { listRecentOpens } from "@/lib/catalog/events";
+import { NightMothHeroCue } from "@/components/arcade/NightMothHeroCue";
 import { ensureLocationsSynced } from "@/lib/locations/manage";
 
 export const dynamic = "force-dynamic";
@@ -146,6 +147,7 @@ export default function HomePage() {
             </div>
           ) : null}
         </div>
+        <NightMothHeroCue />
       </section>
 
       {rescue.hasWork ? <RescuePanel rescue={rescue} /> : null}
@@ -204,6 +206,12 @@ export default function HomePage() {
           icon="docs"
           title="Docs"
           body="How it works"
+        />
+        <ServiceCard
+          href="/arcade"
+          icon="arcade"
+          title="Arcade"
+          body="Night Moth after hours"
         />
       </section>
 

@@ -9,7 +9,8 @@ export type NavIconName =
   | "acquire"
   | "services"
   | "docs"
-  | "design";
+  | "design"
+  | "arcade";
 
 /** Ordered list for design lab / registries. */
 export const NAV_ICON_NAMES: readonly NavIconName[] = [
@@ -23,6 +24,7 @@ export const NAV_ICON_NAMES: readonly NavIconName[] = [
   "services",
   "docs",
   "design",
+  "arcade",
 ] as const;
 
 export type NavItem = {
@@ -68,6 +70,32 @@ export const PRIMARY_NAV: readonly NavItem[] = [
   },
 ] as const;
 
+/** After-hours cabinet — not stacks, not ops. */
+export const ARCADE_HUB: NavItem = {
+  href: "/arcade",
+  label: "Arcade",
+  tip: "After-hours games on the grounds",
+  icon: "arcade",
+};
+
+/** Games listed under the Arcade heading. */
+export const ARCADE_NAV: readonly NavItem[] = [
+  {
+    href: "/arcade/night-moth",
+    label: "Night Moth",
+    tip: "3D voxel night flight — not every lamp is kind",
+    icon: "arcade",
+  },
+] as const;
+
+/** Internal lab — reachable by URL, not a public desk. */
+export const DESIGN_NAV_ITEM: NavItem = {
+  href: "/design",
+  label: "Design",
+  tip: "Icons, spinner, tokens lab",
+  icon: "design",
+};
+
 /** Ops / help — lower group in the left sidebar. */
 export const SECONDARY_NAV: readonly NavItem[] = [
   {
@@ -94,17 +122,12 @@ export const SECONDARY_NAV: readonly NavItem[] = [
     tip: "Getting started",
     icon: "docs",
   },
-  {
-    href: "/design",
-    label: "Design",
-    tip: "Icons, spinner, tokens lab",
-    icon: "design",
-  },
 ] as const;
 
 /** Full list for footer and any flat consumers. */
 export const MAIN_NAV: readonly NavItem[] = [
   ...PRIMARY_NAV,
+  ARCADE_HUB,
   ...SECONDARY_NAV,
 ] as const;
 
@@ -114,4 +137,11 @@ export function isNavActive(pathname: string, href: string): boolean {
 
 export function isSecondaryActive(pathname: string): boolean {
   return SECONDARY_NAV.some((item) => isNavActive(pathname, item.href));
+}
+
+export function isArcadeActive(pathname: string): boolean {
+  return (
+    isNavActive(pathname, ARCADE_HUB.href) ||
+    ARCADE_NAV.some((item) => isNavActive(pathname, item.href))
+  );
 }

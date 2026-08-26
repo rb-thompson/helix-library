@@ -6,6 +6,7 @@ import { PanelLeft, PanelLeftClose } from "lucide-react";
 import { HelixMark } from "@/components/HelixMark";
 import { NavIcon } from "@/components/icons/nav";
 import {
+  ARCADE_NAV,
   PRIMARY_NAV,
   SECONDARY_NAV,
   isNavActive,
@@ -92,6 +93,15 @@ export function AppSidebar({
           <p className="app-sidebar-heading">Stacks</p>
           <ul className="app-sidebar-list">
             {PRIMARY_NAV.map((item) => (
+              <li key={item.href}>
+                <SidebarLink item={item} onNavigate={closeMobile} />
+              </li>
+            ))}
+          </ul>
+
+          <p className="app-sidebar-heading">Arcade</p>
+          <ul className="app-sidebar-list">
+            {ARCADE_NAV.map((item) => (
               <li key={item.href}>
                 <SidebarLink item={item} onNavigate={closeMobile} />
               </li>

@@ -33,6 +33,18 @@ export const metadata: Metadata = {
     apple: [{ url: "/helix-mark.png", sizes: "128x128", type: "image/png" }],
     shortcut: "/helix-mark.png",
   },
+  openGraph: {
+    title: "Helix Library",
+    description: "Find what you put here — a personal OPAC for this machine.",
+    siteName: "Helix Library",
+    images: [{ url: "/og-helix.jpg", width: 1200, height: 630, alt: "Helix Library" }],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "Helix Library",
+    description: "Find what you put here — a personal OPAC for this machine.",
+    images: ["/og-helix.jpg"],
+  },
 };
 
 export const viewport = {

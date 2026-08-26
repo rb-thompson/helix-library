@@ -15,6 +15,8 @@ export const RESTORE_TABLES = [
   "insights",
   "lens_analyses",
   "item_events",
+  "arcade_scores",
+  "arcade_progress",
   "jobs",
 ] as const;
 

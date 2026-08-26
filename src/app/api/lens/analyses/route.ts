@@ -1,4 +1,5 @@
 import { NextResponse } from "next/server";
+import { deleteLensAnalysis } from "@/lib/lens/analyses";
 import {
   getLensAnalysisState,
   lensAnalyzeEnabled,
@@ -64,6 +65,31 @@ export async function POST(req: Request) {
       jobId: result.jobId,
       analysis: result.analysis,
       started: result.started,
+    });
+  } catch (err) {
+    const message = err instanceof Error ? err.message : String(err);
+    return NextResponse.json({ ok: false, error: message }, { status: 500 });
+  }
+}
+
+/** DELETE /api/lens/analyses?itemId=N — discard the cached dossier. */
+export async function DELETE(req: Request) {
+  try {
+    const url = new URL(req.url);
+    const raw = url.searchParams.get("itemId");
+    const itemId = raw != null ? Number(raw) : NaN;
+    if (!Number.isFinite(itemId) || itemId <= 0) {
+      return NextResponse.json(
+        { ok: false, error: "itemId query param is required" },
+        { status: 400 },
+      );
+    }
+    const deleted = deleteLensAnalysis(Math.floor(itemId));
+    return NextResponse.json({
+      ok: true,
+      deleted,
+      status: "missing",
+      analysis: null,
     });
   } catch (err) {
     const message = err instanceof Error ? err.message : String(err);

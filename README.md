@@ -55,6 +55,7 @@ Personal files are gitignored (except `archive/README.md`). Drop files in, then 
 | `/locations` | Scan roots + reindex |
 | `/services` | Reindex, backup, restore from snapshot, machine facts |
 | `/ask` | Librarian (Grok when API key set; else local) |
+| `/arcade` | After-hours cabinet — **Night Moth** 3D flight |
 
 Responsive: **left sidebar** (collapse to icons; `[` on desktop); hamburger drawer below `lg`. Hover tooltips on desktop; `?` help chips on dense forms.
 
