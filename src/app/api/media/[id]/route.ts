@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   contentTypeFor,
+  mediaDisposition,
   openFileRangeStream,
   openFileStream,
   parseRange,
@@ -32,7 +33,7 @@ export async function GET(req: Request, ctx: Ctx) {
   const asDownload = url.searchParams.get("download") === "1";
   const contentDisposition = contentDispositionFor(
     item.name,
-    asDownload ? "attachment" : "inline",
+    mediaDisposition(contentType, asDownload),
   );
 
   if (range) {
@@ -47,6 +48,7 @@ export async function GET(req: Request, ctx: Ctx) {
         "Accept-Ranges": "bytes",
         "Content-Disposition": contentDisposition,
         "Cache-Control": "private, max-age=3600",
+        "X-Content-Type-Options": "nosniff",
       },
     });
   }
@@ -59,6 +61,7 @@ export async function GET(req: Request, ctx: Ctx) {
       "Accept-Ranges": "bytes",
       "Content-Disposition": contentDisposition,
       "Cache-Control": "private, max-age=3600",
+      "X-Content-Type-Options": "nosniff",
     },
   });
 }

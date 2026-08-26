@@ -23,7 +23,8 @@ export async function GET(_req: Request, ctx: Ctx) {
         "Content-Type": "image/webp",
         "Content-Length": String(st.size),
         // Short cache so custom poster edits show up after refresh
-        "Cache-Control": "private, max-age=60",
+        "Cache-Control": "private, max-age=86400, stale-while-revalidate=604800",
+        "X-Content-Type-Options": "nosniff",
         ETag: `"${st.mtimeMs}-${st.size}"`,
       },
     });
