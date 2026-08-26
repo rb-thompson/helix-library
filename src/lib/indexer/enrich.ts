@@ -1,6 +1,7 @@
-import { execFileSync } from "node:child_process";
+import { execFile, execFileSync } from "node:child_process";
 import { existsSync, mkdirSync } from "node:fs";
 import { readFile } from "node:fs/promises";
+import { promisify } from "node:util";
 import path from "node:path";
 import type { ItemKind } from "@/lib/types";
 import {
@@ -11,8 +12,12 @@ import {
 
 export { hasThumb, thumbPathForItem, thumbsDir };
 
+const execFileAsync = promisify(execFile);
+
 const TEXT_SAMPLE_BYTES = 48 * 1024;
 const THUMB_SIZE = 320;
+
+const commandCache = new Map<string, boolean>();
 
 export interface EnrichmentResult {
   width: number | null;
@@ -20,15 +25,26 @@ export interface EnrichmentResult {
   durationMs: number | null;
   body: string | null;
   thumbWritten: boolean;
+  posterPending: boolean;
 }
 
 export function commandExists(cmd: string): boolean {
+  const hit = commandCache.get(cmd);
+  if (hit !== undefined) return hit;
+  let found = false;
   try {
     execFileSync("which", [cmd], { stdio: "ignore" });
-    return true;
+    found = true;
   } catch {
-    return false;
+    found = false;
   }
+  commandCache.set(cmd, found);
+  return found;
+}
+
+/** Test hook — host tools may appear/disappear between suites. */
+export function clearCommandCache(): void {
+  commandCache.clear();
 }
 
 export async function extractImageMeta(
@@ -91,7 +107,18 @@ export function extractMediaDuration(filePath: string): number | null {
 export function extractVideoDimensions(
   filePath: string,
 ): { width: number | null; height: number | null } {
-  if (!commandExists("ffprobe")) return { width: null, height: null };
+  const meta = extractVideoMeta(filePath);
+  return { width: meta.width, height: meta.height };
+}
+
+/** One ffprobe spawn for duration + video stream size. */
+export function extractVideoMeta(filePath: string): {
+  durationMs: number | null;
+  width: number | null;
+  height: number | null;
+} {
+  const empty = { durationMs: null, width: null, height: null };
+  if (!commandExists("ffprobe")) return empty;
   try {
     const out = execFileSync(
       "ffprobe",
@@ -101,25 +128,58 @@ export function extractVideoDimensions(
         "-select_streams",
         "v:0",
         "-show_entries",
-        "stream=width,height",
+        "format=duration:stream=width,height",
         "-of",
-        "csv=p=0:s=x",
+        "json",
         filePath,
       ],
       { encoding: "utf8", timeout: 15_000 },
-    ).trim();
-    const [w, h] = out.split("x").map((n) => Number(n));
+    );
+    const parsed = JSON.parse(out) as {
+      format?: { duration?: string };
+      streams?: Array<{ width?: number; height?: number }>;
+    };
+    const secs = Number(parsed.format?.duration);
+    const stream = parsed.streams?.[0];
     return {
-      width: Number.isFinite(w) ? w : null,
-      height: Number.isFinite(h) ? h : null,
+      durationMs:
+        Number.isFinite(secs) && secs >= 0 ? Math.round(secs * 1000) : null,
+      width: Number.isFinite(stream?.width) ? Number(stream?.width) : null,
+      height: Number.isFinite(stream?.height) ? Number(stream?.height) : null,
     };
   } catch {
-    return { width: null, height: null };
+    return empty;
   }
+}
+
+function posterSeeks(seekSeconds?: number): string[][] {
+  if (seekSeconds != null && Number.isFinite(seekSeconds) && seekSeconds >= 0) {
+    return [["-ss", String(seekSeconds)], ["-ss", "0"]];
+  }
+  return [
+    ["-ss", "1"],
+    ["-ss", "0"],
+  ];
+}
+
+function posterArgs(filePath: string, out: string, seek: string[]): string[] {
+  return [
+    "-y",
+    ...seek,
+    "-i",
+    filePath,
+    "-frames:v",
+    "1",
+    "-vf",
+    `scale=${THUMB_SIZE}:-2:force_original_aspect_ratio=decrease`,
+    "-an",
+    out,
+  ];
 }
 
 /**
  * Grab a poster frame at seekSeconds (fallback 1s then 0s) as WebP thumb.
+ * Sync path for the item thumb editor (one file).
  */
 export function extractVideoPoster(
   filePath: string,
@@ -130,32 +190,36 @@ export function extractVideoPoster(
   const out = thumbPathForItem(itemId);
   mkdirSync(path.dirname(out), { recursive: true });
 
-  const seeks: string[][] =
-    seekSeconds != null && Number.isFinite(seekSeconds) && seekSeconds >= 0
-      ? [["-ss", String(seekSeconds)], ["-ss", "0"]]
-      : [
-          ["-ss", "1"],
-          ["-ss", "0"],
-        ];
-
-  for (const seek of seeks) {
+  for (const seek of posterSeeks(seekSeconds)) {
     try {
-      execFileSync(
-        "ffmpeg",
-        [
-          "-y",
-          ...seek,
-          "-i",
-          filePath,
-          "-frames:v",
-          "1",
-          "-vf",
-          `scale=${THUMB_SIZE}:-2:force_original_aspect_ratio=decrease`,
-          "-an",
-          out,
-        ],
-        { encoding: "utf8", timeout: 45_000, stdio: "pipe" },
-      );
+      execFileSync("ffmpeg", posterArgs(filePath, out, seek), {
+        encoding: "utf8",
+        timeout: 45_000,
+        stdio: "pipe",
+      });
+      if (existsSync(out)) return true;
+    } catch {
+      // try next seek
+    }
+  }
+  return false;
+}
+
+/** Async poster for the indexer pool (does not block the event loop). */
+export async function extractVideoPosterAsync(
+  filePath: string,
+  itemId: number,
+  seekSeconds?: number,
+): Promise<boolean> {
+  if (!commandExists("ffmpeg")) return false;
+  const out = thumbPathForItem(itemId);
+  mkdirSync(path.dirname(out), { recursive: true });
+
+  for (const seek of posterSeeks(seekSeconds)) {
+    try {
+      await execFileAsync("ffmpeg", posterArgs(filePath, out, seek), {
+        timeout: 45_000,
+      });
       if (existsSync(out)) return true;
     } catch {
       // try next seek
@@ -252,6 +316,8 @@ export async function enrichFile(input: {
   existingHeight?: number | null;
   existingDurationMs?: number | null;
   force?: boolean;
+  /** Leave ffmpeg posters for the indexer pool. */
+  deferPoster?: boolean;
 }): Promise<EnrichmentResult> {
   const {
     filePath,
@@ -262,6 +328,7 @@ export async function enrichFile(input: {
     existingHeight,
     existingDurationMs,
     force,
+    deferPoster,
   } = input;
 
   let width = existingWidth ?? null;
@@ -269,6 +336,7 @@ export async function enrichFile(input: {
   let durationMs = existingDurationMs ?? null;
   let body: string | null = null;
   let thumbWritten = false;
+  let posterPending = false;
 
   if (kind === "image" && (force || width == null || !hasThumb(itemId))) {
     const img = await extractImageMeta(filePath, itemId);
@@ -278,16 +346,20 @@ export async function enrichFile(input: {
   }
 
   if (kind === "video") {
-    if (force || durationMs == null) {
-      durationMs = extractMediaDuration(filePath);
-    }
-    if (force || width == null) {
-      const dims = extractVideoDimensions(filePath);
-      width = dims.width ?? width;
-      height = dims.height ?? height;
+    if (force || durationMs == null || width == null) {
+      const meta = extractVideoMeta(filePath);
+      if (force || durationMs == null) durationMs = meta.durationMs;
+      if (force || width == null) {
+        width = meta.width ?? width;
+        height = meta.height ?? height;
+      }
     }
     if (force || !hasThumb(itemId)) {
-      thumbWritten = extractVideoPoster(filePath, itemId);
+      if (deferPoster) {
+        posterPending = true;
+      } else {
+        thumbWritten = extractVideoPoster(filePath, itemId);
+      }
     }
   }
 
@@ -303,7 +375,7 @@ export async function enrichFile(input: {
     body = await extractTextBody(filePath, kind, mime);
   }
 
-  return { width, height, durationMs, body, thumbWritten };
+  return { width, height, durationMs, body, thumbWritten, posterPending };
 }
 
 export function ensureThumbsDir(): void {

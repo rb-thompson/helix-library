@@ -18,6 +18,7 @@ import { backfillItemTagSources } from "@/lib/tags/backfill-source";
 import {
   filterVisibleTags,
   isHiddenFacetTag,
+  isNoiseTagName,
 } from "@/lib/tags/hidden";
 import {
   isBetterSource,
@@ -36,6 +37,31 @@ describe("tag hygiene", () => {
 
   after(() => {
     env.cleanup();
+  });
+
+  it("hides encoder junk and vision-only singletons from facets", () => {
+    assert.equal(isNoiseTagName("lavf58.76.100"), true);
+    assert.equal(isNoiseTagName("lang-eng"), true);
+    assert.equal(isNoiseTagName("career"), false);
+    assert.equal(
+      isHiddenFacetTag("a unique vision label", { count: 1, visionCount: 1 }),
+      true,
+    );
+    assert.equal(
+      isHiddenFacetTag("shared vision", { count: 4, visionCount: 4 }),
+      false,
+    );
+
+    const db = getDb();
+    const item = db.select().from(items).get();
+    assert.ok(item);
+    addTagToItem(item!.id, "lavf58.76.100");
+    const noiseId = getOrCreateTag("vision-only-singleton");
+    upsertItemTag(item!.id, noiseId, "vision");
+
+    const facets = catalogFacets();
+    assert.ok(!facets.tags.some((t) => t.name === "lavf58.76.100"));
+    assert.ok(!facets.tags.some((t) => t.name === "vision-only-singleton"));
   });
 
   it("hides vision-tagged from facets", () => {

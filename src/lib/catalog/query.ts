@@ -582,7 +582,9 @@ export function catalogFacets(params: CatalogSearchParams = {}): CatalogFacets {
   const tagRows = sqlite
     .prepare(
       `
-      SELECT t.id as id, t.name as name, coalesce(t.hidden, 0) as hidden, count(*) as c
+      SELECT t.id as id, t.name as name, coalesce(t.hidden, 0) as hidden,
+             count(*) as c,
+             sum(CASE WHEN it.source = 'vision' THEN 1 ELSE 0 END) as vision_c
       FROM items i
       JOIN locations l ON l.id = i.location_id
       JOIN item_tags it ON it.item_id = i.id
@@ -597,6 +599,7 @@ export function catalogFacets(params: CatalogSearchParams = {}): CatalogFacets {
     name: string;
     hidden: number;
     c: number;
+    vision_c: number;
   }>;
 
   return {
@@ -610,7 +613,14 @@ export function catalogFacets(params: CatalogSearchParams = {}): CatalogFacets {
       c: Number(r.c),
     })),
     tags: tagRows
-      .filter((r) => !isHiddenFacetTag(r.name, { hidden: r.hidden }))
+      .filter(
+        (r) =>
+          !isHiddenFacetTag(r.name, {
+            hidden: r.hidden,
+            count: r.c,
+            visionCount: r.vision_c,
+          }),
+      )
       .map((r) => ({
         id: r.id,
         name: r.name,
