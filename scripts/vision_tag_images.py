@@ -16,7 +16,7 @@ import urllib.request
 from io import BytesIO
 from pathlib import Path
 
-ROOT = Path("/home/brandon/Projects/non-os")
+ROOT = Path(__file__).resolve().parents[1]
 DB = ROOT / "data" / "library.db"
 ENV = ROOT / ".env.local"
 STATE = ROOT / "data" / "vision-tag-state.json"
