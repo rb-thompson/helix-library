@@ -1,16 +1,23 @@
 #!/usr/bin/env python3
-"""Copy images from ~/Desktop/photo-gallery into archive/images with hash dedupe."""
+"""Copy images from a local photo-gallery folder into archive/images with hash dedupe.
+
+Defaults:
+  SRC = $HELIX_PHOTO_GALLERY_SRC or ~/Desktop/photo-gallery
+  DST = <repo>/archive/images
+"""
 from __future__ import annotations
-import hashlib, json, shutil
+import hashlib, json, os, shutil
 from pathlib import Path
 
-SRC = Path("/home/brandon/Desktop/photo-gallery")
-DST = Path("/home/brandon/Projects/non-os/archive/images")
+REPO = Path(__file__).resolve().parents[1]
+SRC = Path(os.environ.get("HELIX_PHOTO_GALLERY_SRC", Path.home() / "Desktop" / "photo-gallery"))
+DST = REPO / "archive" / "images"
 IMG_EXT = {".jpg",".jpeg",".png",".webp",".gif",".heic",".avif",".tif",".tiff",".bmp"}
 
 def sha256(path: Path) -> str:
     h = hashlib.sha256()
-    with path.open("rb") as f:\n        for chunk in iter(lambda: f.read(1024 * 1024), b""):
+    with path.open("rb") as f:
+        for chunk in iter(lambda: f.read(1024 * 1024), b""):
             h.update(chunk)
     return h.hexdigest()
 
@@ -23,13 +30,20 @@ def main() -> None:
             existing_names.add(p.name.lower())
             try:
                 existing_by_hash[sha256(p)] = p.name
-            except OSError as e:\n                print(f"hash fail {p}: {e}")
+            except OSError as e:
+                print(f"hash fail {p}: {e}")
     copied, skipped_hash, renamed, errors = [], [], [], []
+    if not SRC.is_dir():
+        print(json.dumps({"error": f"SRC missing: {SRC}", "hint": "set HELIX_PHOTO_GALLERY_SRC"}, indent=2))
+        return
     src_files = sorted(p for p in SRC.iterdir() if p.is_file() and p.suffix.lower() in IMG_EXT)
     for p in src_files:
         try:
             digest = sha256(p)
-        except OSError as e:\n            errors.append((p.name, str(e)))\n            continue\n        if digest in existing_by_hash:
+        except OSError as e:
+            errors.append((p.name, str(e)))
+            continue
+        if digest in existing_by_hash:
             skipped_hash.append((p.name, existing_by_hash[digest]))
             continue
         name = p.name
@@ -45,6 +59,8 @@ def main() -> None:
         existing_by_hash[digest] = name
         copied.append(name)
     print(json.dumps({
+        "src": str(SRC),
+        "dst": str(DST),
         "src_count": len(src_files),
         "copied": len(copied),
         "skipped_dup_hash": len(skipped_hash),
