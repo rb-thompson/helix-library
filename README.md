@@ -1,10 +1,21 @@
 # Helix Library
 
-<p align="center">
-  <img src="public/og-helix.jpg" alt="Helix Library brand art" width="720" />
-</p>
-
 **Personal OPAC for files on one machine.** Catalog, search, shelves, media preview, backup/restore, and an approval-gated Librarian — localhost by default.
+
+## Screenshots
+
+Fixture-only Sample location (synthetic files — no personal archive).
+
+| Home | Catalog |
+| --- | --- |
+| ![Home](docs/screenshots/01-home.png) | ![Catalog](docs/screenshots/02-catalog.png) |
+
+| Ask | Graph |
+| --- | --- |
+| ![Ask](docs/screenshots/03-ask.png) | ![Graph](docs/screenshots/04-graph.png) |
+
+![Collections](docs/screenshots/05-collections.png)
+
 
 Built and used daily by [Brandon Thompson](https://www.rbthompson.dev) in Southwest Virginia.
 
