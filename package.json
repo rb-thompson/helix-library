@@ -16,7 +16,7 @@
     "watch": "tsx scripts/watch-reindex.ts",
     "sync:pdfjs": "cp -f node_modules/pdfjs-dist/build/pdf.min.mjs public/pdf.min.mjs && cp -f node_modules/pdfjs-dist/build/pdf.worker.min.mjs public/pdf.worker.min.mjs",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test tests/**/*.test.ts"
+    "test": "tsx --test tests"
   },
   "dependencies": {
     "@ai-sdk/react": "^4.0.44",
