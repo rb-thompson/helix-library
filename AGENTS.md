@@ -12,7 +12,7 @@
 
 Product metaphor: public-library OPAC (holdings, branches, services, “ask a librarian”) mapped to personal files + host machine limits. Reference UX inspiration: Pike County Public Library site (IA only — do not copy assets).
 
-**Workspace:** `/home/brandon/Projects/non-os`  
+**Workspace:** clone root (`$REPO_ROOT` / this directory)  
 **Owner intent:** personal use, localhost-only, library-native domain language (`Item`, `Location`, `Collection`, `CatalogQuery`).
 
 ## Doc map
@@ -39,7 +39,7 @@ Product metaphor: public-library OPAC (holdings, branches, services, “ask a li
 ## Run (local)
 
 ```bash
-cd /home/brandon/Projects/non-os
+cd "$REPO_ROOT"  # this directory / clone root
 npm install
 # library.config.json should exist (gitignored); example is committed
 npm run reindex          # index archive/ + other locations
@@ -58,7 +58,7 @@ Port is **4747** (not 3000). Scripts pin hostname to `127.0.0.1`.
 | Variable | Default | Meaning |
 | --- | --- | --- |
 | `NON_OS_CONFIG` | `./library.config.json` | Config path override |
-| `NON_OS_AGENT_MODE` | `auto` | `local` \| `xai` \| `auto` (prefer Grok when key exists) |
+| `NON_OS_AGENT_MODE` | `auto` | `local` | `xai` | `auto` (prefer Grok when key exists) |
 | `NON_OS_USE_XAI` | allow | Set `0`/`false` to force local even if `XAI_API_KEY` is set |
 | `XAI_API_KEY` | unset | xAI **developer** key from console.x.ai (not SuperGrok) |
 | `NON_OS_MODEL` | `grok-4.3` | Model id when using Grok API (override if your team has others) |
