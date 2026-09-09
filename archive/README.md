@@ -2,7 +2,7 @@
 
 On-disk holdings root for this Helix Library instance (project-local, always available).
 
-**Hot-swap physical archive:** location **Vault** → `/media/brandon/Vault/helix` on the Wavlink NTFS RAID1 volume (label `Vault`). Same folder layout there; unplug anytime and reindex after remount.
+**Optional external volume:** configure a second location in `library.config.json` (gitignored) pointing at any mount you keep offline. Same folder layout; unplug anytime and reindex after remount. Do not commit absolute host paths.
 
 Project docs: [../AGENTS.md](../AGENTS.md), [../docs/SESSION-HANDOFF.md](../docs/SESSION-HANDOFF.md).
 
