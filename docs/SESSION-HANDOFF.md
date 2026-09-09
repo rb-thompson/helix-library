@@ -1,7 +1,7 @@
 # Session handoff — Helix Library
 
 **Last updated:** 2026-08-19 (Night Moth presence + tight craft)  
-**Repo:** `/home/brandon/Projects/non-os` (package name `helix-library`)  
+**Repo:** clone root (`$REPO_ROOT` / this directory) (package name `helix-library`)  
 **Tip:** `origin/ship-grade/presence` — Arcade Night Moth world, fauna, craft. `origin/main` is still Discovery PR6 + craft PR8.  
 **Status:** Daily-usable OPAC plus **ship-grade pass** plus **Night Moth** as a real after-hours game (Ward/Acre, collision, moon key, cabinet menus). Stretch: Gutenberg. Do not start embeddings.
 
@@ -109,61 +109,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 
 ## Key code map (this session)
 
-| Path | Role |
-| --- | --- |
-| `src/lib/acquire/*` | paths jail, outbound SSRF, arxiv, openalex, clip, youtube, grok-image, jobs (SQLite unified), auto-tags |
-| `src/app/acquire/page.tsx` | Acquisitions desk UI shell |
-| `src/components/AcquireDesk.tsx` | Papers/OpenAlex, clip, arXiv, YT, Grok image cards + job poll |
-| `src/app/api/acquire/**` | status, arxiv, openalex, clip, youtube, image, jobs/[id] |
-| `src/lib/catalog/weed.ts` | Purge missing catalog rows only |
-| `src/lib/catalog/snippet.ts` | Search snippets + highlight segments |
-| `src/lib/graph/colors.ts` | Theme-aware graph palette |
-| `src/components/KnowledgeGraph.tsx` | 3D graph + controls; layout-safe mount order |
-| `src/components/KnowledgeGraph2D.tsx` | 2D canvas force-graph renderer |
-| `src/components/KnowledgeGraphLoader.tsx` | `dynamic(..., { ssr: false })` + mode toggle |
-| `src/lib/client/graph-mode.ts` | `helix-graph-mode` preference |
-| `src/components/LibrarianChat.tsx` | Viewport chat, thread sheet, textarea |
-| `src/components/AskChatClient.tsx` | Holding-context Ask shell |
-| `src/components/VideoThumbEditor.tsx` | Frame grab / upload / clear thumb |
-| `src/lib/media/thumb.ts` | Thumb set/clear helpers |
-| `src/app/api/media/[id]/route.ts` | **RFC 5987** Content-Disposition (unicode titles) |
-| `src/components/DocumentReadingRoom.tsx` | Text + PDF room shell; iframe fallback |
-| `src/components/PdfPageViewer.tsx` | PDF.js page mode + text layer (dynamic import) |
-| `src/components/SelectionToolbar.tsx` | Tag / Ask / Copy from selection |
-| `src/components/RelatedHoldingsPanel.tsx` | Item detail related rail |
-| `public/pdf.min.mjs` + `pdf.worker.min.mjs` | Unbundled PDF.js 5.4.296 (do **not** webpack-import `pdfjs-dist` — breaks). `npm run sync:pdfjs` |
-| `src/lib/media/pdfjs-client.ts` | Client loader: `import(/* webpackIgnore */ '/pdf.min.mjs')` |
-| `src/lib/client/read-position.ts` | `helix-read-position` LRU (scroll/page) |
-| `src/lib/media/text.ts` | Capped UTF-8 load + clamp; jail via resolveMediaItem |
-| `src/lib/media/reading-room.ts` | Client-safe allowlist / modes / `supportsReadingRoom` |
-| `src/app/api/items/[id]/text/route.ts` | Text API JSON (not media `?text=1`) |
-| `src/lib/catalog/related.ts` | Structural related holdings (dir / tags / shelves) |
-| `src/lib/collections/manage.ts` | Smart shelves facade: resolve/count/assert |
-| `src/lib/catalog/query.ts` | `searchCatalogItemIds` + `SMART_ID_HARD_CAP` |
-| `next.config.ts` | `transpilePackages` for three / 3d-force-graph / force-graph |
-| `src/components/HelixMark.tsx` | Dark + light mark; CSS theme swap |
-| `public/helix-mark.png` / `helix-mark-light.png` | Brand assets |
-| `src/lib/lens/*` | Focus, human insights, dossier analyses, kind-object specs, run-analyze |
-| `src/app/lens/**` | Deep Lens routes |
-| `src/components/lens/*` | Dossier shell, KindObject, analysis panel, Your insights |
-| `src/app/api/insights/**` | Human insight create/list/delete |
-| `src/app/api/lens/analyses/**` | Machine dossier GET/POST |
-| `src/lib/client/library-hours.ts` | Time-of-day phase + hourly cart pick |
-| `src/components/HoursDesk.tsx` | Home due-slip (“left on the cart”) |
-| `src/lib/client/toasts.ts` | Toast store (max 3, href sanitizer, 6s dismiss) |
-| `src/lib/catalog/href.ts` | Catalog URL builder + default-param omit table |
-| `src/components/CatalogSearch.tsx` | Client catalog search; `replace` while typing, `push` on submit |
-| `src/components/CatalogResultsShell.tsx` | Pending dim XOR skeletons |
-| `src/components/ItemCardSkeleton.tsx` | Folio-shaped loading cards |
-| `src/lib/client/sidebar.ts` | `helix-sidebar` expanded/collapsed; ThemeScript sets `data-sidebar` before paint |
-| `src/components/AppShell.tsx` | Sidebar context + `[` toggle on desktop |
-| `src/components/AppSidebar.tsx` | Left rail / phone drawer |
-| `src/components/Header.tsx` | Jobs + theme; hamburger opens the same drawer |
-| `src/lib/backup/*` | Create/list/inspect/apply restore; session + sidecar + LAN gate |
-| `src/components/RestorePanel.tsx` | Services typed-`RESTORE` confirm |
-| `scripts/restore.ts` | `npm run restore` (list by default; `--inspect <name>`; apply with `--name` + `--phrase RESTORE`) |
-
----
+See prior revisions / `src/` tree for the full path→role table (Acquire, catalog, graph, Lens, Arcade). Live layout matches AGENTS.md + repo tree.
 
 ## Gotchas
 
@@ -215,7 +161,7 @@ Read [AGENTS.md](../AGENTS.md) first, then this file.
 ## Resume script (next session)
 
 ```bash
-cd /home/brandon/Projects/non-os
+cd "$REPO_ROOT"  # this directory / clone root
 git status && git log -3 --oneline
 # AGENTS.md → this file
 npm install
@@ -228,88 +174,9 @@ npm run dev    # http://127.0.0.1:4747
 
 ---
 
-## Session wrap (2026-08-07) — Acquire depth Tier 1
+## Session history
 
-**Closed Acquire depth Tier 1:** shared `outbound.ts` SSRF helper; Grok image default `grok-imagine-image-quality` + b64/url + cloud gate; OpenAlex search/DOI → OA PDF (accuracy badges); web clip URL → `notes/*.md`; job kinds `openalex`/`clip`; desk cards; PRODUCT / SESSION-HANDOFF / AGENTS / `/docs` updated. Design: [2026-08-acquire-depth.md](./designs/2026-08-acquire-depth.md).
-
-**Still optional:** Discovery PR6 open events; Gutenberg. Restore UI shipped.
-
-## Session wrap (2026-08-08) — Export / backup
-
-**Shipped:** catalog + full backups to `data/exports/*.tar.gz` (SQLite snapshot, config, thumbs, optional holdings); Services **Export / backup** panel; `npm run backup`; download/delete APIs; job kind `backup`.
-
-## Session wrap (2026-08-13–15) — Deep Lens S2 dossier
-
-**Shipped:** `/lens` + `/lens/[id]` dossier (3D kind-objects + KindPoster fallback), `insights` + `lens_analyses`, Run analysis (local extractive / xAI `generateObject`), vision stretch for image/video, jobs `lens_analyze` with durable `progress.itemId`, suggested-tag apply. Design: [2026-08-deep-lens-dossier.md](./designs/2026-08-deep-lens-dossier.md).
-
-**Also on main since prior wrap:** Grokipedia + image URL + Ask acquire parity; multi-location acquire; mini player; `/design` lab; rescue dismiss; lightbox zoom.
-
-## Session wrap (2026-08-15 morning) — land + handoff
-
-**This session:** reviewed gaps; found Deep Lens fully built but **uncommitted**; verified (`tsc`, tests, `next build`); fixed pre-existing `require()` ESLint; committed **`1aae6bc`** and **pushed** to `origin/main`. Tests now **183**.
-
-**Docs:** SESSION-HANDOFF, ARCHITECTURE, AGENTS test count, Acquire design status (Grokipedia is shipped).
-
-**Delight (not a product season):** home **Hours desk** — time-of-day line + one hourly “left on the cart” due-slip (`src/lib/client/library-hours.ts`, `HoursDesk`). Deep Lens: tap the kind-object **three times** for a “Date due / never” stamp.
-
-**Still optional:** Discovery PR6; Gutenberg.
-
-**Do not start:** embeddings, batch-analyze, auto-apply AI tags.
-
-## Session wrap (2026-08-15) — Restore UI
-
-**Shipped:** inspect `helix-backup-v1` + tar jail; `restore` job kind + confirm session; ATTACH copy-in + undo snapshot + path rewrite; `/api/restore*` + `npm run restore` + LAN gate; Services **Restore from snapshot** (typed `RESTORE`); archive `RESTORE.md` leads with the in-app path. Holdings stay a non-goal. SuperGrok and API keys are still not archived. Design: [2026-08-restore.md](./designs/2026-08-restore.md) **Implemented** (PR1–PR6).
-
-**Still optional:** Discovery PR6 `item_events`; Gutenberg.
-
-**Do not start:** embeddings, batch-analyze, auto-apply AI tags, holdings overwrite, upload desk, agent restore action.
-
-## Session wrap (2026-08-15 evening) — left sidebar
-
-**Shipped:** collapsible left rail (`AppShell` / `AppSidebar`). Desktop: Stacks + Library ops, collapse to icons (`helix-sidebar` + `data-sidebar`, `[` toggle). Phone: hamburger opens the same list as a drawer under the header. Header is jobs + theme. Graph fullscreen still covers the rail.
-
-**Still optional:** Discovery PR6 `item_events`; Gutenberg.
-
-**Do not start:** embeddings, batch-analyze, auto-apply AI tags.
-
-## Session wrap (2026-08-16) — handbook + Circulation brand wave
-
-**Shipped:** `/docs` rewritten as a comprehensive Helix overview (library map, building chrome, weeding, thumbs, mini player, smart shelves, Deep Lens, Acquire, Ask, restore, privacy, keyboard). Pushed as `440fd81`. Hands-on field guide with 15 labs written to `archive/documents/Helix-Library-Field-Guide.md` (holding, gitignored). Brand wave: night/day heroes, card lattices, folio banner, nameplate study, `btn-helix` / `btn-lamp`. Nav stays Lucide — custom glyphs were well-intentioned and not good enough.
-
-**Still optional:** Discovery PR6 `item_events`; Gutenberg; craft PR8 catalog j/k.
-
-**Do not start:** embeddings, batch-analyze, auto-apply AI tags.
-
-## Session wrap (2026-08-16 evening) — PR6 + PR8 merged
-
-**Shipped:** Discovery **PR6** (`#1`) — `item_events`, POST `/api/items/[id]/events`, 60s dedupe, prune 500, home recent merge with `helix-open-history`, restore registry. Craft **PR8** (`#2`) — catalog j/k browse ring (`.is-browse`), Enter opens, `x` in Select only. Both squash-merged to `main`. Tests **279**.
-
-**Still optional:** Gutenberg; agent `lens_analyze`; holdings restore to a sibling tree.
-
-**Do not start:** embeddings, batch-analyze, auto-apply AI tags.
-
-## Session wrap (2026-08-16 night) — ship-grade
-
-**Shipped:** LAN Host-header fix (connection IP only) + LAN Origin on mutations + timing-safe Basic auth; `realpath` media jail; HTML/SVG attachment + security headers; ffmpeg command cache + combined ffprobe + 3-wide async poster pool; SQLite pragmas; thumb cache 1d; vision-only singleton + EXIF junk hidden from facets; Lens DELETE; `/design` off the public nav; presentation `/docs` (floor plan + workflows); night-moth clerk + OG card.
-
-## Session wrap (2026-08-17) — Arcade / Night Moth
-
-**Shipped:** New nav category **Arcade**. Playable **Night Moth** at `/arcade/night-moth`:
-
-- 3D voxel flight (three.js). Mouse look, W along visor, E drink, click fires equipped art.
-- Eight regions, wandering lamps (true vs lure), canals + fish, fireflies, swaying plants, three noir towers with caches.
-- Arts dock: Tab / Q / wheel cycle **live unlocks** (XP this run counts). Click fires equipped.
-- High scores: `arcade_scores` (+ `initials` column, added on read if missing). Local `helix-arcade-night-moth-scores` backup. Dedupe by score/night/nectar/duration/initials. Cabinet UI.
-- Home + `/arcade` jacket card (`public/arcade/night-moth/jacket.jpg`). `/docs#arcade` handbook section.
-- Clerk moth (`NightMoth.tsx`) is still Circulation staff — not the game.
-
-**Code map:** `src/lib/arcade/*`, `src/components/arcade/*`, `src/app/arcade/**`, `src/app/api/arcade/**`, `src/lib/client/arcade-board.ts`, `tests/arcade-night-moth.test.ts`.
-
-**Verify:** `npm test`; smoke `/` (jacket card), `/arcade`, `/arcade/night-moth` (Tab cycles; die or leave → one cabinet row), `/docs#arcade`.
-
-**Still optional:** Gutenberg; agent `lens_analyze`; holdings sibling restore.
-
-**Do not start:** embeddings, batch-analyze, auto-apply AI tags.
+Earlier session wraps (2026-08-07 through 2026-08-17) are in git history on `main`. Path scrub uses generic `$REPO_ROOT` / clone-root wording only.
 
 ## Session wrap (2026-08-18–19) — Night Moth presence + tight craft
 
