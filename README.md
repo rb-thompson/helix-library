@@ -1,143 +1,73 @@
 # Helix Library
 
-Personal library system for this machine: a catalog engine and web surface for your files, plus a single **Librarian** for discovery and help.
+<p align="center">
+  <img src="public/og-helix.jpg" alt="Helix Library brand art" width="720" />
+</p>
 
-Inspired by public-library OPAC/services UX — rebuilt for **personal, localhost-only** use.
+**Personal OPAC for files on one machine.** Catalog, search, shelves, media preview, backup/restore, and an approval-gated Librarian — localhost by default.
 
-## Quick start
+Built and used daily by [Brandon Thompson](https://www.rbthompson.dev) in Southwest Virginia.
 
-```bash
-cp library.config.example.json library.config.json   # if needed
-npm install
-npm run reindex    # index configured roots (default: ./archive)
-npm run dev        # http://127.0.0.1:4747
-# optional: npm run watch   # debounced reindex when files change under enabled roots
+## Problem
 
-# Home-network preview (password required — set NON_OS_ACCESS_PASSWORD in .env.local)
-# npm run dev:lan  # http://<your-lan-ip>:4747  user: library
-```
+Personal files sprawl across folders. Generic search and Finder tags don’t feel like a library: no holdings, no locations, no “ask the librarian,” no safe media serve. Cloud library apps pull private stacks off-device.
 
-In-app guide: **[http://127.0.0.1:4747/docs](http://127.0.0.1:4747/docs)** (Getting started).
+## What it does
 
-### For the next coding session / AI agent
+- **Catalog** over explicit scan roots (never defaults to `$HOME`)
+- **Hybrid search** (SQLite FTS) with snippets, tags, smart shelves, related holdings
+- **Reading room** for text/code/PDF; secure media streaming with Range support
+- **Ask the Librarian** — local offline assistant, or Grok when you add an xAI *developer* API key
+- **Acquire** desk — pull papers/clips/media into the archive with jobs + approve gates
+- **Backup / restore** snapshots; optional after-hours **Arcade** (Night Moth)
 
-Start here:
-
-1. **[AGENTS.md](./AGENTS.md)** — constraints, run, edit map  
-2. **[docs/SESSION-HANDOFF.md](./docs/SESSION-HANDOFF.md)** — done / next / gotchas  
-3. **[docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md)** — modules, schema, APIs  
-
-## Archive (primary holdings)
-
-```text
-archive/
-  documents/
-  images/
-  notes/
-  video/
-```
-
-Personal files are gitignored (except `archive/README.md`). Drop files in, then reindex. Add more roots under **Locations**.
-
-- Nothing is indexed until a root is listed and you reindex.  
-- `bind` must be loopback (`127.0.0.1`, `localhost`, or `::1`).
-
-## Surfaces
-
-| Route | Purpose |
-| --- | --- |
-| `/` | Home, search, stats |
-| `/docs` | Comprehensive handbook (field guide lives in `archive/documents/`) |
-| `/catalog` | Browse / search (grid or list) |
-| `/catalog/[id]` | Preview, reading room, related holdings, curation |
-| `/graph` | 2D/3D knowledge graph (holdings + concepts) |
-| `/collections` | Manual + smart shelves |
-| `/locations` | Scan roots + reindex |
-| `/services` | Reindex, backup, restore from snapshot, machine facts |
-| `/ask` | Librarian (Grok when API key set; else local) |
-| `/arcade` | After-hours cabinet — **Night Moth** 3D flight |
-
-Responsive: **left sidebar** (collapse to icons; `[` on desktop); hamburger drawer below `lg`. Hover tooltips on desktop; `?` help chips on dense forms.
+Product metaphor: a small public-library OPAC, rebuilt for one person on loopback.
 
 ## Stack
 
-Next.js 15 (App Router) · React 19 · TypeScript · SQLite (better-sqlite3) · Drizzle · Tailwind v4 · sharp · AI SDK (optional xAI)
+Next.js 15 · React 19 · TypeScript · SQLite (`better-sqlite3`) · Drizzle · Tailwind v4 · optional xAI via AI SDK
 
-## Ask the Librarian
-
-**Grok is the preferred reasoning path** when an xAI **developer** API key is present. Otherwise Ask falls back to the local catalog assistant (always works offline).
-
-### SuperGrok vs developer API (important)
-
-| Product | What it is | Powers Helix Library Ask? |
-| --- | --- | --- |
-| **SuperGrok / X Premium** | Consumer chat on grok.com / X | **No** (separate billing) |
-| **XAI_API_KEY** | Developer API at [console.x.ai](https://console.x.ai) | **Yes** — Grok + tools |
-| **OpenClaw + Grok OAuth** | Partner agent using your SuperGrok sub | External agent, not inside Helix Library |
-
-OpenClaw can use SuperGrok via official OAuth ([xAI announcement](https://x.ai/news/grok-openclaw)). Helix Library is not that partner path — we only call the developer API.
-
-| Mode | When | Behavior |
-| --- | --- | --- |
-| `auto` (default) | Key present → Grok; else local | Preferred |
-| `local` | Always | Catalog tools + template answers |
-| `xai` | Requires key | Force Grok; falls back to local if missing |
+## Run
 
 ```bash
-npm run dev
-# Grok (developer API — not SuperGrok):
-# export XAI_API_KEY=...   # from https://console.x.ai
-# optional: NON_OS_MODEL=grok-4.3
-# force local despite key: NON_OS_USE_XAI=0
+cp library.config.example.json library.config.json
+npm install
+npm run reindex    # indexes configured roots (default: ./archive)
+npm run dev        # http://127.0.0.1:4747
+npm test
+npm run typecheck
 ```
 
-Tools: `catalog_search`, `catalog_get`, `list_locations`, `list_collections`, `machine_status`, `system_help`, `propose_actions` (mutations need your approve).
+Optional LAN preview needs `NON_OS_ACCESS_PASSWORD` and `npm run dev:lan` — never expose without a password.
 
-## Media
+In-app handbook: `http://127.0.0.1:4747/docs`
 
-- Images / video / audio / PDF / text previews on item pages  
-- Secure streaming: `/api/media/{id}` (Range-aware)  
-- Thumbs/posters: `data/thumbs/`  
-- Lightbox in catalog/collections  
-- EXIF when `exiftool` is installed (optional)
+## What this proves
 
-```bash
-# recommended for video posters + duration
-# sudo apt install ffmpeg
+I ship full-stack product for myself: Next.js App Router, SQLite FTS, media pipeline, agent tooling with **human approval** before writes, and privacy defaults (loopback bind, explicit roots, no silent shell). Same craft posture as my library-systems years — holdings, locations, services — on a modern stack.
 
-# optional camera EXIF
-# sudo apt install libimage-exiftool-perl
+## Hire skim
 
-# optional faster PDF text (falls back to bundled pdf-parse)
-# sudo apt install poppler-utils
-```
-
-## Commands
-
-| Command | Description |
+| | |
 | --- | --- |
-| `npm run dev` | Dev server `127.0.0.1:4747` |
-| `npm run reindex` | Full reindex + enrichment |
-| `npm run backup` | Catalog snapshot → `data/exports/` (`-- --full` for holdings) |
-| `npm run restore` | List exports; `--inspect <name>` preview; `--name <name> --phrase RESTORE` apply |
-| `npm run build` / `npm start` | Production |
-| `npm run typecheck` | TypeScript |
-| `npm run test` | Unit + fixture integration tests |
-| `npm run lint` | ESLint |
+| **Role fit** | Junior/associate full-stack · part-time or contract · daytime ET |
+| **Site** | [www.rbthompson.dev](https://www.rbthompson.dev) |
+| **Repo** | Public showcase · personal `archive/**` gitignored |
 
-## Privacy & safety
+## Builder docs
 
-- Localhost only in v1  
-- Explicit scan roots only  
-- Librarian read-only (no shell, no silent writes)  
-- API keys server-side only  
+Dense session notes stay out of this README:
 
-## Documentation index
+1. [AGENTS.md](./AGENTS.md) — constraints, edit map  
+2. [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) — modules & APIs  
+3. [docs/PRODUCT.md](./docs/PRODUCT.md) — scope & non-goals  
 
-| Doc | Role |
-| --- | --- |
-| [AGENTS.md](./AGENTS.md) | Agents & new sessions |
-| [docs/ARCHITECTURE.md](./docs/ARCHITECTURE.md) | Technical architecture |
-| [docs/SESSION-HANDOFF.md](./docs/SESSION-HANDOFF.md) | Status + next work |
-| [docs/PRODUCT.md](./docs/PRODUCT.md) | Product scope |
-| `/docs` in the app | End-user getting started |
+## Privacy
+
+- Localhost by default · explicit scan roots only  
+- Librarian mutations are approval-gated · no arbitrary shell  
+- Do not commit `.env*`, `library.config.json`, `data/`, or personal `archive/**`  
+
+## License
+
+MIT
