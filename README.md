@@ -2,6 +2,18 @@
 
 **Personal OPAC for files on one machine.** Catalog, search, shelves, media preview, backup/restore, and an approval-gated Librarian — localhost by default.
 
+## Self-host pack
+
+Want a ready-to-unzip copy with a plain-English install guide and demo fixtures?
+
+**[Helix Library Self-Host Pack ($29 on Gumroad)](https://xyzthompson.gumroad.com/l/helix-library)**
+
+- Clean source export + INSTALL.md  
+- Fixture sample data for a first catalog run  
+- Same MIT-licensed app as this repo  
+
+Sold as-is; no support included. The public repo stays free to clone — the pack is for people who want a packaged drop and a guided setup.
+
 ## Screenshots
 
 Fixture-only Sample location (synthetic files — no personal archive).
